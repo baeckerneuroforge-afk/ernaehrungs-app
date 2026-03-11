@@ -9,8 +9,25 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "var(--background)",
-        foreground: "var(--foreground)",
+        primary: {
+          DEFAULT: "#2D6A4F",
+          light: "#40916C",
+          soft: "#52B788",
+          pale: "#95D5B2",
+          bg: "#D8F3DC",
+        },
+        accent: {
+          warm: "#E76F51",
+          warmLight: "#F4A261",
+        },
+        surface: {
+          DEFAULT: "#FFFFFF",
+          bg: "#FAFBFC",
+          muted: "#F3F4F6",
+        },
+      },
+      fontFamily: {
+        sans: ["Inter", "system-ui", "-apple-system", "sans-serif"],
       },
     },
   },

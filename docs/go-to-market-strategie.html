@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Go-to-Market Strategie – Ernährungs-App</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8faf8; color: #1a1a1a; line-height: 1.7; padding: 40px 20px; }
+  .container { max-width: 780px; margin: 0 auto; }
+
+  h1 { font-size: 26px; color: #2D6A4F; margin-bottom: 4px; }
+  .subtitle { color: #666; font-size: 14px; margin-bottom: 12px; }
+  .tagline { background: linear-gradient(135deg, #2D6A4F, #40916C); color: white; border-radius: 10px; padding: 14px 20px; font-size: 14px; margin-bottom: 36px; font-weight: 500; }
+
+  h2 { font-size: 20px; color: #1a1a1a; margin-bottom: 6px; margin-top: 40px; padding-bottom: 8px; border-bottom: 2px solid #E8F5E9; }
+  h3 { font-size: 16px; color: #2D6A4F; margin-bottom: 8px; margin-top: 24px; }
+
+  p { font-size: 14px; color: #444; margin-bottom: 12px; }
+
+  .info-box { background: #E8F5E9; border-left: 4px solid #2D6A4F; border-radius: 8px; padding: 16px 20px; margin: 16px 0; font-size: 14px; color: #2D6A4F; }
+  .info-box strong { display: block; margin-bottom: 4px; }
+
+  .warn-box { background: #FFF8E1; border-left: 4px solid #F9A825; border-radius: 8px; padding: 14px 18px; margin: 16px 0; font-size: 13px; color: #795500; }
+  .warn-box strong { color: #E65100; }
+
+  .card { background: white; border: 1px solid #e0e0e0; border-radius: 12px; padding: 20px 24px; margin: 16px 0; }
+  .card-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .card-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+  .card-title { font-size: 16px; font-weight: 700; color: #1a1a1a; }
+  .card-subtitle { font-size: 12px; color: #888; }
+
+  .metric-row { display: flex; gap: 12px; margin: 12px 0; flex-wrap: wrap; }
+  .metric { background: #f5f7f5; border-radius: 8px; padding: 10px 14px; flex: 1; min-width: 120px; text-align: center; }
+  .metric-value { font-size: 18px; font-weight: 700; color: #2D6A4F; }
+  .metric-label { font-size: 11px; color: #888; margin-top: 2px; }
+
+  ul { padding-left: 20px; margin: 8px 0 12px; }
+  li { font-size: 14px; color: #444; margin-bottom: 6px; }
+  li strong { color: #1a1a1a; }
+
+  .phase-badge { display: inline-block; background: #2D6A4F; color: white; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; margin-bottom: 8px; }
+
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px; }
+  th { background: #2D6A4F; color: white; padding: 10px 14px; text-align: left; font-weight: 600; }
+  th:first-child { border-radius: 8px 0 0 0; }
+  th:last-child { border-radius: 0 8px 0 0; }
+  td { padding: 10px 14px; border-bottom: 1px solid #f0f0f0; color: #444; }
+  tr:nth-child(even) { background: #fafafa; }
+
+  .timeline { position: relative; padding-left: 30px; margin: 20px 0; }
+  .timeline::before { content: ''; position: absolute; left: 8px; top: 0; bottom: 0; width: 2px; background: #ddd; }
+  .timeline-item { position: relative; margin-bottom: 24px; }
+  .timeline-dot { position: absolute; left: -26px; top: 4px; width: 14px; height: 14px; border-radius: 50%; border: 3px solid #2D6A4F; background: white; }
+  .timeline-dot.active { background: #2D6A4F; }
+  .timeline-title { font-weight: 700; font-size: 14px; color: #1a1a1a; }
+  .timeline-desc { font-size: 13px; color: #666; margin-top: 4px; }
+
+  .content-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 12px 0; }
+  @media (max-width: 600px) { .content-grid { grid-template-columns: 1fr; } }
+  .content-card { background: #f8faf8; border: 1px solid #e8e8e8; border-radius: 10px; padding: 14px 16px; }
+  .content-card-title { font-size: 13px; font-weight: 700; color: #2D6A4F; margin-bottom: 4px; }
+  .content-card-desc { font-size: 12px; color: #666; }
+
+  .example-box { background: #f0f4f0; border-radius: 10px; padding: 16px 20px; margin: 12px 0; }
+  .example-label { font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .example-text { font-size: 14px; color: #333; font-style: italic; }
+
+  .checklist { list-style: none; padding-left: 0; }
+  .checklist li { position: relative; padding-left: 28px; margin-bottom: 10px; font-size: 14px; }
+  .checklist li::before { content: ''; position: absolute; left: 0; top: 3px; width: 18px; height: 18px; border: 2px solid #ccc; border-radius: 4px; }
+
+  .divider { border: none; border-top: 1px solid #e8e8e8; margin: 36px 0; }
+
+  .footer { text-align: center; color: #999; font-size: 12px; margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>Go-to-Market Strategie</h1>
+  <p class="subtitle">Ernährungs-App – Vermarktung ohne Kamera, ohne Social Media Zwang</p>
+  <div class="tagline">
+    Kernprinzip: Janine schreibt Wissen für die App → das gleiche Wissen wird zum Blog-Artikel → wird zur Pinterest-Grafik → wird zum Lead-Magnet. Ein Aufwand, drei Kanäle.
+  </div>
+
+  <!-- ============================================================ -->
+  <h2>Zielgruppe</h2>
+
+  <div class="card">
+    <h3 style="margin-top: 0;">Primäre Zielgruppe</h3>
+    <ul>
+      <li><strong>Frauen 25-45 Jahre</strong> – gesundheitsbewusst, wollen Ernährung verbessern, aber kein Bock auf komplizierte Kalorienzähl-Apps</li>
+      <li><strong>Mütter</strong> – wenig Zeit, brauchen alltagstaugliche Pläne für die ganze Familie</li>
+      <li><strong>Menschen mit Unverträglichkeiten</strong> – Laktose, Gluten, Histamin – suchen aktiv nach Hilfe</li>
+      <li><strong>Abnehmwillige</strong> – die schon 3 Diäten probiert haben und jetzt einen nachhaltigen Weg suchen</li>
+    </ul>
+
+    <h3>Was sie googeln</h3>
+    <div class="content-grid">
+      <div class="content-card">
+        <div class="content-card-title">Informations-Suchen</div>
+        <div class="content-card-desc">"Was essen bei Laktoseintoleranz", "Wie viel Protein brauche ich", "Gesund abnehmen ohne Diät", "Vegane Ernährung Anfänger"</div>
+      </div>
+      <div class="content-card">
+        <div class="content-card-title">Transaktions-Suchen</div>
+        <div class="content-card-desc">"Ernährungsplan erstellen lassen", "Online Ernährungsberatung", "Ernährungsplan kostenlos", "Ernährungsberater App"</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2>Die 4 Kanäle (ohne Kamera)</h2>
+
+  <!-- KANAL 1: SEO -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-icon" style="background: #E3F2FD; color: #1565C0;">1</div>
+      <div>
+        <div class="card-title">SEO-Blog auf der App-Domain</div>
+        <div class="card-subtitle">Langfristig stärkster Kanal – kostenloser, dauerhafter Traffic</div>
+      </div>
+    </div>
+
+    <div class="metric-row">
+      <div class="metric">
+        <div class="metric-value">0 EUR</div>
+        <div class="metric-label">Kosten pro Artikel</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">3-6 Mon.</div>
+        <div class="metric-label">Bis erste Rankings</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">1-2/Woche</div>
+        <div class="metric-label">Artikel-Frequenz</div>
+      </div>
+    </div>
+
+    <h3>Warum das perfekt zu Janine passt</h3>
+    <p>Sie schreibt sowieso Wissen für die App-Wissensbasis. Der gleiche Inhalt wird leicht umformuliert zum Blog-Artikel. Kein Extra-Aufwand, doppelter Nutzen.</p>
+
+    <h3>Content-Strategie: 3 Artikel-Typen</h3>
+
+    <div class="content-grid">
+      <div class="content-card">
+        <div class="content-card-title">Typ 1: Ratgeber-Artikel</div>
+        <div class="content-card-desc">
+          "Was essen bei Laktoseintoleranz – 15 Alternativen"<br>
+          "Vegane Proteinquellen: Die Top 20 im Überblick"<br>
+          "Intervallfasten für Anfänger – So startest du"<br>
+          <strong>Ziel:</strong> Google-Rankings, Vertrauen aufbauen
+        </div>
+      </div>
+      <div class="content-card">
+        <div class="content-card-title">Typ 2: Rezept-Sammlungen</div>
+        <div class="content-card-desc">
+          "10 schnelle Meal-Prep-Ideen unter 500 Kalorien"<br>
+          "7 Tage glutenfrei essen – Plan + Rezepte"<br>
+          "High-Protein Frühstück: 12 Ideen ohne Eier"<br>
+          <strong>Ziel:</strong> Pinterest-tauglich, hohe Teilbarkeit
+        </div>
+      </div>
+      <div class="content-card">
+        <div class="content-card-title">Typ 3: Tool-Artikel</div>
+        <div class="content-card-desc">
+          "Kalorienbedarf berechnen – Kostenloser Rechner"<br>
+          "BMI vs. Körperfettanteil: Was sagt mehr aus?"<br>
+          "Makros berechnen: So findest du deine Verteilung"<br>
+          <strong>Ziel:</strong> Nutzer direkt in die App führen
+        </div>
+      </div>
+      <div class="content-card">
+        <div class="content-card-title">Typ 4: FAQ-Artikel</div>
+        <div class="content-card-desc">
+          Aus dem Admin-Panel → "Top Themen" zeigt, was User fragen.<br>
+          Jede häufige Frage wird zum Blog-Artikel.<br>
+          <strong>Ziel:</strong> Long-Tail Keywords abdecken
+        </div>
+      </div>
+    </div>
+
+    <h3>SEO-Grundregeln pro Artikel</h3>
+    <ul>
+      <li><strong>Titel:</strong> Haupt-Keyword am Anfang, max. 60 Zeichen</li>
+      <li><strong>Meta-Description:</strong> 150-160 Zeichen, mit Handlungsaufforderung</li>
+      <li><strong>Struktur:</strong> H2/H3-Überschriften, kurze Absätze, Listen</li>
+      <li><strong>Länge:</strong> 800-1.500 Wörter (Qualität > Quantität)</li>
+      <li><strong>CTA am Ende:</strong> "Lass dir jetzt deinen personalisierten Ernährungsplan erstellen" → Link zur App</li>
+      <li><strong>Interner Link:</strong> Zum Kalorienrechner, zum Chat, zu anderen Artikeln</li>
+    </ul>
+
+    <div class="example-box">
+      <div class="example-label">Beispiel: Vom Wissensbasis-Dokument zum Blog-Artikel</div>
+      <div class="example-text">
+        Janine lädt "Makronährstoffe.pdf" in die Wissensbasis hoch →
+        Daraus wird der Blog-Artikel "Makronährstoffe einfach erklärt: Proteine, Kohlenhydrate, Fette" →
+        Am Ende des Artikels: "Du willst wissen, wie viel du von jedem Makronährstoff brauchst? Unser KI-Berater erstellt dir einen Plan basierend auf deinen Daten." → Button zur App
+      </div>
+    </div>
+
+    <h3>Erste 10 Artikel (Keyword-Ideen)</h3>
+    <table>
+      <tr>
+        <th>Keyword</th>
+        <th>Suchvolumen*</th>
+        <th>Schwierigkeit</th>
+      </tr>
+      <tr><td>Ernährungsplan erstellen</td><td>Hoch</td><td>Mittel</td></tr>
+      <tr><td>Kaloriendefizit berechnen</td><td>Hoch</td><td>Mittel</td></tr>
+      <tr><td>Was essen bei Laktoseintoleranz</td><td>Mittel</td><td>Niedrig</td></tr>
+      <tr><td>Vegane Proteinquellen Liste</td><td>Mittel</td><td>Niedrig</td></tr>
+      <tr><td>Gesund abnehmen ohne Diät</td><td>Hoch</td><td>Hoch</td></tr>
+      <tr><td>Meal Prep Ideen Anfänger</td><td>Mittel</td><td>Niedrig</td></tr>
+      <tr><td>Wie viel Protein pro Tag</td><td>Hoch</td><td>Mittel</td></tr>
+      <tr><td>Glutenfreie Ernährung Tipps</td><td>Mittel</td><td>Niedrig</td></tr>
+      <tr><td>Intervallfasten Ernährungsplan</td><td>Mittel</td><td>Mittel</td></tr>
+      <tr><td>Makronährstoffe berechnen</td><td>Mittel</td><td>Niedrig</td></tr>
+    </table>
+    <p style="font-size: 11px; color: #999;">*Geschätzt – mit einem kostenlosen Tool wie Ubersuggest oder Google Keyword Planner verifizieren.</p>
+  </div>
+
+  <!-- KANAL 2: PINTEREST -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-icon" style="background: #FCE4EC; color: #C62828;">2</div>
+      <div>
+        <div class="card-title">Pinterest</div>
+        <div class="card-subtitle">Visuelle Suchmaschine – kein Gesicht nötig, Pins ranken monatelang</div>
+      </div>
+    </div>
+
+    <div class="metric-row">
+      <div class="metric">
+        <div class="metric-value">0 EUR</div>
+        <div class="metric-label">Kosten</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">3-5/Woche</div>
+        <div class="metric-label">Pins</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">2-3 Mon.</div>
+        <div class="metric-label">Bis Traction</div>
+      </div>
+    </div>
+
+    <h3>Warum Pinterest und nicht Instagram?</h3>
+    <ul>
+      <li><strong>Suchmaschine, kein Social Network</strong> – Pins werden gefunden, nicht gefeedet. Kein Algorithmus-Stress.</li>
+      <li><strong>Evergreen-Content:</strong> Ein Pin von heute bringt in 6 Monaten noch Traffic. Instagram-Posts sind nach 24h tot.</li>
+      <li><strong>Kein Gesicht nötig:</strong> Food-Fotos, Infografiken, Checklisten – alles anonym.</li>
+      <li><strong>Zielgruppe stimmt:</strong> 60%+ Frauen, 25-45, gesundheitsinteressiert.</li>
+    </ul>
+
+    <h3>Pin-Typen die funktionieren</h3>
+    <div class="content-grid">
+      <div class="content-card">
+        <div class="content-card-title">Infografik-Pins</div>
+        <div class="content-card-desc">
+          "Die 10 besten Proteinquellen" als vertikale Grafik (1000x1500px).<br>
+          Canva-Template nutzen, App-Farben (#2D6A4F), Logo unten.<br>
+          Verlinkt auf den passenden Blog-Artikel.
+        </div>
+      </div>
+      <div class="content-card">
+        <div class="content-card-title">Rezept-Pins</div>
+        <div class="content-card-desc">
+          Schönes Food-Foto + Titel "Protein-Bowl unter 400 kcal".<br>
+          Foto kann ein Stockfoto sein (Unsplash/Pexels).<br>
+          Verlinkt auf Rezept-Artikel im Blog.
+        </div>
+      </div>
+      <div class="content-card">
+        <div class="content-card-title">Checklisten-Pins</div>
+        <div class="content-card-desc">
+          "Einkaufsliste: Glutenfreie Basics" als hübsche Liste.<br>
+          Hohe Save-Rate, wird oft geteilt.<br>
+          Verlinkt auf die App.
+        </div>
+      </div>
+      <div class="content-card">
+        <div class="content-card-title">Zitat/Fakt-Pins</div>
+        <div class="content-card-desc">
+          "Wusstest du? 80% der Deutschen essen zu wenig Ballaststoffe."<br>
+          Einfach in Canva erstellen, clean Design.<br>
+          Verlinkt auf Blog-Artikel zum Thema.
+        </div>
+      </div>
+    </div>
+
+    <h3>Pinterest-Setup</h3>
+    <ul class="checklist">
+      <li>Business-Account erstellen (kostenlos, mit Analytics)</li>
+      <li>5 Boards anlegen: "Gesunde Rezepte", "Ernährungstipps", "Meal Prep", "Ernährungspläne", "Wissen & Fakten"</li>
+      <li>Canva-Templates erstellen (3-4 Designs, dann wiederverwenden)</li>
+      <li>Blog-URL als Website verifizieren (Rich Pins aktivieren)</li>
+      <li>3-5 Pins pro Woche – Tailwind oder Pinterest Scheduler nutzen</li>
+    </ul>
+  </div>
+
+  <!-- KANAL 3: GOOGLE ADS -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-icon" style="background: #FFF3E0; color: #E65100;">3</div>
+      <div>
+        <div class="card-title">Google Ads (optional, für schnelle Ergebnisse)</div>
+        <div class="card-subtitle">Sofort Nutzer gewinnen – während SEO noch wächst</div>
+      </div>
+    </div>
+
+    <div class="metric-row">
+      <div class="metric">
+        <div class="metric-value">5-15 EUR</div>
+        <div class="metric-label">Budget / Tag</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">Sofort</div>
+        <div class="metric-label">Erste Nutzer</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">0,50-2 EUR</div>
+        <div class="metric-label">Kosten pro Klick</div>
+      </div>
+    </div>
+
+    <h3>Kampagnen-Struktur</h3>
+    <table>
+      <tr>
+        <th>Kampagne</th>
+        <th>Keywords</th>
+        <th>Ziel</th>
+      </tr>
+      <tr>
+        <td><strong>Brand/Produkt</strong></td>
+        <td>"Ernährungsberatung online", "Ernährungsplan erstellen lassen", "KI Ernährungsberater"</td>
+        <td>Direkte Registrierungen</td>
+      </tr>
+      <tr>
+        <td><strong>Problem-Keywords</strong></td>
+        <td>"Was essen bei Laktoseintoleranz", "Abnehmen ohne Diät", "Ernährung bei Histaminintoleranz"</td>
+        <td>Blog-Artikel → App</td>
+      </tr>
+      <tr>
+        <td><strong>Tool-Keywords</strong></td>
+        <td>"Kalorienbedarf berechnen", "Makros berechnen"</td>
+        <td>Kalorienrechner → Registrierung</td>
+      </tr>
+    </table>
+
+    <div class="warn-box">
+      <strong>Empfehlung:</strong> Google Ads erst starten wenn die Wissensbasis gefüllt ist und die App gut funktioniert. Sonst zahlt man für Nutzer, die eine leere KI erleben und nie wiederkommen. Erst Produkt perfektionieren, dann Geld ausgeben.
+    </div>
+  </div>
+
+  <!-- KANAL 4: PARTNERSCHAFTEN -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-icon" style="background: #F3E5F5; color: #7B1FA2;">4</div>
+      <div>
+        <div class="card-title">Offline-Partnerschaften</div>
+        <div class="card-subtitle">Vertrauens-Traffic durch Empfehlungen – kein Marketing-Aufwand</div>
+      </div>
+    </div>
+
+    <h3>Partner-Typen</h3>
+    <table>
+      <tr>
+        <th>Partner</th>
+        <th>Ansprache</th>
+        <th>Deal</th>
+      </tr>
+      <tr>
+        <td><strong>Fitnessstudios</strong></td>
+        <td>Flyer / QR-Code-Aufsteller an der Theke</td>
+        <td>"Euren Mitgliedern einen Monat kostenlos" – Janine bekommt Reichweite, Studio bietet Mehrwert</td>
+      </tr>
+      <tr>
+        <td><strong>Hausärzte / Heilpraktiker</strong></td>
+        <td>Visitenkarte + Kurz-Info im Wartezimmer</td>
+        <td>"Empfehlen Sie Patienten mit Ernährungsfragen unsere App"</td>
+      </tr>
+      <tr>
+        <td><strong>Yoga- / Pilates-Studios</strong></td>
+        <td>Kooperation mit Kursleiterinnen</td>
+        <td>Gemeinsamer Workshop "Ernährung + Bewegung" (online, kein Kamera-Zwang)</td>
+      </tr>
+      <tr>
+        <td><strong>Hebammen / Kinderärzte</strong></td>
+        <td>Wenn Janine Schwangerschafts-Ernährung abdeckt</td>
+        <td>Empfehlungskarte für werdende Mütter</td>
+      </tr>
+    </table>
+
+    <div class="example-box">
+      <div class="example-label">Vorlage: Ansprache Fitnessstudio</div>
+      <div class="example-text">
+        "Hallo [Name], ich bin Ernährungswissenschaftlerin und habe eine App gebaut, die euren Mitgliedern kostenlose, KI-gestützte Ernährungsberatung bietet – Ernährungspläne, Kalorienrechner, Tagebuch. Dürfte ich einen QR-Code-Aufsteller bei euch platzieren? Eure Mitglieder bekommen echten Mehrwert, für euch ist es kostenlos."
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <hr class="divider">
+  <h2>Lead-Magnet & Conversion-Strategie</h2>
+
+  <p>Das Ziel: Besucher kommen über Blog/Pinterest/Ads → werden zu registrierten Nutzern → nutzen die App regelmäßig.</p>
+
+  <div class="card">
+    <h3 style="margin-top: 0;">3 Lead-Magnets die funktionieren</h3>
+
+    <div class="content-grid">
+      <div class="content-card">
+        <div class="content-card-title">1. Kalorienrechner (bereits gebaut)</div>
+        <div class="content-card-desc">
+          Kostenlos nutzbar unter /tools/kalorienrechner.<br>
+          Am Ende: "Willst du einen Plan basierend auf diesen Werten? Registriere dich kostenlos."
+        </div>
+      </div>
+      <div class="content-card">
+        <div class="content-card-title">2. Kostenloser 7-Tage-Plan</div>
+        <div class="content-card-desc">
+          "Hol dir deinen kostenlosen Ernährungsplan für 7 Tage" → Email-Adresse eingeben → PDF per Email → Follow-up-Serie.<br>
+          Die KI generiert den Plan automatisch.
+        </div>
+      </div>
+      <div class="content-card">
+        <div class="content-card-title">3. Quiz / Selbst-Check</div>
+        <div class="content-card-desc">
+          "Welcher Ernährungstyp bist du?" – 5 Fragen → Ergebnis → "Hol dir jetzt Tipps passend zu deinem Typ" → Registrierung.<br>
+          Das Onboarding IST quasi schon dieses Quiz.
+        </div>
+      </div>
+    </div>
+
+    <h3>Conversion-Pfade</h3>
+    <table>
+      <tr>
+        <th>Einstieg</th>
+        <th>Zwischenschritt</th>
+        <th>Conversion</th>
+      </tr>
+      <tr>
+        <td>Google → Blog-Artikel</td>
+        <td>CTA im Artikel → Kalorienrechner</td>
+        <td>Registrierung für personalisierten Plan</td>
+      </tr>
+      <tr>
+        <td>Pinterest → Rezept-Pin</td>
+        <td>Klick → Blog-Rezept mit weiteren Tipps</td>
+        <td>"Alle Rezepte als Plan" → Registrierung</td>
+      </tr>
+      <tr>
+        <td>Google Ads → Landingpage</td>
+        <td>Direkt: Kostenlos testen</td>
+        <td>Onboarding → Chat</td>
+      </tr>
+      <tr>
+        <td>Fitnessstudio QR-Code</td>
+        <td>Landingpage "Für [Studio]-Mitglieder"</td>
+        <td>Registrierung</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- ============================================================ -->
+  <hr class="divider">
+  <h2>Zeitplan: Die ersten 12 Wochen</h2>
+
+  <div class="timeline">
+    <div class="timeline-item">
+      <div class="timeline-dot active"></div>
+      <div class="timeline-title">Woche 1-2: Fundament</div>
+      <div class="timeline-desc">
+        <ul style="margin-top: 6px;">
+          <li>Wissensbasis füllen (Phase 1-3 aus dem Starter-Guide)</li>
+          <li>Blog-Seite in die App einbauen (lassen)</li>
+          <li>Pinterest Business-Account + 5 Boards anlegen</li>
+          <li>3 Canva-Templates für Pins erstellen</li>
+        </ul>
+      </div>
+    </div>
+    <div class="timeline-item">
+      <div class="timeline-dot active"></div>
+      <div class="timeline-title">Woche 3-4: Erste Inhalte</div>
+      <div class="timeline-desc">
+        <ul style="margin-top: 6px;">
+          <li>Wissensbasis vervollständigen (Phase 4-5)</li>
+          <li>Erste 4 Blog-Artikel schreiben + veröffentlichen</li>
+          <li>10-15 Pinterest-Pins erstellen und planen</li>
+          <li>Kalorienrechner als eigenständige Landingpage optimieren</li>
+        </ul>
+      </div>
+    </div>
+    <div class="timeline-item">
+      <div class="timeline-dot"></div>
+      <div class="timeline-title">Woche 5-8: Regelmäßigkeit</div>
+      <div class="timeline-desc">
+        <ul style="margin-top: 6px;">
+          <li>2 Blog-Artikel pro Woche (aus Wissensbasis-Content)</li>
+          <li>5 Pins pro Woche (aus Blog-Artikeln generiert)</li>
+          <li>Erste User-Fragen aus dem Admin-Panel → als FAQ-Artikel</li>
+          <li>2-3 Fitnessstudios / Praxen ansprechen</li>
+          <li>App-Feedback sammeln, Wissensbasis optimieren</li>
+        </ul>
+      </div>
+    </div>
+    <div class="timeline-item">
+      <div class="timeline-dot"></div>
+      <div class="timeline-title">Woche 9-12: Skalieren</div>
+      <div class="timeline-desc">
+        <ul style="margin-top: 6px;">
+          <li>Erste Google-Rankings analysieren → Top-Artikel ausbauen</li>
+          <li>Pinterest Analytics: Welche Pins performen? → Mehr davon</li>
+          <li>Optional: Google Ads mit 5-10 EUR/Tag starten</li>
+          <li>Lead-Magnet testen (7-Tage-Plan per Email)</li>
+          <li>Ziel: 50-100 registrierte Nutzer</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <hr class="divider">
+  <h2>Wöchentlicher Zeitaufwand für Janine</h2>
+
+  <div class="card">
+    <table>
+      <tr>
+        <th>Aufgabe</th>
+        <th>Zeit</th>
+        <th>Häufigkeit</th>
+      </tr>
+      <tr>
+        <td>Blog-Artikel schreiben (aus Wissensbasis-Content)</td>
+        <td>1-2 Stunden</td>
+        <td>2x pro Woche</td>
+      </tr>
+      <tr>
+        <td>Pinterest-Pins erstellen (Canva-Templates)</td>
+        <td>30-45 Min.</td>
+        <td>1x pro Woche (5 Pins batchen)</td>
+      </tr>
+      <tr>
+        <td>Admin-Panel checken (Fragen, Themen)</td>
+        <td>15 Min.</td>
+        <td>2-3x pro Woche</td>
+      </tr>
+      <tr>
+        <td>Wissensbasis erweitern</td>
+        <td>30-60 Min.</td>
+        <td>Nach Bedarf</td>
+      </tr>
+      <tr style="background: #E8F5E9;">
+        <td><strong>Gesamt</strong></td>
+        <td colspan="2"><strong>Ca. 4-6 Stunden pro Woche</strong></td>
+      </tr>
+    </table>
+
+    <div class="info-box" style="margin-top: 16px;">
+      <strong>Der Clou</strong>
+      Janine schreibt den Content sowieso für die Wissensbasis. Der Zusatzaufwand für Blog + Pinterest ist minimal – es ist im Grunde Umformatierung + Canva-Grafik. Kein Video, kein Mikro, keine Kamera.
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <hr class="divider">
+  <h2>Monetarisierung (Zukunft)</h2>
+
+  <p>Aktuell ist die App kostenlos. Sobald genug Nutzer da sind, gibt es mehrere Optionen:</p>
+
+  <div class="card">
+    <table>
+      <tr>
+        <th>Modell</th>
+        <th>Beschreibung</th>
+        <th>Wann sinnvoll</th>
+      </tr>
+      <tr>
+        <td><strong>Freemium</strong></td>
+        <td>Chat + Kalorienrechner kostenlos. Ernährungspläne + Tagebuch nur mit Abo (z.B. 9,90 EUR/Monat).</td>
+        <td>Ab 100+ aktiven Nutzern</td>
+      </tr>
+      <tr>
+        <td><strong>1:1 Beratung Upsell</strong></td>
+        <td>App kostenlos, aber Janine bietet optional persönliche Beratungsstunden an (per Chat/Telefon, kein Video nötig).</td>
+        <td>Sofort möglich</td>
+      </tr>
+      <tr>
+        <td><strong>Kurs / E-Book</strong></td>
+        <td>"4-Wochen-Ernährungs-Programm" als Selbstlernkurs. Kein Video nötig – Text + Pläne + Checklisten reichen.</td>
+        <td>Nach 3-6 Monaten Content</td>
+      </tr>
+      <tr>
+        <td><strong>Affiliate</strong></td>
+        <td>Empfohlene Produkte (Supplements, Küchengeräte, Bücher) mit Affiliate-Links im Blog.</td>
+        <td>Ab 1.000+ monatl. Blog-Besucher</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- ============================================================ -->
+  <hr class="divider">
+  <h2>Nächste konkrete Schritte</h2>
+
+  <div class="card">
+    <ul class="checklist">
+      <li><strong>Wissensbasis füllen</strong> – Phase 1-3 aus dem Starter-Guide abarbeiten</li>
+      <li><strong>Blog-Seite</strong> in die App einbauen lassen (SEO-optimiert, /blog)</li>
+      <li><strong>Pinterest-Account</strong> erstellen + 5 Boards + erste 10 Pins</li>
+      <li><strong>Canva-Templates</strong> für Pins erstellen (3-4 Designs reichen)</li>
+      <li><strong>Erste 4 Blog-Artikel</strong> schreiben (aus Wissensbasis-Content ableiten)</li>
+      <li><strong>Kalorienrechner</strong> als eigenständige Landingpage promoten</li>
+      <li><strong>3 Fitnessstudios</strong> in der Nähe ansprechen</li>
+    </ul>
+  </div>
+
+  <div class="info-box">
+    <strong>Zusammenfassung</strong>
+    Die Strategie funktioniert komplett ohne Kamera, ohne Social Media Zwang und ohne großes Budget. Janine schreibt Ernährungs-Wissen → Es wird zur Wissensbasis, zum Blog-Artikel, zum Pinterest-Pin. Ein Aufwand, drei Kanäle. Die App verkauft sich über den Content, nicht über eine Person.
+  </div>
+
+  <div class="footer">
+    Go-to-Market Strategie – Ernährungs-App<br>
+    Erstellt Februar 2026
+  </div>
+
+</div>
+</body>
+</html>

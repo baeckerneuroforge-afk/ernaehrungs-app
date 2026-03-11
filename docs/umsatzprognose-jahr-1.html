@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Umsatzprognose Jahr 1 – Ernährungs-App</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8faf8; color: #1a1a1a; line-height: 1.7; padding: 40px 20px; }
+  .container { max-width: 820px; margin: 0 auto; }
+
+  h1 { font-size: 26px; color: #2D6A4F; margin-bottom: 4px; }
+  h2 { font-size: 20px; color: #1a1a1a; margin-top: 44px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 2px solid #E8F5E9; }
+  h3 { font-size: 16px; color: #2D6A4F; margin-top: 24px; margin-bottom: 8px; }
+  .subtitle { color: #666; font-size: 14px; margin-bottom: 12px; }
+  p { font-size: 14px; color: #444; margin-bottom: 12px; }
+
+  .hero-box { background: linear-gradient(135deg, #2D6A4F, #40916C); color: white; border-radius: 12px; padding: 24px 28px; margin-bottom: 36px; }
+  .hero-box h2 { color: white; border: none; margin-top: 0; padding: 0; font-size: 18px; margin-bottom: 12px; }
+  .hero-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  @media (max-width: 600px) { .hero-grid { grid-template-columns: 1fr; } }
+  .hero-card { background: rgba(255,255,255,0.15); border-radius: 10px; padding: 16px; text-align: center; }
+  .hero-card .label { font-size: 12px; opacity: 0.8; margin-bottom: 4px; }
+  .hero-card .value { font-size: 28px; font-weight: 800; }
+  .hero-card .sub { font-size: 11px; opacity: 0.7; margin-top: 2px; }
+
+  .info-box { background: #E8F5E9; border-left: 4px solid #2D6A4F; border-radius: 8px; padding: 16px 20px; margin: 16px 0; font-size: 14px; color: #2D6A4F; }
+  .info-box strong { display: block; margin-bottom: 4px; }
+
+  .warn-box { background: #FFF8E1; border-left: 4px solid #F9A825; border-radius: 8px; padding: 14px 18px; margin: 16px 0; font-size: 13px; color: #795500; }
+  .warn-box strong { color: #E65100; }
+
+  .action-box { background: #E3F2FD; border-left: 4px solid #1565C0; border-radius: 8px; padding: 14px 18px; margin: 16px 0; font-size: 13px; color: #0D47A1; }
+  .action-box strong { color: #0D47A1; display: block; margin-bottom: 4px; }
+
+  .card { background: white; border: 1px solid #e0e0e0; border-radius: 12px; padding: 20px 24px; margin: 16px 0; }
+
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px; }
+  th { background: #2D6A4F; color: white; padding: 10px 14px; text-align: left; font-weight: 600; }
+  th:first-child { border-radius: 8px 0 0 0; }
+  th:last-child { border-radius: 0 8px 0 0; }
+  td { padding: 10px 14px; border-bottom: 1px solid #f0f0f0; color: #444; }
+  tr:nth-child(even) { background: #fafafa; }
+  tr.highlight { background: #E8F5E9; }
+  tr.highlight td { font-weight: 600; color: #2D6A4F; }
+  .right { text-align: right; }
+  .mono { font-family: 'SF Mono', 'Fira Code', monospace; }
+
+  .metric-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 16px 0; }
+  @media (max-width: 600px) { .metric-row { grid-template-columns: repeat(2, 1fr); } }
+  .metric { background: white; border: 1px solid #e8e8e8; border-radius: 10px; padding: 14px 16px; text-align: center; }
+  .metric-value { font-size: 22px; font-weight: 700; color: #2D6A4F; }
+  .metric-label { font-size: 11px; color: #888; margin-top: 2px; }
+
+  ul { padding-left: 20px; margin: 8px 0 12px; }
+  li { font-size: 14px; color: #444; margin-bottom: 6px; }
+  li strong { color: #1a1a1a; }
+
+  .phase { margin-bottom: 28px; }
+  .phase-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .phase-badge { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; color: white; }
+  .phase-title { font-size: 17px; font-weight: 700; }
+  .phase-sub { font-size: 12px; color: #888; }
+
+  .bar-container { height: 24px; background: #f0f0f0; border-radius: 12px; overflow: hidden; margin: 6px 0; }
+  .bar { height: 100%; border-radius: 12px; display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; font-size: 11px; font-weight: 600; color: white; min-width: 40px; transition: width 0.5s; }
+
+  .checklist { list-style: none; padding-left: 0; }
+  .checklist li { position: relative; padding-left: 28px; margin-bottom: 10px; font-size: 14px; }
+  .checklist li::before { content: ''; position: absolute; left: 0; top: 3px; width: 18px; height: 18px; border: 2px solid #ccc; border-radius: 4px; }
+
+  .divider { border: none; border-top: 1px solid #e8e8e8; margin: 36px 0; }
+
+  .scenario-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 16px 0; }
+  @media (max-width: 600px) { .scenario-grid { grid-template-columns: 1fr; } }
+  .scenario { border-radius: 12px; padding: 20px; text-align: center; }
+  .scenario.conservative { background: #f5f5f5; border: 1px solid #e0e0e0; }
+  .scenario.realistic { background: #E8F5E9; border: 2px solid #2D6A4F; }
+  .scenario.optimistic { background: #E3F2FD; border: 1px solid #90CAF9; }
+  .scenario-label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .scenario-value { font-size: 32px; font-weight: 800; margin-bottom: 4px; }
+  .scenario-sub { font-size: 12px; color: #666; }
+
+  .footer { text-align: center; color: #999; font-size: 12px; margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>Umsatzprognose Jahr 1</h1>
+  <p class="subtitle">Ernährungs-App – Realistische Zahlen, transparent aufgeschlüsselt</p>
+
+  <!-- Hero -->
+  <div class="hero-box">
+    <h2>Drei Szenarien – Jahr 1 Gesamt</h2>
+    <div class="hero-grid">
+      <div class="hero-card">
+        <div class="label">Konservativ</div>
+        <div class="value">25.000 EUR</div>
+        <div class="sub">~3.500 EUR/Monat ab H2</div>
+      </div>
+      <div class="hero-card" style="background: rgba(255,255,255,0.25);">
+        <div class="label">Realistisch</div>
+        <div class="value">38.000 EUR</div>
+        <div class="sub">~5.000 EUR/Monat ab H2</div>
+      </div>
+      <div class="hero-card">
+        <div class="label">Optimistisch</div>
+        <div class="value">55.000 EUR</div>
+        <div class="sub">~7.500 EUR/Monat ab H2</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2>Grundannahmen</h2>
+
+  <div class="card">
+    <h3 style="margin-top: 0;">Pricing-Modell</h3>
+    <table>
+      <tr>
+        <th>Produkt</th>
+        <th>Preis</th>
+        <th>Typ</th>
+        <th>Ab wann</th>
+      </tr>
+      <tr>
+        <td><strong>1:1 Einzelstunde</strong></td>
+        <td class="right mono">89 EUR</td>
+        <td>Pro Sitzung (60 Min.)</td>
+        <td>Monat 3</td>
+      </tr>
+      <tr>
+        <td><strong>4-Wochen-Paket</strong></td>
+        <td class="right mono">349 EUR</td>
+        <td>Einmalig (4x 45 Min. + Chat-Support)</td>
+        <td>Monat 3</td>
+      </tr>
+      <tr>
+        <td><strong>12-Wochen-Paket</strong></td>
+        <td class="right mono">899 EUR</td>
+        <td>Einmalig (12x 45 Min. + Pläne + Support)</td>
+        <td>Monat 5</td>
+      </tr>
+      <tr>
+        <td><strong>App Freemium-Abo</strong></td>
+        <td class="right mono">9,90 EUR/Monat</td>
+        <td>Recurring (Pläne + Tagebuch + Chat)</td>
+        <td>Monat 6</td>
+      </tr>
+      <tr>
+        <td><strong>Selbstlernkurs (E-Book/PDF)</strong></td>
+        <td class="right mono">149 EUR</td>
+        <td>Einmalig</td>
+        <td>Monat 7</td>
+      </tr>
+      <tr>
+        <td><strong>Affiliate</strong></td>
+        <td class="right mono">~3-8% Provision</td>
+        <td>Supplements, Bücher, Küchengeräte</td>
+        <td>Monat 8</td>
+      </tr>
+    </table>
+
+    <div class="warn-box">
+      <strong>Wichtig: Paket-Preise statt Einzelstunden</strong>
+      Der größte Hebel ist das 4-Wochen-Paket (349 EUR) statt Einzelstunden (89 EUR). Ein Paket bindet den Kunden, liefert bessere Ergebnisse und bringt pro Kunde ~3,9x mehr Umsatz. Einzelstunden nur als Einstieg anbieten, dann aufs Paket upsellen.
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top: 0;">Conversion-Raten (konservativ geschätzt)</h3>
+    <table>
+      <tr>
+        <th>Stufe</th>
+        <th>Rate</th>
+        <th>Erklärung</th>
+      </tr>
+      <tr>
+        <td>Blog-Besucher → App-Registrierung</td>
+        <td class="right mono">3-5%</td>
+        <td>CTA am Ende jedes Artikels + Kalorienrechner als Lead-Magnet</td>
+      </tr>
+      <tr>
+        <td>Free User → Freemium-Abo</td>
+        <td class="right mono">3-5%</td>
+        <td>Branchen-Durchschnitt für Freemium-Apps</td>
+      </tr>
+      <tr>
+        <td>Free User → 1:1 Beratung</td>
+        <td class="right mono">1-2%</td>
+        <td>CTA im Chat wenn KI an Grenzen stößt + upsell Banner</td>
+      </tr>
+      <tr>
+        <td>Pinterest Impression → Klick</td>
+        <td class="right mono">1-3%</td>
+        <td>Branchenwert für Food/Health Pins</td>
+      </tr>
+      <tr>
+        <td>Google Ads Klick → Registrierung</td>
+        <td class="right mono">8-15%</td>
+        <td>Suchintention ist hoch bei "Ernährungsplan erstellen"</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2>Monat-für-Monat Prognose (realistisches Szenario)</h2>
+
+  <!-- MONAT 1-2 -->
+  <div class="phase">
+    <div class="phase-header">
+      <div class="phase-badge" style="background: #90A4AE;">1-2</div>
+      <div>
+        <div class="phase-title">Aufbau-Phase</div>
+        <div class="phase-sub">Wissensbasis füllen, Blog starten, Pinterest einrichten</div>
+      </div>
+    </div>
+
+    <div class="metric-row">
+      <div class="metric">
+        <div class="metric-value">0</div>
+        <div class="metric-label">Umsatz</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">10-20</div>
+        <div class="metric-label">App-User</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">6-8</div>
+        <div class="metric-label">Blog-Artikel</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">30+</div>
+        <div class="metric-label">Pinterest-Pins</div>
+      </div>
+    </div>
+
+    <div class="action-box">
+      <strong>Handlungsempfehlung Monat 1-2</strong>
+      <ul style="margin-top: 6px;">
+        <li>Wissensbasis Phase 1-5 komplett füllen (15-19 Dokumente)</li>
+        <li>6-8 Blog-Artikel schreiben (Grundlagen + Long-Tail Keywords)</li>
+        <li>Pinterest-Account + 5 Boards + erste 30 Pins erstellen</li>
+        <li>3 Canva-Templates für Pins designen (wiederverwenden)</li>
+        <li>Kalorienrechner als eigenständige Landingpage optimieren</li>
+        <li>App mit 5-10 Testpersonen testen (Freunde/Familie)</li>
+        <li><strong>KEIN Geld ausgeben</strong> – erst Produkt perfektionieren</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- MONAT 3 -->
+  <div class="phase">
+    <div class="phase-header">
+      <div class="phase-badge" style="background: #66BB6A;">3</div>
+      <div>
+        <div class="phase-title">Erste Einnahmen</div>
+        <div class="phase-sub">SEO trickelt, Mundpropaganda startet</div>
+      </div>
+    </div>
+
+    <div class="metric-row">
+      <div class="metric">
+        <div class="metric-value" style="color: #E65100;">350-700</div>
+        <div class="metric-label">Umsatz EUR</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">40-60</div>
+        <div class="metric-label">App-User</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">1-2</div>
+        <div class="metric-label">1:1 Kunden</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">~500</div>
+        <div class="metric-label">Blog-Besucher/Monat</div>
+      </div>
+    </div>
+
+    <table>
+      <tr><th>Quelle</th><th class="right">Anzahl</th><th class="right">Preis</th><th class="right">Umsatz</th></tr>
+      <tr><td>1:1 Einzelstunden</td><td class="right mono">2-4</td><td class="right mono">89 EUR</td><td class="right mono">178-356 EUR</td></tr>
+      <tr><td>4-Wochen-Paket</td><td class="right mono">0-1</td><td class="right mono">349 EUR</td><td class="right mono">0-349 EUR</td></tr>
+      <tr class="highlight"><td><strong>Gesamt</strong></td><td></td><td></td><td class="right mono"><strong>~350-700 EUR</strong></td></tr>
+    </table>
+
+    <div class="action-box">
+      <strong>Handlungsempfehlung Monat 3</strong>
+      <ul style="margin-top: 6px;">
+        <li>1:1 Beratung aktiv anbieten – CTA im Chat einbauen: "Für tiefere Beratung buche eine 1:1 Sitzung"</li>
+        <li>Erste Kunden nach Testimonials fragen (Text reicht, kein Video nötig)</li>
+        <li>2-3 Fitnessstudios / Yoga-Studios in der Nähe ansprechen (QR-Code Aufsteller)</li>
+        <li>Blog auf 12+ Artikel ausbauen</li>
+        <li>Google Search Console einrichten → sehen welche Keywords ranken</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- MONAT 4-5 -->
+  <div class="phase">
+    <div class="phase-header">
+      <div class="phase-badge" style="background: #43A047;">4-5</div>
+      <div>
+        <div class="phase-title">Traction</div>
+        <div class="phase-sub">SEO greift, Pinterest bringt Traffic, Pakete verkaufen</div>
+      </div>
+    </div>
+
+    <div class="metric-row">
+      <div class="metric">
+        <div class="metric-value" style="color: #E65100;">1.100-1.750</div>
+        <div class="metric-label">Umsatz EUR/Monat</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">80-150</div>
+        <div class="metric-label">App-User</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">3-5</div>
+        <div class="metric-label">1:1 Kunden</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">~1.500</div>
+        <div class="metric-label">Blog-Besucher/Monat</div>
+      </div>
+    </div>
+
+    <table>
+      <tr><th>Quelle</th><th class="right">Anzahl</th><th class="right">Preis</th><th class="right">Umsatz</th></tr>
+      <tr><td>4-Wochen-Paket</td><td class="right mono">2-3</td><td class="right mono">349 EUR</td><td class="right mono">698-1.047 EUR</td></tr>
+      <tr><td>12-Wochen-Paket</td><td class="right mono">0-1</td><td class="right mono">899 EUR</td><td class="right mono">0-899 EUR</td></tr>
+      <tr><td>Einzelstunden (Einstieg)</td><td class="right mono">2-3</td><td class="right mono">89 EUR</td><td class="right mono">178-267 EUR</td></tr>
+      <tr class="highlight"><td><strong>Gesamt/Monat</strong></td><td></td><td></td><td class="right mono"><strong>~1.100-1.750 EUR</strong></td></tr>
+    </table>
+
+    <div class="action-box">
+      <strong>Handlungsempfehlung Monat 4-5</strong>
+      <ul style="margin-top: 6px;">
+        <li><strong>Einzelstunden → Pakete:</strong> Jede Einzelstunde als Einstieg nutzen, am Ende 4-Wochen-Paket anbieten</li>
+        <li>12-Wochen-Paket (899 EUR) einführen für Kunden mit größeren Zielen</li>
+        <li>Testimonials auf Blog + App-Landingpage einbauen</li>
+        <li>Top-Blog-Artikel identifizieren → ausbauen auf 1.500+ Wörter</li>
+        <li>Pinterest auf 5 Pins/Woche hochfahren (Rezepte performen am besten)</li>
+        <li>Freemium-Launch vorbereiten: Welche Features werden Paid?</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- MONAT 6 -->
+  <div class="phase">
+    <div class="phase-header">
+      <div class="phase-badge" style="background: #2E7D32;">6</div>
+      <div>
+        <div class="phase-title">Freemium Launch</div>
+        <div class="phase-sub">Recurring Revenue startet, erster Kurs</div>
+      </div>
+    </div>
+
+    <div class="metric-row">
+      <div class="metric">
+        <div class="metric-value" style="color: #E65100;">2.200-3.100</div>
+        <div class="metric-label">Umsatz EUR/Monat</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">200-300</div>
+        <div class="metric-label">App-User</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">8-12</div>
+        <div class="metric-label">Freemium-Abos</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">~3.000</div>
+        <div class="metric-label">Blog-Besucher/Monat</div>
+      </div>
+    </div>
+
+    <table>
+      <tr><th>Quelle</th><th class="right">Anzahl</th><th class="right">Preis</th><th class="right">Umsatz</th></tr>
+      <tr><td>4-Wochen-Paket</td><td class="right mono">3-4</td><td class="right mono">349 EUR</td><td class="right mono">1.047-1.396 EUR</td></tr>
+      <tr><td>12-Wochen-Paket</td><td class="right mono">1</td><td class="right mono">899 EUR</td><td class="right mono">899 EUR</td></tr>
+      <tr><td>Freemium-Abos</td><td class="right mono">8-12</td><td class="right mono">9,90 EUR</td><td class="right mono">79-119 EUR</td></tr>
+      <tr><td>Einzelstunden</td><td class="right mono">2</td><td class="right mono">89 EUR</td><td class="right mono">178 EUR</td></tr>
+      <tr class="highlight"><td><strong>Gesamt/Monat</strong></td><td></td><td></td><td class="right mono"><strong>~2.200-3.100 EUR</strong></td></tr>
+    </table>
+
+    <div class="action-box">
+      <strong>Handlungsempfehlung Monat 6</strong>
+      <ul style="margin-top: 6px;">
+        <li><strong>Freemium einführen:</strong> Chat bleibt kostenlos (3 Nachrichten/Tag). Ernährungspläne, Tagebuch, unbegrenzter Chat → 9,90 EUR/Monat</li>
+        <li>Stripe/Payment einbinden (einfach: Stripe Checkout Link, kein Abo-System nötig am Anfang)</li>
+        <li>Kurs konzipieren: "4-Wochen-Ernährungs-Reset" – kein Video, nur Text + Pläne + Checklisten</li>
+        <li>Email-Liste aufbauen: Newsletter anbieten ("Wöchentlicher Ernährungs-Tipp")</li>
+        <li>Optional: Google Ads starten mit 5-10 EUR/Tag für "Ernährungsplan erstellen"</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- MONAT 7-9 -->
+  <div class="phase">
+    <div class="phase-header">
+      <div class="phase-badge" style="background: #1B5E20;">7-9</div>
+      <div>
+        <div class="phase-title">Skalierung</div>
+        <div class="phase-sub">SEO-Flywheel, Kurs-Verkäufe, Partnerschaften greifen</div>
+      </div>
+    </div>
+
+    <div class="metric-row">
+      <div class="metric">
+        <div class="metric-value" style="color: #E65100;">3.500-5.000</div>
+        <div class="metric-label">Umsatz EUR/Monat</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">400-600</div>
+        <div class="metric-label">App-User</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">15-25</div>
+        <div class="metric-label">Freemium-Abos</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">~5.000</div>
+        <div class="metric-label">Blog-Besucher/Monat</div>
+      </div>
+    </div>
+
+    <table>
+      <tr><th>Quelle</th><th class="right">Anzahl/Monat</th><th class="right">Preis</th><th class="right">Umsatz/Monat</th></tr>
+      <tr><td>4-Wochen-Paket</td><td class="right mono">3-4</td><td class="right mono">349 EUR</td><td class="right mono">1.047-1.396 EUR</td></tr>
+      <tr><td>12-Wochen-Paket</td><td class="right mono">1-2</td><td class="right mono">899 EUR</td><td class="right mono">899-1.798 EUR</td></tr>
+      <tr><td>Freemium-Abos (kumuliert)</td><td class="right mono">15-25</td><td class="right mono">9,90 EUR</td><td class="right mono">149-248 EUR</td></tr>
+      <tr><td>Selbstlernkurs</td><td class="right mono">2-4</td><td class="right mono">149 EUR</td><td class="right mono">298-596 EUR</td></tr>
+      <tr><td>Einzelstunden</td><td class="right mono">3-5</td><td class="right mono">89 EUR</td><td class="right mono">267-445 EUR</td></tr>
+      <tr><td>Affiliate</td><td class="right mono">–</td><td class="right mono">–</td><td class="right mono">50-150 EUR</td></tr>
+      <tr class="highlight"><td><strong>Gesamt/Monat</strong></td><td></td><td></td><td class="right mono"><strong>~3.500-5.000 EUR</strong></td></tr>
+    </table>
+
+    <div class="action-box">
+      <strong>Handlungsempfehlung Monat 7-9</strong>
+      <ul style="margin-top: 6px;">
+        <li><strong>Kurs launchen:</strong> "4-Wochen-Ernährungs-Reset" als PDF + Email-Sequenz, kein Video nötig (149 EUR)</li>
+        <li>Affiliate-Links in Blog-Artikel einbauen (Supplements, Küchengeräte, Bücher)</li>
+        <li>Top 5 Blog-Artikel mit internen Links vernetzten → SEO Boost</li>
+        <li>Testimonials sammeln → auf Landingpage + in Blog-Sidebar</li>
+        <li>Google Ads Budget auf 15-20 EUR/Tag wenn ROI positiv</li>
+        <li>Überlegen: Zweiten Kurs für Nische (z.B. "Vegan für Anfänger", "Abnehmen ohne Diät")</li>
+        <li>Kapazitätsgrenze 1:1 prüfen → ggf. Gruppenprogramm statt Einzelberatung</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- MONAT 10-12 -->
+  <div class="phase">
+    <div class="phase-header">
+      <div class="phase-badge" style="background: #0D3B1E;">10-12</div>
+      <div>
+        <div class="phase-title">Vollbetrieb</div>
+        <div class="phase-sub">Alle Revenue-Streams laufen, organisches Wachstum</div>
+      </div>
+    </div>
+
+    <div class="metric-row">
+      <div class="metric">
+        <div class="metric-value" style="color: #E65100;">5.000-8.000</div>
+        <div class="metric-label">Umsatz EUR/Monat</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">700-1.000</div>
+        <div class="metric-label">App-User</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">30-50</div>
+        <div class="metric-label">Freemium-Abos</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">~8.000</div>
+        <div class="metric-label">Blog-Besucher/Monat</div>
+      </div>
+    </div>
+
+    <table>
+      <tr><th>Quelle</th><th class="right">Anzahl/Monat</th><th class="right">Preis</th><th class="right">Umsatz/Monat</th></tr>
+      <tr><td>12-Wochen-Paket</td><td class="right mono">2-3</td><td class="right mono">899 EUR</td><td class="right mono">1.798-2.697 EUR</td></tr>
+      <tr><td>4-Wochen-Paket</td><td class="right mono">3-5</td><td class="right mono">349 EUR</td><td class="right mono">1.047-1.745 EUR</td></tr>
+      <tr><td>Freemium-Abos (kumuliert)</td><td class="right mono">30-50</td><td class="right mono">9,90 EUR</td><td class="right mono">297-495 EUR</td></tr>
+      <tr><td>Selbstlernkurs(e)</td><td class="right mono">4-8</td><td class="right mono">149 EUR</td><td class="right mono">596-1.192 EUR</td></tr>
+      <tr><td>Einzelstunden</td><td class="right mono">5-8</td><td class="right mono">89 EUR</td><td class="right mono">445-712 EUR</td></tr>
+      <tr><td>Affiliate</td><td class="right mono">–</td><td class="right mono">–</td><td class="right mono">150-350 EUR</td></tr>
+      <tr class="highlight"><td><strong>Gesamt/Monat</strong></td><td></td><td></td><td class="right mono"><strong>~5.000-8.000 EUR</strong></td></tr>
+    </table>
+
+    <div class="action-box">
+      <strong>Handlungsempfehlung Monat 10-12</strong>
+      <ul style="margin-top: 6px;">
+        <li>Gruppenprogramm testen: 6-8 Teilnehmer, 8 Wochen, 249 EUR/Person → 1.500-2.000 EUR pro Durchgang</li>
+        <li>Preis-Erhöhung prüfen: Wenn Auslastung bei 80%+, Pakete um 10-20% anheben</li>
+        <li>Email-Automatisierung: Willkommens-Sequenz + wöchentlicher Tipp + Upsell-Trigger</li>
+        <li>Jahr-2-Strategie planen: Was skaliert ohne mehr Arbeitszeit? (Kurse, Freemium, Gruppenprogramme)</li>
+        <li>Buchhaltung organisieren → Kleinunternehmerregelung prüfen (Grenze 25.000 EUR/Jahr)</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <hr class="divider">
+  <h2>Umsatz nach Quellen – Jahresübersicht</h2>
+
+  <div class="card">
+    <table>
+      <tr>
+        <th>Revenue-Stream</th>
+        <th class="right">Jahr 1 (realistisch)</th>
+        <th class="right">Anteil</th>
+        <th>Typ</th>
+      </tr>
+      <tr>
+        <td><strong>1:1 Beratung (Pakete + Einzelstunden)</strong></td>
+        <td class="right mono">~21.000 EUR</td>
+        <td class="right">55%</td>
+        <td>Einmalig, zeitgebunden</td>
+      </tr>
+      <tr>
+        <td><strong>Freemium App-Abos</strong></td>
+        <td class="right mono">~3.800 EUR</td>
+        <td class="right">10%</td>
+        <td>Recurring, skaliert</td>
+      </tr>
+      <tr>
+        <td><strong>Selbstlernkurs(e)</strong></td>
+        <td class="right mono">~9.500 EUR</td>
+        <td class="right">25%</td>
+        <td>Einmalig, passiv</td>
+      </tr>
+      <tr>
+        <td><strong>Affiliate</strong></td>
+        <td class="right mono">~1.500 EUR</td>
+        <td class="right">4%</td>
+        <td>Passiv</td>
+      </tr>
+      <tr>
+        <td><strong>Gruppenprogramm (Q4)</strong></td>
+        <td class="right mono">~2.200 EUR</td>
+        <td class="right">6%</td>
+        <td>Semi-passiv, skaliert</td>
+      </tr>
+      <tr class="highlight">
+        <td><strong>Gesamt Jahr 1</strong></td>
+        <td class="right mono"><strong>~38.000 EUR</strong></td>
+        <td class="right"><strong>100%</strong></td>
+        <td></td>
+      </tr>
+    </table>
+
+    <h3>Umsatzverteilung visuell</h3>
+
+    <div style="margin: 12px 0;">
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+        <span style="font-size: 12px; color: #666; width: 160px;">1:1 Beratung</span>
+        <div class="bar-container" style="flex: 1;">
+          <div class="bar" style="width: 55%; background: #2D6A4F;">55%</div>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+        <span style="font-size: 12px; color: #666; width: 160px;">Kurse</span>
+        <div class="bar-container" style="flex: 1;">
+          <div class="bar" style="width: 25%; background: #40916C;">25%</div>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+        <span style="font-size: 12px; color: #666; width: 160px;">Freemium-Abos</span>
+        <div class="bar-container" style="flex: 1;">
+          <div class="bar" style="width: 10%; background: #52B788;">10%</div>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+        <span style="font-size: 12px; color: #666; width: 160px;">Gruppenprogramm</span>
+        <div class="bar-container" style="flex: 1;">
+          <div class="bar" style="width: 6%; background: #95D5B2;">6%</div>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+        <span style="font-size: 12px; color: #666; width: 160px;">Affiliate</span>
+        <div class="bar-container" style="flex: 1;">
+          <div class="bar" style="width: 4%; background: #B7E4C7;">4%</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <hr class="divider">
+  <h2>Kosten & Gewinn</h2>
+
+  <div class="card">
+    <table>
+      <tr>
+        <th>Kostenposition</th>
+        <th class="right">Monatlich</th>
+        <th class="right">Jährlich</th>
+        <th>Anmerkung</th>
+      </tr>
+      <tr>
+        <td>Vercel Hosting (Pro)</td>
+        <td class="right mono">20 EUR</td>
+        <td class="right mono">240 EUR</td>
+        <td>Aktuell kostenlos (Hobby), Pro ab ~100 User</td>
+      </tr>
+      <tr>
+        <td>Supabase (Pro)</td>
+        <td class="right mono">25 EUR</td>
+        <td class="right mono">300 EUR</td>
+        <td>Free Tier reicht anfangs, Pro ab 500 User</td>
+      </tr>
+      <tr>
+        <td>OpenAI API (Embeddings)</td>
+        <td class="right mono">5-15 EUR</td>
+        <td class="right mono">60-180 EUR</td>
+        <td>text-embedding-3-small, sehr günstig</td>
+      </tr>
+      <tr>
+        <td>Anthropic API (Claude Chat)</td>
+        <td class="right mono">20-80 EUR</td>
+        <td class="right mono">240-960 EUR</td>
+        <td>Steigt mit User-Anzahl, Claude Sonnet 4</td>
+      </tr>
+      <tr>
+        <td>Domain</td>
+        <td class="right mono">~2 EUR</td>
+        <td class="right mono">~15 EUR</td>
+        <td>Eigene Domain kaufen (Empfehlung)</td>
+      </tr>
+      <tr>
+        <td>Canva Pro</td>
+        <td class="right mono">12 EUR</td>
+        <td class="right mono">144 EUR</td>
+        <td>Für Pinterest-Pins, optional</td>
+      </tr>
+      <tr>
+        <td>Google Ads (ab Monat 6)</td>
+        <td class="right mono">0-300 EUR</td>
+        <td class="right mono">0-2.100 EUR</td>
+        <td>Optional, nur wenn ROI positiv</td>
+      </tr>
+      <tr>
+        <td>Stripe Gebühren (1,4% + 0,25 EUR)</td>
+        <td class="right mono">~15-40 EUR</td>
+        <td class="right mono">~180-480 EUR</td>
+        <td>Auf alle Zahlungen</td>
+      </tr>
+      <tr class="highlight">
+        <td><strong>Gesamt Kosten</strong></td>
+        <td class="right mono"><strong>~100-500 EUR</strong></td>
+        <td class="right mono"><strong>~1.200-4.400 EUR</strong></td>
+        <td></td>
+      </tr>
+    </table>
+
+    <div class="scenario-grid" style="margin-top: 20px;">
+      <div class="scenario conservative">
+        <div class="scenario-label" style="color: #666;">Konservativ</div>
+        <div class="scenario-value" style="color: #444;">21.000</div>
+        <div class="scenario-sub">Gewinn (vor Steuern)</div>
+      </div>
+      <div class="scenario realistic">
+        <div class="scenario-label" style="color: #2D6A4F;">Realistisch</div>
+        <div class="scenario-value" style="color: #2D6A4F;">35.000</div>
+        <div class="scenario-sub">Gewinn (vor Steuern)</div>
+      </div>
+      <div class="scenario optimistic">
+        <div class="scenario-label" style="color: #1565C0;">Optimistisch</div>
+        <div class="scenario-value" style="color: #1565C0;">51.000</div>
+        <div class="scenario-sub">Gewinn (vor Steuern)</div>
+      </div>
+    </div>
+
+    <div class="info-box">
+      <strong>Marge: 90%+</strong>
+      Die Kosten sind minimal weil die App auf günstiger Infrastruktur läuft (Vercel, Supabase, API-Kosten). Der größte "Kostenfaktor" ist Janines Zeit – aber die fließt in Content der sowohl die App als auch den Blog und Pinterest füttert. Extrem kapitaleffizient.
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <hr class="divider">
+  <h2>Steuerliche Hinweise</h2>
+
+  <div class="card">
+    <table>
+      <tr>
+        <th>Thema</th>
+        <th>Details</th>
+      </tr>
+      <tr>
+        <td><strong>Kleinunternehmerregelung</strong></td>
+        <td>Bis 25.000 EUR/Jahr (ab 2025) keine USt. berechnen. Im konservativen Szenario greift das. Im realistischen Szenario wird die Grenze überschritten → dann 19% USt. auf Rechnungen, aber auch Vorsteuerabzug möglich.</td>
+      </tr>
+      <tr>
+        <td><strong>Einkommensteuer</strong></td>
+        <td>Grundfreibetrag 2026: ~12.000 EUR. Darüber progressiver Steuersatz. Bei 35.000 EUR Gewinn → ca. 5.000-7.000 EUR ESt. (hängt von anderen Einkünften ab).</td>
+      </tr>
+      <tr>
+        <td><strong>Gewerbeanmeldung</strong></td>
+        <td>Als Ernährungswissenschaftlerin ggf. freiberuflich (kein Gewerbe nötig). Steuerberater fragen – Ernährungsberatung kann als freier Beruf gelten.</td>
+      </tr>
+      <tr>
+        <td><strong>Krankenversicherung</strong></td>
+        <td>Wenn selbständig: GKV freiwillig (~200-350 EUR/Monat je nach Einkommen) oder PKV. Wenn nebenberuflich: Hauptjob-KV reicht bis 20h/Woche Nebentätigkeit.</td>
+      </tr>
+    </table>
+
+    <div class="warn-box">
+      <strong>Empfehlung:</strong> Vor dem Start einen Steuerberater konsultieren – besonders bzgl. Freiberufler-Status und Kleinunternehmerregelung. Kosten: ~200-400 EUR für Erstberatung, spart langfristig deutlich mehr.
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <hr class="divider">
+  <h2>Risiken & wie man sie minimiert</h2>
+
+  <div class="card">
+    <table>
+      <tr>
+        <th>Risiko</th>
+        <th>Wahrscheinlichkeit</th>
+        <th>Gegenmaßnahme</th>
+      </tr>
+      <tr>
+        <td><strong>SEO braucht länger als 3 Monate</strong></td>
+        <td>Mittel</td>
+        <td>Pinterest als zweiten Kanal parallel aufbauen. Google Ads als Überbrückung.</td>
+      </tr>
+      <tr>
+        <td><strong>Zu wenig 1:1 Kunden</strong></td>
+        <td>Mittel</td>
+        <td>Fitnessstudio-Partnerschaften (sofort warme Leads). Ersten 5 Kunden Rabatt geben für Testimonials.</td>
+      </tr>
+      <tr>
+        <td><strong>Freemium-Conversion zu niedrig</strong></td>
+        <td>Niedrig</td>
+        <td>Paywall testen: Welche Features lösen Upgrades aus? A/B testen. Notfalls Freemium-Preis auf 6,90 EUR senken.</td>
+      </tr>
+      <tr>
+        <td><strong>Kapazitätsgrenze bei 1:1</strong></td>
+        <td>Hoch (gutes Problem)</td>
+        <td>Ab 10+ Kunden/Monat: Gruppenprogramme statt Einzelstunden. Skaliert ohne mehr Arbeitszeit.</td>
+      </tr>
+      <tr>
+        <td><strong>API-Kosten steigen mit Nutzern</strong></td>
+        <td>Niedrig</td>
+        <td>Claude API kostet ~0,01-0,05 EUR pro Chat-Antwort. Erst ab 1.000+ aktive User relevant. Freemium-Einnahmen decken das ab.</td>
+      </tr>
+      <tr>
+        <td><strong>Konkurrenz durch andere Apps</strong></td>
+        <td>Niedrig</td>
+        <td>USP: Echtes Expertenwissen (nicht generisches ChatGPT) + 1:1 Upsell. Die Kombination App + Mensch ist schwer kopierbar.</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- ============================================================ -->
+  <hr class="divider">
+  <h2>Jahr 2 Ausblick</h2>
+
+  <div class="card">
+    <p>Wenn Jahr 1 läuft, wird Jahr 2 durch drei Effekte deutlich stärker:</p>
+
+    <table>
+      <tr>
+        <th>Effekt</th>
+        <th>Auswirkung</th>
+      </tr>
+      <tr>
+        <td><strong>SEO Compound Effect</strong></td>
+        <td>Blog-Artikel die in Jahr 1 geschrieben wurden ranken immer höher. Traffic verdoppelt sich oft im 2. Jahr ohne Extra-Aufwand.</td>
+      </tr>
+      <tr>
+        <td><strong>Freemium-Kumulierung</strong></td>
+        <td>Recurring Revenue wächst jeden Monat. 100 Abos × 9,90 EUR = ~1.000 EUR/Monat passiv.</td>
+      </tr>
+      <tr>
+        <td><strong>Empfehlungen</strong></td>
+        <td>Zufriedene 1:1 Kunden empfehlen weiter. Kostet nichts, bringt die wertvollsten Leads.</td>
+      </tr>
+    </table>
+
+    <div class="scenario-grid" style="margin-top: 16px;">
+      <div class="scenario conservative">
+        <div class="scenario-label" style="color: #666;">Konservativ</div>
+        <div class="scenario-value" style="color: #444;">60.000</div>
+        <div class="scenario-sub">Jahr 2</div>
+      </div>
+      <div class="scenario realistic">
+        <div class="scenario-label" style="color: #2D6A4F;">Realistisch</div>
+        <div class="scenario-value" style="color: #2D6A4F;">90.000</div>
+        <div class="scenario-sub">Jahr 2</div>
+      </div>
+      <div class="scenario optimistic">
+        <div class="scenario-label" style="color: #1565C0;">Optimistisch</div>
+        <div class="scenario-value" style="color: #1565C0;">120.000</div>
+        <div class="scenario-sub">Jahr 2</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <hr class="divider">
+  <h2>Zusammenfassung: Die 7 wichtigsten Handlungsempfehlungen</h2>
+
+  <div class="card">
+    <ol style="padding-left: 20px;">
+      <li style="margin-bottom: 16px;">
+        <strong>Wissensbasis zuerst</strong> (Monat 1-2)<br>
+        <span style="font-size: 13px; color: #666;">Ohne gutes Wissen in der App bringt kein Marketing etwas. Phase 1-5 aus dem Starter-Guide durcharbeiten. Die App muss gut beraten bevor der erste externe User kommt.</span>
+      </li>
+      <li style="margin-bottom: 16px;">
+        <strong>Pakete statt Einzelstunden verkaufen</strong> (ab Monat 3)<br>
+        <span style="font-size: 13px; color: #666;">349 EUR (4-Wochen) statt 89 EUR (Einzelstunde) = 3,9x mehr pro Kunde. Einzelstunden nur als Einstieg, dann immer aufs Paket upsellen. Das ist der größte Einzel-Hebel für den Umsatz.</span>
+      </li>
+      <li style="margin-bottom: 16px;">
+        <strong>Blog-Content = Wissensbasis-Content</strong> (dauerhaft)<br>
+        <span style="font-size: 13px; color: #666;">Jedes Dokument das in die Wissensbasis geht wird leicht umformuliert zum Blog-Artikel → wird zum Pinterest-Pin. Ein Aufwand, drei Kanäle. Niemals Content nur für einen Kanal erstellen.</span>
+      </li>
+      <li style="margin-bottom: 16px;">
+        <strong>Freemium nicht zu früh, nicht zu spät</strong> (Monat 6)<br>
+        <span style="font-size: 13px; color: #666;">Zu früh = zu wenig User für signifikante Einnahmen. Zu spät = User gewöhnen sich an "alles kostenlos". Monat 6 ist der Sweet Spot: genug User, App ist erprobt, Zahlungsbereitschaft ist validiert.</span>
+      </li>
+      <li style="margin-bottom: 16px;">
+        <strong>Partnerschaften bringen die schnellsten Leads</strong> (ab Monat 3)<br>
+        <span style="font-size: 13px; color: #666;">3 Fitnessstudios mit je 200 Mitgliedern = 600 potenzielle User auf einen Schlag. Kostet nichts außer einem Gespräch. Priorisiere das vor bezahlter Werbung.</span>
+      </li>
+      <li style="margin-bottom: 16px;">
+        <strong>Testimonials systematisch sammeln</strong> (ab Monat 3)<br>
+        <span style="font-size: 13px; color: #666;">Nach jeder erfolgreichen 1:1 Beratung fragen: "Darf ich ein kurzes Zitat von dir auf der Website nutzen?" Text reicht, kein Video nötig. 5 gute Testimonials > 50 Blog-Artikel.</span>
+      </li>
+      <li style="margin-bottom: 16px;">
+        <strong>Kurs als passives Einkommen</strong> (ab Monat 7)<br>
+        <span style="font-size: 13px; color: #666;">Einmal erstellen (Text + Pläne + Checklisten, kein Video), unendlich verkaufen. "4-Wochen-Ernährungs-Reset" für 149 EUR. Deckt die Leute ab die kein 1:1 wollen aber mehr als die App.</span>
+      </li>
+    </ol>
+  </div>
+
+  <div class="info-box">
+    <strong>Bottom Line</strong>
+    Mit 4-6 Stunden/Woche und ohne Kamera/Social-Media-Zwang sind 25.000-55.000 EUR im ersten Jahr realistisch. Die Margen sind 90%+ weil die Infrastruktur fast nichts kostet. Der unfaire Vorteil: 99% der Ernährungsberater haben keine eigene KI-App als Lead-Magnet. Ab Jahr 2 greifen Compound-Effekte (SEO, Recurring Revenue, Empfehlungen) und das Potenzial liegt bei 60.000-120.000 EUR.
+  </div>
+
+  <div class="footer">
+    Umsatzprognose Jahr 1 – Ernährungs-App<br>
+    Erstellt Februar 2026 · Alle Zahlen sind Schätzungen basierend auf Branchenwerten
+  </div>
+
+</div>
+</body>
+</html>
