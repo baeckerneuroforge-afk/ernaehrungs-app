@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import {
   ZIELE,
   ALLERGIEN,
@@ -17,9 +16,9 @@ interface ProfilFormProps {
   existingProfile: Record<string, unknown> | null;
 }
 
-export function ProfilForm({ userId, existingProfile }: ProfilFormProps) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function ProfilForm({ userId: _userId, existingProfile }: ProfilFormProps) {
   const router = useRouter();
-  const supabase = createClient();
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [consent, setConsent] = useState<boolean | null>(
@@ -60,29 +59,22 @@ export function ProfilForm({ userId, existingProfile }: ProfilFormProps) {
     e.preventDefault();
     setSaving(true);
 
-    const profileData = {
-      user_id: userId,
-      name: form.name || null,
-      alter_jahre: form.alter_jahre ? Number(form.alter_jahre) : null,
-      geschlecht: form.geschlecht || null,
-      groesse_cm: form.groesse_cm ? Number(form.groesse_cm) : null,
-      gewicht_kg: form.gewicht_kg ? Number(form.gewicht_kg) : null,
-      ziel: form.ziel || null,
-      allergien: form.allergien,
-      ernaehrungsform: form.ernaehrungsform || null,
-      krankheiten: form.krankheiten || null,
-      aktivitaet: form.aktivitaet || null,
-      updated_at: new Date().toISOString(),
-    };
-
-    if (existingProfile) {
-      await supabase
-        .from("ea_profiles")
-        .update(profileData)
-        .eq("user_id", userId);
-    } else {
-      await supabase.from("ea_profiles").insert(profileData);
-    }
+    await fetch("/api/profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: form.name || null,
+        alter_jahre: form.alter_jahre ? Number(form.alter_jahre) : null,
+        geschlecht: form.geschlecht || null,
+        groesse_cm: form.groesse_cm ? Number(form.groesse_cm) : null,
+        gewicht_kg: form.gewicht_kg ? Number(form.gewicht_kg) : null,
+        ziel: form.ziel || null,
+        allergien: form.allergien,
+        ernaehrungsform: form.ernaehrungsform || null,
+        krankheiten: form.krankheiten || null,
+        aktivitaet: form.aktivitaet || null,
+      }),
+    });
 
     setSaving(false);
     setSaved(true);

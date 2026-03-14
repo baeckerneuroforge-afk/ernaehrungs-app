@@ -1,27 +1,30 @@
-import { createSupabaseServer } from "@/lib/supabase/server";
+import { auth } from "@clerk/nextjs/server";
+import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { chunkText } from "@/lib/utils/chunking";
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
 
-async function checkAdmin(supabase: ReturnType<typeof createSupabaseServer>) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
+async function checkAdmin() {
+  const { userId } = await auth();
+  if (!userId) return null;
+  const supabase = createSupabaseAdmin();
   const { data } = await supabase
     .from("ea_user_roles")
     .select("role")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .limit(1);
   if (data?.[0]?.role !== "admin") return null;
-  return user;
+  return userId;
 }
 
 export async function POST(
   request: Request,
   { params }: { params: { id: string } }
 ) {
-  const supabase = createSupabaseServer();
-  const user = await checkAdmin(supabase);
-  if (!user) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const adminUserId = await checkAdmin();
+  if (!adminUserId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  const supabase = createSupabaseAdmin();
 
   const { action, add_to_wissensbasis } = await request.json();
 

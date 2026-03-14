@@ -1,4 +1,4 @@
-import { createSupabaseServer } from "@/lib/supabase/server";
+import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { BlogArticle } from "@/components/blog/blog-article";
 import { BlogCta } from "@/components/blog/blog-cta";
 import { notFound } from "next/navigation";
@@ -11,7 +11,7 @@ interface Props {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const supabase = createSupabaseServer();
+  const supabase = createSupabaseAdmin();
   const { data } = await supabase
     .from("ea_blog_posts")
     .select("title, meta_description, excerpt, cover_image_url")
@@ -37,7 +37,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function BlogPostPage({ params }: Props) {
-  const supabase = createSupabaseServer();
+  const supabase = createSupabaseAdmin();
 
   const { data } = await supabase
     .from("ea_blog_posts")

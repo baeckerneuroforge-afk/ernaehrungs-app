@@ -1,48 +1,35 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
+import { useUser, useAuth } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { User } from "@supabase/supabase-js";
 import { Leaf, LogOut, Menu, X, Settings } from "lucide-react";
 
 export function Navbar() {
-  const [user, setUser] = useState<User | null>(null);
+  const { user } = useUser();
+  const { signOut } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const router = useRouter();
   const pathname = usePathname();
-  const supabase = createClient();
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUser(data.user));
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-    return () => subscription.unsubscribe();
-  }, [supabase.auth]);
 
   useEffect(() => {
     if (!user) {
       setIsAdmin(false);
       return;
     }
-    supabase
-      .from("ea_user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .limit(1)
-      .then(({ data }) => setIsAdmin(data?.[0]?.role === "admin"));
-  }, [user, supabase]);
-
-  async function handleLogout() {
-    await supabase.auth.signOut();
-    router.push("/");
-    router.refresh();
-  }
+    // Check admin role from Clerk publicMetadata or fallback to API
+    const role = (user.publicMetadata as { role?: string })?.role;
+    if (role === "admin") {
+      setIsAdmin(true);
+    } else {
+      // Fallback: check via API
+      fetch("/api/auth/role")
+        .then((r) => r.json())
+        .then((data) => setIsAdmin(data.role === "admin"))
+        .catch(() => setIsAdmin(false));
+    }
+  }, [user]);
 
   const navLinks = [
     { href: "/chat", label: "Chat" },
@@ -57,15 +44,15 @@ export function Navbar() {
   }
 
   return (
-    <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100">
+    <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-warm-border">
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 group">
+          <Link href="/" className="flex items-center gap-2.5 group">
             <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center">
               <Leaf className="w-5 h-5 text-white" />
             </div>
-            <span className="font-semibold text-lg text-gray-800 hidden sm:block">
+            <span className="font-bold text-lg text-warm-dark hidden sm:block">
               Ernährungsberatung
             </span>
           </Link>
@@ -77,7 +64,7 @@ export function Navbar() {
               className={`text-sm transition ${
                 isActive("/blog")
                   ? "text-primary font-medium"
-                  : "text-gray-600 hover:text-primary"
+                  : "text-warm-muted hover:text-primary"
               }`}
             >
               Blog
@@ -91,7 +78,7 @@ export function Navbar() {
                     className={`text-sm transition ${
                       isActive(link.href)
                         ? "text-primary font-medium"
-                        : "text-gray-600 hover:text-primary"
+                        : "text-warm-muted hover:text-primary"
                     }`}
                   >
                     {link.label}
@@ -107,8 +94,8 @@ export function Navbar() {
                   </Link>
                 )}
                 <button
-                  onClick={handleLogout}
-                  className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-red-500 transition"
+                  onClick={() => signOut({ redirectUrl: "/" })}
+                  className="flex items-center gap-1.5 text-sm text-warm-muted hover:text-red-500 transition"
                 >
                   <LogOut className="w-4 h-4" />
                   Abmelden
@@ -117,14 +104,14 @@ export function Navbar() {
             ) : (
               <>
                 <Link
-                  href="/login"
+                  href="/sign-in"
                   className="text-sm font-medium text-primary hover:text-primary-light transition"
                 >
                   Anmelden
                 </Link>
                 <Link
-                  href="/login"
-                  className="text-sm font-medium bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-light transition"
+                  href="/sign-up"
+                  className="text-sm font-medium bg-primary text-white px-4 py-2 rounded-xl hover:bg-primary-light transition"
                 >
                   Kostenlos starten
                 </Link>
@@ -147,7 +134,7 @@ export function Navbar() {
 
         {/* Mobile Menu */}
         {menuOpen && (
-          <div className="md:hidden pb-4 pt-2 border-t border-gray-100">
+          <div className="md:hidden pb-4 pt-2 border-t border-warm-border">
             {user ? (
               <div className="flex flex-col gap-3">
                 {navLinks.map((link) => (
@@ -157,7 +144,7 @@ export function Navbar() {
                     className={`text-sm px-2 py-1 ${
                       isActive(link.href)
                         ? "text-primary font-medium"
-                        : "text-gray-600 hover:text-primary"
+                        : "text-warm-muted hover:text-primary"
                     }`}
                     onClick={() => setMenuOpen(false)}
                   >
@@ -175,10 +162,10 @@ export function Navbar() {
                 )}
                 <button
                   onClick={() => {
-                    handleLogout();
+                    signOut({ redirectUrl: "/" });
                     setMenuOpen(false);
                   }}
-                  className="text-sm text-gray-500 hover:text-red-500 px-2 py-1 text-left"
+                  className="text-sm text-warm-muted hover:text-red-500 px-2 py-1 text-left"
                 >
                   Abmelden
                 </button>
@@ -190,22 +177,22 @@ export function Navbar() {
                   className={`text-sm px-2 py-1 ${
                     isActive("/blog")
                       ? "text-primary font-medium"
-                      : "text-gray-600 hover:text-primary"
+                      : "text-warm-muted hover:text-primary"
                   }`}
                   onClick={() => setMenuOpen(false)}
                 >
                   Blog
                 </Link>
                 <Link
-                  href="/login"
+                  href="/sign-in"
                   className="text-sm text-primary font-medium px-2 py-1"
                   onClick={() => setMenuOpen(false)}
                 >
                   Anmelden
                 </Link>
                 <Link
-                  href="/login"
-                  className="text-sm font-medium bg-primary text-white px-4 py-2 rounded-lg text-center"
+                  href="/sign-up"
+                  className="text-sm font-medium bg-primary text-white px-4 py-2 rounded-xl text-center"
                   onClick={() => setMenuOpen(false)}
                 >
                   Kostenlos starten

@@ -10,24 +10,41 @@ const config: Config = {
     extend: {
       colors: {
         primary: {
-          DEFAULT: "#2D6A4F",
-          light: "#40916C",
-          soft: "#52B788",
-          pale: "#95D5B2",
-          bg: "#D8F3DC",
+          DEFAULT: "#16A34A",
+          light: "#22C55E",
+          soft: "#4ADE80",
+          pale: "#BBF7D0",
+          bg: "#DCFCE7",
         },
         accent: {
-          warm: "#E76F51",
-          warmLight: "#F4A261",
+          warm: "#F59E0B",
+          warmLight: "#FBBF24",
+          warmPale: "#FEF3C7",
         },
         surface: {
           DEFAULT: "#FFFFFF",
-          bg: "#FAFBFC",
-          muted: "#F3F4F6",
+          bg: "#FAFAF5",
+          muted: "#F5F5F0",
+        },
+        warm: {
+          dark: "#1C1917",
+          text: "#292524",
+          muted: "#78716C",
+          light: "#A8A29E",
+          border: "#E7E5E4",
         },
       },
       fontFamily: {
         sans: ["Inter", "system-ui", "-apple-system", "sans-serif"],
+      },
+      keyframes: {
+        "fade-up": {
+          "0%": { opacity: "0", transform: "translateY(24px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+      },
+      animation: {
+        "fade-up": "fade-up 0.6s ease-out forwards",
       },
     },
   },

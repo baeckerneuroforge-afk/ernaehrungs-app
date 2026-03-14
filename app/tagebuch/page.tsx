@@ -1,4 +1,5 @@
-import { createSupabaseServer } from "@/lib/supabase/server";
+import { auth } from "@clerk/nextjs/server";
+import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
@@ -7,18 +8,17 @@ import { TagebuchClient } from "@/components/tagebuch/tagebuch-client";
 export const dynamic = "force-dynamic";
 
 export default async function TagebuchPage() {
-  const supabase = createSupabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const { userId } = await auth();
+  if (!userId) redirect("/sign-in");
+
+  const supabase = createSupabaseAdmin();
 
   const today = new Date().toISOString().split("T")[0];
 
   const { data } = await supabase
     .from("ea_food_log")
     .select("*")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .eq("datum", today)
     .order("created_at", { ascending: true });
 

@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from "next";
+import { ClerkProvider } from "@clerk/nextjs";
+import { deDE } from "@clerk/localizations";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -29,18 +31,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="de">
-      <head>
-        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
-      </head>
-      <body className="antialiased">
-        {children}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js')}`,
-          }}
-        />
-      </body>
-    </html>
+    <ClerkProvider localization={deDE}>
+      <html lang="de">
+        <head>
+          <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+        </head>
+        <body className="antialiased">
+          {children}
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js')}`,
+            }}
+          />
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

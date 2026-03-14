@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Leaf, ChevronRight, ChevronLeft, Check, Loader2, ShieldCheck, Eye, EyeOff, ChevronDown, ChevronUp } from "lucide-react";
 import { GESCHLECHT, ZIELE, ERNAEHRUNGSFORMEN, ALLERGIEN, AKTIVITAET } from "@/types";
-import { createClient } from "@/lib/supabase/client";
 
 interface Props {
   userId: string;
@@ -12,9 +11,9 @@ interface Props {
   initialStep?: number;
 }
 
-export function OnboardingWizard({ userId, existingProfile, initialStep = 1 }: Props) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function OnboardingWizard({ userId: _userId, existingProfile, initialStep = 1 }: Props) {
   const router = useRouter();
-  const supabase = createClient();
   const [step, setStep] = useState(initialStep);
   const [saving, setSaving] = useState(false);
   const [consentDetailsOpen, setConsentDetailsOpen] = useState(false);
@@ -46,31 +45,33 @@ export function OnboardingWizard({ userId, existingProfile, initialStep = 1 }: P
 
   async function handleSaveProfile() {
     setSaving(true);
-    const profileData = {
-      user_id: userId,
-      name: name.trim(),
-      alter_jahre: Number(alterJahre),
-      geschlecht,
-      groesse_cm: groesseCm ? Number(groesseCm) : null,
-      gewicht_kg: gewichtKg ? Number(gewichtKg) : null,
-      ziel,
-      ernaehrungsform,
-      allergien,
-      aktivitaet,
-      krankheiten: krankheiten.trim() || null,
-      onboarding_done: true,
-    };
-
-    await supabase.from("ea_profiles").upsert(profileData, { onConflict: "user_id" });
+    await fetch("/api/profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: name.trim(),
+        alter_jahre: Number(alterJahre),
+        geschlecht,
+        groesse_cm: groesseCm ? Number(groesseCm) : null,
+        gewicht_kg: gewichtKg ? Number(gewichtKg) : null,
+        ziel,
+        ernaehrungsform,
+        allergien,
+        aktivitaet,
+        krankheiten: krankheiten.trim() || null,
+        onboarding_done: true,
+      }),
+    });
     setStep(4);
     setSaving(false);
   }
 
   async function handleConsentFinish(consent: boolean) {
-    await supabase
-      .from("ea_profiles")
-      .update({ review_consent: consent })
-      .eq("user_id", userId);
+    await fetch("/api/profile/consent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ consent }),
+    });
     setStep(5);
   }
 

@@ -1,24 +1,27 @@
-import { createSupabaseServer } from "@/lib/supabase/server";
+import { auth } from "@clerk/nextjs/server";
+import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { slugify } from "@/lib/utils/slugify";
 import { NextResponse } from "next/server";
 
-async function checkAdmin(supabase: ReturnType<typeof createSupabaseServer>) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
+async function checkAdmin() {
+  const { userId } = await auth();
+  if (!userId) return null;
+  const supabase = createSupabaseAdmin();
   const { data } = await supabase
     .from("ea_user_roles")
     .select("role")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .limit(1);
   if (data?.[0]?.role !== "admin") return null;
-  return user;
+  return userId;
 }
 
 // GET: List all blog posts (admin)
 export async function GET() {
-  const supabase = createSupabaseServer();
-  const user = await checkAdmin(supabase);
-  if (!user) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const adminUserId = await checkAdmin();
+  if (!adminUserId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  const supabase = createSupabaseAdmin();
 
   const { data, error } = await supabase
     .from("ea_blog_posts")
@@ -31,9 +34,10 @@ export async function GET() {
 
 // POST: Create new blog post
 export async function POST(request: Request) {
-  const supabase = createSupabaseServer();
-  const user = await checkAdmin(supabase);
-  if (!user) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const adminUserId = await checkAdmin();
+  if (!adminUserId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  const supabase = createSupabaseAdmin();
 
   const body = await request.json();
   const { title, content, excerpt, category, meta_description, cover_image_url } = body;
@@ -65,7 +69,7 @@ export async function POST(request: Request) {
       category: category || null,
       meta_description: meta_description || null,
       cover_image_url: cover_image_url || null,
-      author_id: user.id,
+      author_id: adminUserId,
     })
     .select()
     .limit(1);

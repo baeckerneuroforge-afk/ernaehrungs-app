@@ -1,18 +1,18 @@
-import { createSupabaseServer } from "@/lib/supabase/server";
+import { auth } from "@clerk/nextjs/server";
+import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
 export async function GET() {
-  const supabase = createSupabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const supabase = createSupabaseAdmin();
 
   // Query the sessions view
   const { data, error } = await supabase
     .from("ea_conversation_sessions")
     .select("session_id, title, started_at, last_message_at, message_count")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .order("last_message_at", { ascending: false })
     .limit(50);
 
@@ -22,7 +22,7 @@ export async function GET() {
     const { data: convos } = await supabase
       .from("ea_conversations")
       .select("session_id, content, role, created_at")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .order("created_at", { ascending: true });
 
     if (!convos?.length) return NextResponse.json([]);

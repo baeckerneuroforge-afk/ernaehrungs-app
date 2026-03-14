@@ -1,4 +1,5 @@
-import { createSupabaseServer } from "@/lib/supabase/server";
+import { auth } from "@clerk/nextjs/server";
+import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { loadUserBehaviorContext } from "@/lib/utils/user-context";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
@@ -125,25 +126,24 @@ export async function POST(request: Request) {
       return streamStaticResponse(ESCALATION_RESPONSE);
     }
 
-    const supabase = createSupabaseServer();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { userId } = await auth();
 
-    if (!user) {
+    if (!userId) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
       });
     }
+
+    const supabase = createSupabaseAdmin();
 
     // Load profile + behavior context in parallel
     const [profileResult, behaviorContext] = await Promise.all([
       supabase
         .from("ea_profiles")
         .select("*")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .limit(1),
-      loadUserBehaviorContext(supabase, user.id),
+      loadUserBehaviorContext(supabase, userId),
     ]);
 
     const p = profileResult.data?.[0];
@@ -305,7 +305,7 @@ export async function POST(request: Request) {
           const { data: saved } = await supabase
             .from("ea_meal_plans")
             .insert({
-              user_id: user.id,
+              user_id: userId,
               titel,
               zeitraum: zeitraum || "7 Tage",
               inhalt: fullContent,

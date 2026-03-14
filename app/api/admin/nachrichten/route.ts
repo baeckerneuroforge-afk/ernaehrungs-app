@@ -1,24 +1,23 @@
-import { createSupabaseServer, createSupabaseAdmin } from "@/lib/supabase/server";
+import { auth } from "@clerk/nextjs/server";
+import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
 async function checkAdmin() {
-  const supabase = createSupabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
+  const { userId } = await auth();
+  if (!userId) return null;
+  const supabase = createSupabaseAdmin();
   const { data } = await supabase
     .from("ea_user_roles")
     .select("role")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .limit(1);
-  return data?.[0]?.role === "admin" ? user : null;
+  return data?.[0]?.role === "admin" ? userId : null;
 }
 
 // GET: admin fetches all messages with user names
 export async function GET() {
-  const admin_user = await checkAdmin();
-  if (!admin_user) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const adminUserId = await checkAdmin();
+  if (!adminUserId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const admin = createSupabaseAdmin();
 
@@ -50,8 +49,8 @@ export async function GET() {
 
 // PATCH: admin replies to a message
 export async function PATCH(request: Request) {
-  const admin_user = await checkAdmin();
-  if (!admin_user) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const adminUserId = await checkAdmin();
+  if (!adminUserId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id, reply } = await request.json();
   if (!id || !reply?.trim()) {
@@ -74,8 +73,8 @@ export async function PATCH(request: Request) {
 
 // PATCH for marking as read (separate action)
 export async function PUT(request: Request) {
-  const admin_user = await checkAdmin();
-  if (!admin_user) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const adminUserId = await checkAdmin();
+  if (!adminUserId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await request.json();
   const admin = createSupabaseAdmin();

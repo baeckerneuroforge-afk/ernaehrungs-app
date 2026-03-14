@@ -1,4 +1,5 @@
-import { createSupabaseServer, createSupabaseAdmin } from "@/lib/supabase/server";
+import { auth } from "@clerk/nextjs/server";
+import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { BarChart3, MessageSquare, BookOpen, FileText, Star, Inbox, ArrowLeft } from "lucide-react";
@@ -8,23 +9,20 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = createSupabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { userId } = await auth();
+  if (!userId) redirect("/sign-in");
 
-  if (!user) redirect("/login");
+  const admin = createSupabaseAdmin();
 
-  const { data: roleData } = await supabase
+  const { data: roleData } = await admin
     .from("ea_user_roles")
     .select("role")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .limit(1);
 
   if (roleData?.[0]?.role !== "admin") redirect("/chat");
 
   // Fetch unanswered message count
-  const admin = createSupabaseAdmin();
   const { count: unreadCount } = await admin
     .from("ea_messages")
     .select("id", { count: "exact", head: true })

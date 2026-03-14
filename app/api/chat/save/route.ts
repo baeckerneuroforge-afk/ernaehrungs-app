@@ -1,4 +1,5 @@
-import { createSupabaseServer } from "@/lib/supabase/server";
+import { auth } from "@clerk/nextjs/server";
+import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
@@ -10,25 +11,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 });
     }
 
-    const supabase = createSupabaseServer();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { userId } = await auth();
 
-    if (!user) {
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const supabase = createSupabaseAdmin();
 
     // Insert both messages
     const { error } = await supabase.from("ea_conversations").insert([
       {
-        user_id: user.id,
+        user_id: userId,
         session_id,
         role: "user",
         content: user_message,
       },
       {
-        user_id: user.id,
+        user_id: userId,
         session_id,
         role: "assistant",
         content: assistant_message,

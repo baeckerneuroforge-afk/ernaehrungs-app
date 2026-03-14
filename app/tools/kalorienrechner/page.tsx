@@ -1,20 +1,20 @@
-import { createSupabaseServer } from "@/lib/supabase/server";
+import { auth } from "@clerk/nextjs/server";
+import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { KalorienrechnerClient } from "@/components/tools/kalorienrechner-client";
 
 export default async function KalorienrechnerPage() {
-  const supabase = createSupabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const { userId } = await auth();
+  if (!userId) redirect("/sign-in");
+
+  const supabase = createSupabaseAdmin();
 
   const { data: profile } = await supabase
     .from("ea_profiles")
     .select("alter_jahre, geschlecht, groesse_cm, gewicht_kg, aktivitaet, ziel")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .limit(1);
 
   return (

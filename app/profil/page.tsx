@@ -1,4 +1,5 @@
-import { createSupabaseServer } from "@/lib/supabase/server";
+import { auth } from "@clerk/nextjs/server";
+import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
@@ -7,17 +8,15 @@ import { ProfilForm } from "@/components/profil/profil-form";
 export const dynamic = "force-dynamic";
 
 export default async function ProfilPage() {
-  const supabase = createSupabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { userId } = await auth();
+  if (!userId) redirect("/sign-in");
 
-  if (!user) redirect("/login");
+  const supabase = createSupabaseAdmin();
 
   const { data: profile } = await supabase
     .from("ea_profiles")
     .select("*")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .limit(1);
 
   return (
@@ -32,7 +31,7 @@ export default async function ProfilPage() {
           </p>
         </div>
         <ProfilForm
-          userId={user.id}
+          userId={userId}
           existingProfile={profile?.[0] || null}
         />
       </main>

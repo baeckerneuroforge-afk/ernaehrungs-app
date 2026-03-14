@@ -1,18 +1,7 @@
-import { createSupabaseServer } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
+// Clerk handles OAuth callbacks internally – this route is a legacy redirect
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url);
-  const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/profil";
-
-  if (code) {
-    const supabase = createSupabaseServer();
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (!error) {
-      return NextResponse.redirect(`${origin}${next}`);
-    }
-  }
-
-  return NextResponse.redirect(`${origin}/login`);
+  const { origin } = new URL(request.url);
+  return NextResponse.redirect(`${origin}/chat`);
 }

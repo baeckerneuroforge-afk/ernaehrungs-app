@@ -1,12 +1,12 @@
-import { createSupabaseServer } from "@/lib/supabase/server";
+import { auth } from "@clerk/nextjs/server";
+import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
-  const supabase = createSupabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const supabase = createSupabaseAdmin();
 
   const { session_id, rating, comment } = await request.json();
   if (!session_id || !rating || ![1, -1].includes(Number(rating))) {
@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     .from("ea_feedback")
     .select("id")
     .eq("session_id", session_id)
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .limit(1);
 
   if (existing?.length) {
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
 
   const { error } = await supabase.from("ea_feedback").insert({
     session_id,
-    user_id: user.id,
+    user_id: userId,
     rating: Number(rating),
     comment: comment?.trim() || null,
   });

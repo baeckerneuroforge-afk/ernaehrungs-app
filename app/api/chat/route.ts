@@ -1,4 +1,5 @@
-import { createSupabaseServer } from "@/lib/supabase/server";
+import { auth } from "@clerk/nextjs/server";
+import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { loadUserBehaviorContext } from "@/lib/utils/user-context";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
@@ -126,22 +127,20 @@ export async function POST(request: Request) {
       return streamStaticResponse(OFF_TOPIC_RESPONSE);
     }
 
-    const supabase = createSupabaseServer();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { userId } = await auth();
+    const supabase = createSupabaseAdmin();
 
     // ---- Load profile + behavior context ----
     let profileContext = "";
     let behaviorContext = "";
-    if (user) {
+    if (userId) {
       const [profileResult, behavior] = await Promise.all([
         supabase
           .from("ea_profiles")
           .select("*")
-          .eq("user_id", user.id)
+          .eq("user_id", userId)
           .limit(1),
-        loadUserBehaviorContext(supabase, user.id),
+        loadUserBehaviorContext(supabase, userId),
       ]);
 
       const profile = profileResult.data;

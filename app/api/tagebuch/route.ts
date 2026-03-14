@@ -1,12 +1,12 @@
-import { createSupabaseServer } from "@/lib/supabase/server";
+import { auth } from "@clerk/nextjs/server";
+import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
-  const supabase = createSupabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const supabase = createSupabaseAdmin();
 
   const url = new URL(request.url);
   const datum = url.searchParams.get("datum") || new Date().toISOString().split("T")[0];
@@ -14,7 +14,7 @@ export async function GET(request: Request) {
   const { data, error } = await supabase
     .from("ea_food_log")
     .select("*")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .eq("datum", datum)
     .order("created_at", { ascending: true });
 
@@ -23,11 +23,10 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const supabase = createSupabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const supabase = createSupabaseAdmin();
 
   const body = await request.json();
   const { mahlzeit_typ, beschreibung, kalorien_geschaetzt, datum } = body;
@@ -39,7 +38,7 @@ export async function POST(request: Request) {
   const { data, error } = await supabase
     .from("ea_food_log")
     .insert({
-      user_id: user.id,
+      user_id: userId,
       mahlzeit_typ,
       beschreibung,
       kalorien_geschaetzt: kalorien_geschaetzt || null,

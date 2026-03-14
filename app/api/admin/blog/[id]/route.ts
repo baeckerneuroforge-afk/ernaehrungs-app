@@ -1,16 +1,18 @@
-import { createSupabaseServer } from "@/lib/supabase/server";
+import { auth } from "@clerk/nextjs/server";
+import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
-async function checkAdmin(supabase: ReturnType<typeof createSupabaseServer>) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
+async function checkAdmin() {
+  const { userId } = await auth();
+  if (!userId) return null;
+  const supabase = createSupabaseAdmin();
   const { data } = await supabase
     .from("ea_user_roles")
     .select("role")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .limit(1);
   if (data?.[0]?.role !== "admin") return null;
-  return user;
+  return userId;
 }
 
 // GET: Single post
@@ -18,9 +20,10 @@ export async function GET(
   _request: Request,
   { params }: { params: { id: string } }
 ) {
-  const supabase = createSupabaseServer();
-  const user = await checkAdmin(supabase);
-  if (!user) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const adminUserId = await checkAdmin();
+  if (!adminUserId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  const supabase = createSupabaseAdmin();
 
   const { data, error } = await supabase
     .from("ea_blog_posts")
@@ -38,9 +41,10 @@ export async function PUT(
   request: Request,
   { params }: { params: { id: string } }
 ) {
-  const supabase = createSupabaseServer();
-  const user = await checkAdmin(supabase);
-  if (!user) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const adminUserId = await checkAdmin();
+  if (!adminUserId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  const supabase = createSupabaseAdmin();
 
   const body = await request.json();
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
@@ -68,9 +72,10 @@ export async function DELETE(
   _request: Request,
   { params }: { params: { id: string } }
 ) {
-  const supabase = createSupabaseServer();
-  const user = await checkAdmin(supabase);
-  if (!user) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const adminUserId = await checkAdmin();
+  if (!adminUserId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  const supabase = createSupabaseAdmin();
 
   // Get post to check wissensbasis status
   const { data: post } = await supabase

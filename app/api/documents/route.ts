@@ -1,4 +1,4 @@
-import { createSupabaseServer, createSupabaseAdmin } from "@/lib/supabase/server";
+import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { chunkText } from "@/lib/utils/chunking";
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
@@ -7,7 +7,7 @@ import mammoth from "mammoth";
 
 // GET: List all documents (grouped by source)
 export async function GET() {
-  const supabase = createSupabaseServer();
+  const supabase = createSupabaseAdmin();
 
   const { data, error } = await supabase
     .from("ea_documents")

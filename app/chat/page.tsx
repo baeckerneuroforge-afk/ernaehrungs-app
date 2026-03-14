@@ -1,4 +1,5 @@
-import { createSupabaseServer } from "@/lib/supabase/server";
+import { auth } from "@clerk/nextjs/server";
+import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { Navbar } from "@/components/layout/navbar";
 import { ChatClient } from "@/components/chat/chat-client";
@@ -6,17 +7,15 @@ import { ChatClient } from "@/components/chat/chat-client";
 export const dynamic = "force-dynamic";
 
 export default async function ChatPage() {
-  const supabase = createSupabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { userId } = await auth();
+  if (!userId) redirect("/sign-in");
 
-  if (!user) redirect("/login");
+  const supabase = createSupabaseAdmin();
 
   const { data: profile } = await supabase
     .from("ea_profiles")
     .select("id, name, review_consent")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .limit(1);
 
   // No profile → do onboarding first
@@ -28,7 +27,7 @@ export default async function ChatPage() {
   return (
     <div className="h-screen flex flex-col bg-surface-bg">
       <Navbar />
-      <ChatClient userId={user.id} userName={profile[0]?.name || "du"} />
+      <ChatClient userId={userId} userName={profile[0]?.name || "du"} />
     </div>
   );
 }

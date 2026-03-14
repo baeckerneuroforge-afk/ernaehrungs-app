@@ -1,4 +1,4 @@
-import { createSupabaseServer } from "@/lib/supabase/server";
+import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { BlogCard } from "@/components/blog/blog-card";
 import { CategoryFilter } from "@/components/blog/category-filter";
 import { Leaf } from "lucide-react";
@@ -19,7 +19,7 @@ export default async function BlogPage({
 }: {
   searchParams: { category?: string };
 }) {
-  const supabase = createSupabaseServer();
+  const supabase = createSupabaseAdmin();
 
   let query = supabase
     .from("ea_blog_posts")
