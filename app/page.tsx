@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import {
@@ -11,13 +11,11 @@ import {
   MessageCircle,
   Calendar,
   User,
-  GraduationCap,
   BookOpen,
-  ShieldCheck,
-  ClipboardList,
-  Sparkles,
+  TrendingUp,
+  CheckCircle,
   Send,
-  Crown,
+  RefreshCw,
 } from "lucide-react";
 
 function useScrollReveal() {
@@ -32,7 +30,7 @@ function useScrollReveal() {
           observer.unobserve(el);
         }
       },
-      { threshold: 0.15 }
+      { threshold: 0.1 }
     );
     observer.observe(el);
     return () => observer.disconnect();
@@ -44,336 +42,275 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen flex flex-col bg-surface-bg">
       <Navbar />
-
       <main className="flex-1">
-        {/* ──────────── HERO ──────────── */}
-        <section className="relative overflow-hidden">
-          {/* Background pattern */}
-          <div className="absolute inset-0">
-            <div className="absolute inset-0 bg-gradient-to-br from-primary-bg/60 via-surface-bg to-accent-warmPale/30" />
-            <div className="absolute top-20 right-10 w-72 h-72 bg-primary-bg/40 rounded-full blur-3xl" />
-            <div className="absolute bottom-10 left-10 w-64 h-64 bg-accent-warmPale/40 rounded-full blur-3xl" />
-          </div>
-
-          <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-24">
-            <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-              {/* Left: Text */}
-              <div>
-                <div className="inline-flex items-center gap-2 bg-white/80 backdrop-blur-sm border border-primary-pale rounded-full px-4 py-1.5 mb-6">
-                  <Sparkles className="w-3.5 h-3.5 text-accent-warm" />
-                  <span className="text-sm text-warm-text font-medium">
-                    Von einer Ernährungswissenschaftlerin
-                  </span>
-                </div>
-
-                <h1 className="text-4xl sm:text-5xl lg:text-[3.4rem] font-extrabold text-warm-dark leading-[1.1] mb-5 tracking-tight">
-                  Deine Ernährungs&shy;beraterin.{" "}
-                  <span className="text-primary">Immer dabei.</span>
-                </h1>
-
-                <p className="text-lg text-warm-muted mb-8 leading-relaxed max-w-lg">
-                  Fundiertes Fachwissen einer studierten Ernährungswissenschaftlerin
-                  — persönlich auf dich abgestimmt. Frag was du willst, bekomme
-                  Antworten die zu dir passen.
-                </p>
-
-                <div className="flex flex-col sm:flex-row items-start gap-3 mb-8">
-                  <Link
-                    href="/sign-up"
-                    className="w-full sm:w-auto bg-primary text-white px-7 py-3.5 rounded-2xl font-semibold text-base hover:bg-primary-light transition-all hover:shadow-lg hover:shadow-primary/20 flex items-center justify-center gap-2"
-                  >
-                    Kostenlos starten
-                    <ArrowRight className="w-4 h-4" />
-                  </Link>
-                  <a
-                    href="#preise"
-                    className="w-full sm:w-auto text-warm-muted px-7 py-3.5 rounded-2xl font-medium text-base hover:text-primary transition text-center"
-                  >
-                    Preise ansehen
-                  </a>
-                </div>
-
-                <p className="text-sm text-warm-light">
-                  Kostenlos starten — kein Abo nötig
-                </p>
-              </div>
-
-              {/* Right: Chat Mockup */}
-              <div className="relative">
-                <div className="bg-white rounded-3xl shadow-2xl shadow-primary/10 border border-warm-border overflow-hidden max-w-sm mx-auto lg:max-w-none">
-                  {/* Mockup header */}
-                  <div className="bg-primary px-5 py-3.5 flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
-                      <Sparkles className="w-4 h-4 text-white" />
-                    </div>
-                    <div>
-                      <p className="text-white font-semibold text-sm">Ernährungsberatung</p>
-                      <p className="text-white/70 text-xs">Online</p>
-                    </div>
-                  </div>
-                  {/* Messages */}
-                  <div className="p-5 space-y-4 bg-surface-bg">
-                    {/* User message */}
-                    <div className="flex justify-end">
-                      <div className="bg-primary text-white px-4 py-2.5 rounded-2xl rounded-br-md max-w-[85%]">
-                        <p className="text-sm">Was kann ich als Snack essen wenn ich Laktoseintoleranz habe?</p>
-                      </div>
-                    </div>
-                    {/* Assistant message */}
-                    <div className="flex gap-2.5">
-                      <div className="w-7 h-7 rounded-lg bg-primary-bg flex items-center justify-center flex-shrink-0 mt-1">
-                        <Sparkles className="w-3.5 h-3.5 text-primary" />
-                      </div>
-                      <div className="bg-white border border-warm-border px-4 py-3 rounded-2xl rounded-bl-md max-w-[85%]">
-                        <p className="text-sm text-warm-text leading-relaxed">
-                          Hier sind <strong>5 leckere Snack-Ideen</strong> für dich:
-                        </p>
-                        <ul className="text-sm text-warm-text mt-2 space-y-1">
-                          <li>1. Nüsse & Trockenfrüchte-Mix</li>
-                          <li>2. Reiswaffeln mit Avocado</li>
-                          <li>3. Dunkle Schokolade (ab 70%)</li>
-                          <li>4. Hummus mit Gemüsesticks</li>
-                          <li>5. Laktosefreier Joghurt mit Beeren</li>
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-                  {/* Input bar */}
-                  <div className="px-4 py-3 border-t border-warm-border bg-white flex items-center gap-2">
-                    <div className="flex-1 bg-surface-muted rounded-xl px-3 py-2">
-                      <p className="text-xs text-warm-light">Stelle eine Frage...</p>
-                    </div>
-                    <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center">
-                      <Send className="w-3.5 h-3.5 text-white" />
-                    </div>
-                  </div>
-                </div>
-                {/* Floating badge */}
-                <div className="absolute -bottom-4 -left-4 bg-white rounded-2xl shadow-lg border border-warm-border px-4 py-2.5 hidden sm:flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-primary-bg flex items-center justify-center">
-                    <Check className="w-3.5 h-3.5 text-primary" />
-                  </div>
-                  <p className="text-xs font-medium text-warm-text">Wissenschaftlich fundiert</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ──────────── TRUST / JANINE ──────────── */}
-        <TrustSection />
-
-        {/* ──────────── FEATURES ──────────── */}
+        <HeroSection />
+        <TrustBar />
         <FeaturesSection />
-
-        {/* ──────────── HOW IT WORKS ──────────── */}
         <HowItWorksSection />
-
-        {/* ──────────── EXAMPLE QUESTIONS ──────────── */}
+        <ClosedLoopSection />
         <ExampleQuestionsSection />
-
-        {/* ──────────── PRICING ──────────── */}
         <PricingSection />
-
-        {/* ──────────── FAQ ──────────── */}
+        <AboutJanineSection />
         <FaqSection />
-
-        {/* ──────────── CTA ──────────── */}
         <CtaSection />
       </main>
-
       <Footer />
     </div>
   );
 }
 
-/* ════════════════════════════════════════════
-   TRUST SECTION
-   ════════════════════════════════════════════ */
-function TrustSection() {
-  const ref = useScrollReveal();
+/* ═══════════════════════════════════════
+   HERO
+   ═══════════════════════════════════════ */
+function HeroSection() {
   return (
-    <section className="bg-white border-y border-warm-border">
-      <div ref={ref} className="reveal max-w-4xl mx-auto px-4 sm:px-6 py-16 text-center">
-        <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-6">
-          Das Fachwissen hinter der App
-        </p>
-        <h2 className="text-2xl sm:text-3xl font-bold text-warm-dark mb-8">
-          Aufgebaut auf dem Wissen von Janine —{" "}
-          <span className="text-primary">studierte Ernährungswissenschaftlerin</span>
-        </h2>
-
-        {/* Janine Avatar */}
-        <div className="flex justify-center mb-8">
-          <div className="w-28 h-28 rounded-full bg-gradient-to-br from-primary-bg to-primary-pale flex items-center justify-center border-4 border-white shadow-lg">
-            <span className="text-3xl font-bold text-primary">JB</span>
-          </div>
+    <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-16 pb-20 sm:pt-24 sm:pb-28">
+      <div className="grid lg:grid-cols-2 gap-14 lg:gap-20 items-center">
+        {/* Left */}
+        <div>
+          <h1 className="font-serif text-4xl sm:text-5xl lg:text-[3.5rem] font-semibold text-warm-dark leading-[1.15] mb-6">
+            Deine Ernahrungs&shy;beraterin.
+            <br />
+            <span className="text-primary">Immer dabei.</span>
+          </h1>
+          <p className="text-lg text-warm-muted leading-relaxed mb-8 max-w-md">
+            Fundiertes Fachwissen einer studierten Ernahrungswissenschaftlerin
+            — personlich auf dich abgestimmt. Frag was du willst, bekomme
+            Antworten die zu dir passen.
+          </p>
+          <Link
+            href="/sign-up"
+            className="inline-flex items-center gap-2.5 bg-primary text-white px-7 py-3.5 rounded-xl font-medium hover:bg-primary-light transition-all duration-200"
+          >
+            Kostenlos starten
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+          <p className="text-sm text-warm-light mt-4">
+            Kein Abo notig · Kostenlos testen
+          </p>
         </div>
 
-        {/* Trust badges */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8">
-          <TrustBadge
-            icon={<GraduationCap className="w-5 h-5 text-primary" />}
-            text="Studierte Ernährungswissenschaftlerin"
-          />
-          <TrustBadge
-            icon={<BookOpen className="w-5 h-5 text-primary" />}
-            text="Über 500 wissenschaftliche Quellen"
-          />
-          <TrustBadge
-            icon={<ShieldCheck className="w-5 h-5 text-primary" />}
-            text="DSGVO-konform & sicher"
-          />
+        {/* Right: Chat Mockup */}
+        <div className="relative">
+          <div className="bg-white rounded-2xl shadow-xl shadow-black/[0.06] border border-warm-border overflow-hidden">
+            {/* Header */}
+            <div className="bg-primary px-5 py-3.5 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center">
+                <MessageCircle className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <p className="text-white font-medium text-sm">Ernahrungsberatung</p>
+                <p className="text-white/60 text-xs">Online</p>
+              </div>
+            </div>
+            {/* Messages */}
+            <div className="p-5 space-y-4 bg-surface-bg min-h-[240px]">
+              <div className="flex justify-end">
+                <div className="bg-primary text-white px-4 py-2.5 rounded-2xl rounded-br-sm max-w-[80%]">
+                  <p className="text-sm">Was kann ich als Snack essen wenn ich Laktoseintoleranz habe?</p>
+                </div>
+              </div>
+              <div className="flex gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-primary-bg flex items-center justify-center flex-shrink-0 mt-1">
+                  <MessageCircle className="w-3.5 h-3.5 text-primary" />
+                </div>
+                <div className="bg-white border border-warm-border px-4 py-3 rounded-2xl rounded-bl-sm max-w-[80%]">
+                  <p className="text-sm text-warm-text leading-relaxed mb-2">
+                    Hier sind <strong>5 leckere Snack-Ideen</strong> fur dich:
+                  </p>
+                  <ul className="text-sm text-warm-muted space-y-0.5">
+                    <li>1. Nusse & Trockenfruchte-Mix</li>
+                    <li>2. Reiswaffeln mit Avocado</li>
+                    <li>3. Dunkle Schokolade (ab 70%)</li>
+                    <li>4. Hummus mit Gemusesticks</li>
+                    <li>5. Laktosefreier Joghurt mit Beeren</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            {/* Input */}
+            <div className="px-4 py-3 border-t border-warm-border bg-white flex items-center gap-2">
+              <div className="flex-1 bg-surface-muted rounded-lg px-3 py-2">
+                <p className="text-xs text-warm-light">Stelle eine Frage...</p>
+              </div>
+              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+                <Send className="w-3.5 h-3.5 text-white" />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </section>
   );
 }
 
-function TrustBadge({ icon, text }: { icon: React.ReactNode; text: string }) {
+/* ═══════════════════════════════════════
+   TRUST BAR
+   ═══════════════════════════════════════ */
+function TrustBar() {
+  const ref = useScrollReveal();
   return (
-    <div className="flex items-center gap-2.5 bg-surface-bg rounded-full px-5 py-2.5 border border-warm-border">
-      {icon}
-      <span className="text-sm font-medium text-warm-text">{text}</span>
+    <div ref={ref} className="reveal border-y border-warm-border bg-white">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6">
+        <p className="text-center text-sm text-warm-muted tracking-wide">
+          Studierte Ernahrungswissenschaftlerin · Uber 500 wissenschaftliche Quellen · DSGVO-konform
+        </p>
+      </div>
     </div>
   );
 }
 
-/* ════════════════════════════════════════════
-   FEATURES
-   ════════════════════════════════════════════ */
+/* ═══════════════════════════════════════
+   FEATURES (2x3)
+   ═══════════════════════════════════════ */
 function FeaturesSection() {
   const ref = useScrollReveal();
   return (
-    <section className="max-w-6xl mx-auto px-4 sm:px-6 py-20">
-      <div className="text-center mb-14">
-        <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3">
-          Was dich erwartet
-        </p>
-        <h2 className="text-2xl sm:text-3xl font-bold text-warm-dark">
-          Alles was du für bessere Ernährung brauchst
+    <section className="max-w-6xl mx-auto px-4 sm:px-6 py-24">
+      <div className="text-center mb-16">
+        <h2 className="font-serif text-3xl sm:text-4xl font-semibold text-warm-dark mb-3">
+          Alles fur bessere Ernahrung
         </h2>
+        <p className="text-warm-muted max-w-lg mx-auto">
+          Fundiertes Wissen, individuell auf dich abgestimmt
+        </p>
       </div>
-      <div ref={ref} className="reveal-stagger grid md:grid-cols-3 gap-6">
+      <div ref={ref} className="reveal-stagger grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
         <FeatureCard
-          icon={<MessageCircle className="w-6 h-6" />}
-          color="green"
-          title="Chatte über Ernährung"
-          description="Stelle jede Frage — von Nährstoffen bis Rezeptideen. Sofort fundierte Antworten, freundlich erklärt."
+          icon={<MessageCircle className="w-5 h-5" />}
+          title="KI-Chat"
+          description="Stelle jede Frage rund um Ernahrung. Sofort fundierte Antworten — basierend auf deinem Profil, Tagebuch und Zielen."
         />
         <FeatureCard
-          icon={<Calendar className="w-6 h-6" />}
-          color="amber"
-          title="Dein persönlicher Plan"
-          description="Erhalte einen Ernährungsplan der zu deinen Zielen, Allergien und Vorlieben passt. Keine generischen Pläne."
+          icon={<Calendar className="w-5 h-5" />}
+          title="Personliche Ernahrungsplane"
+          description="KI-generierte Wochenplane abgestimmt auf deine Ziele, Allergien, Vorlieben und echtes Essverhalten."
         />
         <FeatureCard
-          icon={<User className="w-6 h-6" />}
-          color="green"
-          title="Frag Janine direkt"
-          description="Für tiefergehende Fragen: schreibe Janine direkt in der App und erhalte eine persönliche Antwort."
+          icon={<BookOpen className="w-5 h-5" />}
+          title="Ernahrungstagebuch"
+          description="Erfasse deine Mahlzeiten. Deine Daten fliessen automatisch in Chat und Plane — fur immer bessere Empfehlungen."
+        />
+        <FeatureCard
+          icon={<TrendingUp className="w-5 h-5" />}
+          title="Gewichts- & Ziel-Tracker"
+          description="Logge dein Gewicht, setze Ziele und verfolge deinen Fortschritt visuell uber Wochen und Monate."
+        />
+        <FeatureCard
+          icon={<CheckCircle className="w-5 h-5" />}
+          title="Wochentlicher KI-Review"
+          description="Jeden Sonntag: Was lief gut, was kannst du verbessern, Fokus fur die nachste Woche. Warmherzig und fachlich."
+        />
+        <FeatureCard
+          icon={<User className="w-5 h-5" />}
+          title="Direktkontakt zu Janine"
+          description="Fur tiefergehende Fragen: schreibe Janine direkt in der App. Personliche Antwort von einer echten Expertin."
         />
       </div>
     </section>
   );
 }
 
-function FeatureCard({
-  icon,
-  color,
-  title,
-  description,
-}: {
-  icon: React.ReactNode;
-  color: "green" | "amber";
-  title: string;
-  description: string;
-}) {
-  const bgColor = color === "green" ? "bg-primary-bg" : "bg-accent-warmPale";
-  const iconColor = color === "green" ? "text-primary" : "text-accent-warm";
-  const borderHover = color === "green" ? "hover:border-primary-pale" : "hover:border-accent-warmPale";
-
+function FeatureCard({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
   return (
-    <div className={`bg-white rounded-2xl border border-warm-border p-7 hover:shadow-lg transition-all duration-300 ${borderHover} group`}>
-      <div className={`w-14 h-14 rounded-2xl ${bgColor} flex items-center justify-center ${iconColor} mb-5 group-hover:scale-105 transition-transform`}>
+    <div className="bg-white rounded-xl border border-warm-border p-6 hover:shadow-md transition-shadow duration-300">
+      <div className="w-10 h-10 rounded-lg bg-primary-bg flex items-center justify-center text-primary mb-4">
         {icon}
       </div>
-      <h3 className="font-bold text-warm-dark text-lg mb-2">{title}</h3>
-      <p className="text-warm-muted leading-relaxed">{description}</p>
+      <h3 className="font-semibold text-warm-dark mb-2">{title}</h3>
+      <p className="text-sm text-warm-muted leading-relaxed">{description}</p>
     </div>
   );
 }
 
-/* ════════════════════════════════════════════
-   HOW IT WORKS
-   ════════════════════════════════════════════ */
+/* ═══════════════════════════════════════
+   HOW IT WORKS (4 steps)
+   ═══════════════════════════════════════ */
 function HowItWorksSection() {
   const ref = useScrollReveal();
+  const steps = [
+    { num: "1", title: "Profil anlegen", desc: "Ziele, Allergien, Ernahrungsform — dauert 2 Minuten." },
+    { num: "2", title: "Frage stellen", desc: "Chatte mit deiner KI-Beraterin oder lass dir einen Plan erstellen." },
+    { num: "3", title: "Tagebuch fuhren", desc: "Erfasse was du isst. Die KI lernt dich besser kennen." },
+    { num: "4", title: "Besser essen", desc: "Jede Woche bessere Empfehlungen dank Closed-Loop-System." },
+  ];
   return (
     <section className="bg-white border-y border-warm-border">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-20">
-        <div className="text-center mb-14">
-          <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3">
-            In 3 Schritten
-          </p>
-          <h2 className="text-2xl sm:text-3xl font-bold text-warm-dark">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-24">
+        <div className="text-center mb-16">
+          <h2 className="font-serif text-3xl sm:text-4xl font-semibold text-warm-dark mb-3">
             So einfach geht&apos;s
           </h2>
+          <p className="text-warm-muted">In vier Schritten zu besserer Ernahrung</p>
         </div>
-
-        <div ref={ref} className="reveal-stagger grid md:grid-cols-3 gap-8 md:gap-6 steps-connector relative">
-          <StepCard
-            num="1"
-            icon={<ClipboardList className="w-6 h-6 text-primary" />}
-            title="Profil anlegen"
-            description="Trage deine Ziele, Allergien und Ernährungsform ein. Dauert nur 2 Minuten."
-          />
-          <StepCard
-            num="2"
-            icon={<MessageCircle className="w-6 h-6 text-primary" />}
-            title="Frage stellen"
-            description="Chatte mit deiner KI-Beraterin oder lass dir einen Plan erstellen."
-          />
-          <StepCard
-            num="3"
-            icon={<Check className="w-6 h-6 text-primary" />}
-            title="Besser essen"
-            description="Setze die Empfehlungen um und tracke deinen Fortschritt."
-          />
+        <div ref={ref} className="reveal-stagger grid md:grid-cols-4 gap-10 md:gap-6">
+          {steps.map((s) => (
+            <div key={s.num} className="text-center">
+              <div className="font-serif text-4xl font-semibold text-primary mb-3">{s.num}</div>
+              <h3 className="font-semibold text-warm-dark mb-2">{s.title}</h3>
+              <p className="text-sm text-warm-muted leading-relaxed">{s.desc}</p>
+            </div>
+          ))}
         </div>
       </div>
     </section>
   );
 }
 
-function StepCard({
-  num,
-  icon,
-  title,
-  description,
-}: {
-  num: string;
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-}) {
+/* ═══════════════════════════════════════
+   CLOSED LOOP (USP)
+   ═══════════════════════════════════════ */
+function ClosedLoopSection() {
+  const ref = useScrollReveal();
   return (
-    <div className="text-center relative z-10">
-      <div className="w-14 h-14 rounded-2xl bg-primary-bg border-2 border-primary-pale flex items-center justify-center mx-auto mb-5 relative">
-        {icon}
-        <span className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center shadow-sm">
-          {num}
-        </span>
+    <section className="max-w-5xl mx-auto px-4 sm:px-6 py-24">
+      <div ref={ref} className="reveal">
+        <div className="text-center mb-14">
+          <h2 className="font-serif text-3xl sm:text-4xl font-semibold text-warm-dark mb-4">
+            Je mehr du teilst, desto besser werde ich.
+          </h2>
+          <p className="text-warm-muted max-w-2xl mx-auto leading-relaxed">
+            Dein Tagebuch, dein Gewichtsverlauf und deine Ziele fliessen in jede Antwort ein.
+            Keine generischen Tipps — sondern Empfehlungen die auf deinem echten Verhalten basieren.
+          </p>
+        </div>
+
+        {/* Loop diagram */}
+        <div className="flex justify-center">
+          <div className="relative w-72 h-72 sm:w-80 sm:h-80">
+            {/* Center icon */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-16 h-16 rounded-full bg-primary-bg flex items-center justify-center">
+                <RefreshCw className="w-7 h-7 text-primary" />
+              </div>
+            </div>
+            {/* Circle border */}
+            <svg className="absolute inset-0 w-full h-full" viewBox="0 0 320 320">
+              <circle cx="160" cy="160" r="130" fill="none" stroke="#E8E5E0" strokeWidth="1.5" strokeDasharray="4 6" />
+            </svg>
+            {/* Labels */}
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1 bg-white border border-warm-border rounded-lg px-3 py-1.5 shadow-sm">
+              <p className="text-xs font-medium text-warm-dark">Tagebuch</p>
+            </div>
+            <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1 bg-white border border-warm-border rounded-lg px-3 py-1.5 shadow-sm">
+              <p className="text-xs font-medium text-warm-dark">Chat</p>
+            </div>
+            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1 bg-white border border-warm-border rounded-lg px-3 py-1.5 shadow-sm">
+              <p className="text-xs font-medium text-warm-dark">Plan</p>
+            </div>
+            <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 bg-white border border-warm-border rounded-lg px-3 py-1.5 shadow-sm">
+              <p className="text-xs font-medium text-warm-dark">Wochencheck</p>
+            </div>
+          </div>
+        </div>
       </div>
-      <h3 className="font-bold text-warm-dark text-lg mb-2">{title}</h3>
-      <p className="text-warm-muted max-w-xs mx-auto">{description}</p>
-    </div>
+    </section>
   );
 }
 
-/* ════════════════════════════════════════════
+/* ═══════════════════════════════════════
    EXAMPLE QUESTIONS
-   ════════════════════════════════════════════ */
+   ═══════════════════════════════════════ */
 function ExampleQuestionsSection() {
   const ref = useScrollReveal();
   const questions = [
@@ -381,105 +318,135 @@ function ExampleQuestionsSection() {
     "Wie bekomme ich genug Protein als Vegetarierin?",
     "Welche Lebensmittel helfen bei Eisenmangel?",
     "Erstelle mir einen Wochenplan ohne Gluten",
-    "Was sind gesunde Snacks für unterwegs?",
-    "Wie kann ich mich in der Schwangerschaft optimal ernähren?",
+    "Was sind gesunde Snacks fur unterwegs?",
+    "Wie ernahre ich mich in der Schwangerschaft optimal?",
   ];
-
   return (
-    <section className="max-w-4xl mx-auto px-4 sm:px-6 py-20">
-      <div className="text-center mb-12">
-        <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3">
-          Inspiration
-        </p>
-        <h2 className="text-2xl sm:text-3xl font-bold text-warm-dark">
-          Das fragen unsere Nutzer
-        </h2>
-      </div>
-      <div ref={ref} className="reveal-stagger grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {questions.map((q) => (
-          <Link
-            key={q}
-            href="/sign-in"
-            className="group bg-white border border-primary-pale/60 rounded-2xl px-5 py-4 text-sm text-warm-text hover:border-primary hover:shadow-md transition-all duration-300 flex items-start gap-3"
-          >
-            <MessageCircle className="w-4 h-4 text-primary flex-shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
-            <span className="leading-relaxed">{q}</span>
-          </Link>
-        ))}
+    <section className="bg-white border-y border-warm-border">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-24">
+        <div className="text-center mb-14">
+          <h2 className="font-serif text-3xl sm:text-4xl font-semibold text-warm-dark mb-3">
+            Das fragen unsere Nutzer
+          </h2>
+        </div>
+        <div ref={ref} className="reveal-stagger grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {questions.map((q) => (
+            <Link
+              key={q}
+              href="/sign-in"
+              className="bg-white border border-primary/20 rounded-xl px-5 py-4 text-sm text-warm-text hover:border-primary hover:shadow-sm transition-all duration-200"
+            >
+              {q}
+            </Link>
+          ))}
+        </div>
       </div>
     </section>
   );
 }
 
-/* ════════════════════════════════════════════
-   PRICING
-   ════════════════════════════════════════════ */
+/* ═══════════════════════════════════════
+   PRICING (3 tiers)
+   ═══════════════════════════════════════ */
 function PricingSection() {
   const ref = useScrollReveal();
+  const [yearly, setYearly] = useState(false);
+
   return (
-    <section id="preise" className="bg-white border-y border-warm-border">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-20">
-        <div className="text-center mb-14">
-          <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3">
-            Preise
-          </p>
-          <h2 className="text-2xl sm:text-3xl font-bold text-warm-dark">
-            Starte kostenlos. Upgrade wenn du mehr willst.
-          </h2>
+    <section id="preise" className="max-w-6xl mx-auto px-4 sm:px-6 py-24">
+      <div className="text-center mb-6">
+        <h2 className="font-serif text-3xl sm:text-4xl font-semibold text-warm-dark mb-3">
+          Wahle deinen Plan
+        </h2>
+        <p className="text-warm-muted">
+          Starte kostenlos. Upgrade wenn du mehr willst.
+        </p>
+      </div>
+
+      {/* Toggle */}
+      <div className="flex items-center justify-center gap-3 mb-14">
+        <span className={`text-sm ${!yearly ? "text-warm-dark font-medium" : "text-warm-muted"}`}>Monatlich</span>
+        <button
+          onClick={() => setYearly(!yearly)}
+          className={`relative w-12 h-6 rounded-full transition-colors duration-200 ${yearly ? "bg-primary" : "bg-warm-border"}`}
+        >
+          <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 ${yearly ? "translate-x-6" : "translate-x-0.5"}`} />
+        </button>
+        <span className={`text-sm ${yearly ? "text-warm-dark font-medium" : "text-warm-muted"}`}>
+          Jahrlich <span className="text-primary text-xs font-medium ml-1">Spare 20%</span>
+        </span>
+      </div>
+
+      <div ref={ref} className="reveal-stagger grid md:grid-cols-3 gap-5 max-w-5xl mx-auto">
+        {/* Free */}
+        <div className="bg-white rounded-xl border border-warm-border p-7 flex flex-col">
+          <h3 className="font-semibold text-warm-dark text-lg">Kostenlos</h3>
+          <div className="mt-3 mb-1">
+            <span className="text-3xl font-bold text-warm-dark">0 EUR</span>
+          </div>
+          <p className="text-sm text-warm-muted mb-7 mt-1">Zum Ausprobieren</p>
+          <ul className="space-y-3 mb-8 flex-1">
+            <PricingFeature text="10 Fragen pro Monat" />
+            <PricingFeature text="Basisprofil" />
+            <PricingFeature text="Allgemeine Empfehlungen" />
+          </ul>
+          <Link
+            href="/sign-up"
+            className="block text-center border border-warm-border text-warm-text px-5 py-2.5 rounded-xl text-sm font-medium hover:border-primary hover:text-primary transition"
+          >
+            Kostenlos starten
+          </Link>
         </div>
 
-        <div ref={ref} className="reveal-stagger grid md:grid-cols-2 gap-6 max-w-3xl mx-auto">
-          {/* Free */}
-          <div className="bg-surface-bg rounded-3xl border border-warm-border p-8 flex flex-col">
-            <h3 className="font-bold text-warm-dark text-xl">Kostenlos</h3>
-            <div className="mt-3 mb-1">
-              <span className="text-4xl font-extrabold text-warm-dark">0 €</span>
-              <span className="text-warm-muted text-sm ml-2">/ Monat</span>
-            </div>
-            <p className="text-warm-muted mb-8 mt-2">
-              Perfekt zum Ausprobieren
-            </p>
-            <ul className="space-y-3 mb-8 flex-1">
-              <PricingFeature text="Unbegrenzt chatten" />
-              <PricingFeature text="Profil anlegen" />
-              <PricingFeature text="Basis-Empfehlungen" />
-            </ul>
-            <Link
-              href="/sign-up"
-              className="block text-center border-2 border-warm-border text-warm-text px-5 py-3 rounded-2xl font-semibold hover:border-primary hover:text-primary transition"
-            >
-              Kostenlos starten
-            </Link>
+        {/* Pro */}
+        <div className="bg-white rounded-xl border-2 border-primary p-7 flex flex-col relative">
+          <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-white text-xs font-medium px-3 py-1 rounded-full">
+            Beliebt
           </div>
+          <h3 className="font-semibold text-warm-dark text-lg">Pro</h3>
+          <div className="mt-3 mb-1">
+            <span className="text-3xl font-bold text-warm-dark">{yearly ? "15,99" : "19,99"} EUR</span>
+            <span className="text-warm-muted text-sm ml-1">/ Monat</span>
+          </div>
+          <p className="text-sm text-warm-muted mb-7 mt-1">Fur bewusste Ernahrung</p>
+          <ul className="space-y-3 mb-8 flex-1">
+            <PricingFeature text="Unbegrenzte Fragen" highlight />
+            <PricingFeature text="Personliche Ernahrungsplane" highlight />
+            <PricingFeature text="Ernahrungstagebuch" highlight />
+            <PricingFeature text="Gewichts-Tracker" />
+            <PricingFeature text="Ziel-Tracker" />
+            <PricingFeature text="Wochentlicher KI-Review" />
+            <PricingFeature text="Rezeptvorschlage" />
+          </ul>
+          <Link
+            href="/sign-up"
+            className="block text-center bg-primary text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-primary-light transition"
+          >
+            Pro wahlen
+          </Link>
+        </div>
 
-          {/* Premium */}
-          <div className="bg-white rounded-3xl border-2 border-primary p-8 flex flex-col relative shadow-xl shadow-primary/5">
-            <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-primary text-white text-xs font-bold px-4 py-1.5 rounded-full flex items-center gap-1.5">
-              <Crown className="w-3 h-3" />
-              Premium
-            </div>
-            <h3 className="font-bold text-warm-dark text-xl">Premium</h3>
-            <div className="mt-3 mb-1">
-              <span className="text-4xl font-extrabold text-warm-dark">9,99 €</span>
-              <span className="text-warm-muted text-sm ml-2">/ Monat</span>
-            </div>
-            <p className="text-warm-muted mb-8 mt-2">
-              Dein vollwertiger Ernährungscoach
-            </p>
-            <ul className="space-y-3 mb-8 flex-1">
-              <PricingFeature text="Persönliche Ernährungspläne" highlight />
-              <PricingFeature text="Direkter Kontakt zu Janine" highlight />
-              <PricingFeature text="Rezeptvorschläge" highlight />
-              <PricingFeature text="Fortschritts-Tracking" />
-              <PricingFeature text="Wöchentlicher Check-in" />
-            </ul>
-            <Link
-              href="/sign-up"
-              className="block text-center bg-primary text-white px-5 py-3 rounded-2xl font-semibold hover:bg-primary-light transition-all hover:shadow-lg hover:shadow-primary/20"
-            >
-              Premium starten
-            </Link>
+        {/* Pro+ */}
+        <div className="bg-white rounded-xl border border-warm-border p-7 flex flex-col">
+          <h3 className="font-semibold text-warm-dark text-lg">Pro+</h3>
+          <div className="mt-3 mb-1">
+            <span className="text-3xl font-bold text-warm-dark">{yearly ? "39,99" : "49,99"} EUR</span>
+            <span className="text-warm-muted text-sm ml-1">/ Monat</span>
           </div>
+          <p className="text-sm text-warm-muted mb-7 mt-1">Mit personlicher Betreuung</p>
+          <ul className="space-y-3 mb-8 flex-1">
+            <PricingFeature text="Alles in Pro" />
+            <PricingFeature text="Wochentliche Reviews von Janine" highlight />
+            <PricingFeature text="Direktnachrichten an Janine" highlight />
+            <PricingFeature text="Prioritats-Support" />
+            <PricingFeature text="Erweiterte Planoptionen" />
+          </ul>
+          <Link
+            href="/sign-up"
+            className="block text-center bg-primary text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-primary-light transition"
+          >
+            Pro+ wahlen
+          </Link>
         </div>
       </div>
     </section>
@@ -488,56 +455,77 @@ function PricingSection() {
 
 function PricingFeature({ text, highlight }: { text: string; highlight?: boolean }) {
   return (
-    <li className="flex items-start gap-3">
-      <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${highlight ? "bg-primary-bg" : "bg-surface-muted"}`}>
-        <Check className={`w-3 h-3 ${highlight ? "text-primary" : "text-warm-light"}`} />
-      </div>
-      <span className={`text-sm ${highlight ? "text-warm-dark font-medium" : "text-warm-muted"}`}>
-        {text}
-      </span>
+    <li className="flex items-start gap-2.5">
+      <Check className={`w-4 h-4 mt-0.5 flex-shrink-0 ${highlight ? "text-primary" : "text-warm-light"}`} />
+      <span className={`text-sm ${highlight ? "text-warm-dark font-medium" : "text-warm-muted"}`}>{text}</span>
     </li>
   );
 }
 
-/* ════════════════════════════════════════════
+/* ═══════════════════════════════════════
+   ABOUT JANINE
+   ═══════════════════════════════════════ */
+function AboutJanineSection() {
+  const ref = useScrollReveal();
+  return (
+    <section className="bg-white border-y border-warm-border">
+      <div ref={ref} className="reveal max-w-3xl mx-auto px-4 sm:px-6 py-24">
+        <div className="text-center">
+          {/* Avatar */}
+          <div className="w-24 h-24 rounded-full bg-accent-warmPale flex items-center justify-center mx-auto mb-6 border-2 border-accent-warm/20">
+            <span className="text-2xl font-serif font-semibold text-accent-warm">J</span>
+          </div>
+          <h2 className="font-serif text-3xl font-semibold text-warm-dark mb-6">
+            Uber Janine
+          </h2>
+          <p className="text-warm-muted leading-relaxed max-w-xl mx-auto">
+            Studierte Ernahrungswissenschaftlerin mit Leidenschaft fur individuelle Beratung.
+            Die gesamte Wissensbasis dieser App basiert auf meinem Fachwissen — uber 500
+            wissenschaftliche Quellen, personlich kuratiert. Ich glaube daran, dass gute
+            Ernahrung einfach sein kann, wenn man die richtige Unterstutzung hat.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ═══════════════════════════════════════
    FAQ
-   ════════════════════════════════════════════ */
+   ═══════════════════════════════════════ */
 function FaqSection() {
   const ref = useScrollReveal();
   return (
-    <section id="faq" className="max-w-3xl mx-auto px-4 sm:px-6 py-20">
-      <div className="text-center mb-12">
-        <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3">
-          FAQ
-        </p>
-        <h2 className="text-2xl sm:text-3xl font-bold text-warm-dark">
-          Häufige Fragen
+    <section id="faq" className="max-w-3xl mx-auto px-4 sm:px-6 py-24">
+      <div className="text-center mb-14">
+        <h2 className="font-serif text-3xl sm:text-4xl font-semibold text-warm-dark">
+          Haufige Fragen
         </h2>
       </div>
-      <div ref={ref} className="reveal space-y-3">
+      <div ref={ref} className="reveal space-y-2">
         <FaqItem
-          question="Ersetzt die App eine echte Ernährungsberatung?"
-          answer="Nein – und das soll sie auch nicht. Die App basiert auf einer kuratierten Wissensbasis einer studierten Ernährungswissenschaftlerin und gibt fundierte Empfehlungen. Bei medizinischen Fragen oder Essstörungen verweisen wir immer an Fachpersonal. Im Premium-Tarif hast du zusätzlich direkten Kontakt zu Janine."
+          question="Was unterscheidet diese App von ChatGPT?"
+          answer="Die Wissensbasis wurde von einer studierten Ernahrungswissenschaftlerin kuratiert. Dazu fliessen dein Profil, Tagebuch und Gewichtsverlauf in jede Antwort ein — das kann kein generischer Chatbot."
         />
         <FaqItem
-          question="Wie funktioniert die KI-Beratung?"
-          answer="Du stellst eine Frage im Chat und bekommst sofort eine fundierte Antwort. Die KI greift auf über 500 wissenschaftliche Quellen zurück und berücksichtigt dein persönliches Profil — deine Ziele, Allergien und Ernährungsform."
+          question="Werden meine Daten an die KI weitergegeben?"
+          answer="Dein Name wird nie an die KI gesendet. Nur anonymisierte Profildaten (Ziele, Allergien) fliessen ein, damit die Antworten zu dir passen. Vollstandig DSGVO-konform."
         />
         <FaqItem
-          question="Sind meine Daten sicher?"
-          answer="Ja. Alle Daten werden verschlüsselt gespeichert und wir senden keine persönlich identifizierbaren Daten an externe Dienste. Du kannst dein Konto und alle Daten jederzeit löschen. Vollständig DSGVO-konform."
+          question="Kann ich die App auch vegan/vegetarisch nutzen?"
+          answer="Ja. Im Profil gibst du deine Ernahrungsform an und alle Empfehlungen werden darauf abgestimmt."
         />
         <FaqItem
-          question="Kann ich den kostenlosen Plan dauerhaft nutzen?"
-          answer="Ja, der kostenlose Plan bleibt dauerhaft kostenlos. Du kannst unbegrenzt chatten und bekommst Basis-Empfehlungen. Wenn du persönliche Ernährungspläne und direkten Kontakt zu Janine willst, ist Premium der richtige Schritt."
+          question="Ersetzt die App eine echte Ernahrungsberatung?"
+          answer="Die App bietet fundiertes Fachwissen, ersetzt aber keine arztliche Beratung. Bei ernsthaften Beschwerden empfehlen wir immer den Gang zum Arzt."
         />
         <FaqItem
-          question="Kann ich jederzeit kündigen?"
-          answer="Ja, du kannst dein Abo jederzeit zum Ende des Abrechnungszeitraums kündigen. Keine versteckten Gebühren, keine Mindestlaufzeit."
+          question="Was ist der Wochencheck?"
+          answer="Jeden Sonntag analysiert die KI dein Tagebuch der letzten Woche und gibt dir einen personlichen Ruckblick: Was lief gut, was kannst du verbessern, und einen Fokus fur die nachste Woche."
         />
         <FaqItem
-          question="Wer steckt hinter der App?"
-          answer="Die Wissensbasis wurde von Janine aufgebaut — einer studierten Ernährungswissenschaftlerin. Die App wird laufend weiterentwickelt und die KI-Antworten regelmäßig auf fachliche Richtigkeit geprüft."
+          question="Kann ich Janine direkt schreiben?"
+          answer="Ja, im Pro+ Plan kannst du Janine direkt in der App eine Nachricht schreiben und bekommst eine personliche Antwort."
         />
       </div>
     </section>
@@ -546,46 +534,39 @@ function FaqSection() {
 
 function FaqItem({ question, answer }: { question: string; answer: string }) {
   return (
-    <details className="group bg-white rounded-2xl border border-warm-border overflow-hidden hover:shadow-sm transition">
-      <summary className="flex items-center justify-between gap-4 p-5 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-        <span className="font-semibold text-warm-dark">{question}</span>
+    <details className="group border-b border-warm-border">
+      <summary className="flex items-center justify-between gap-4 py-5 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+        <span className="font-medium text-warm-dark">{question}</span>
         <ChevronDown className="w-4 h-4 text-warm-light flex-shrink-0 transition-transform group-open:rotate-180" />
       </summary>
-      <div className="px-5 pb-5 pt-0">
-        <p className="text-warm-muted leading-relaxed">{answer}</p>
+      <div className="pb-5">
+        <p className="text-sm text-warm-muted leading-relaxed">{answer}</p>
       </div>
     </details>
   );
 }
 
-/* ════════════════════════════════════════════
+/* ═══════════════════════════════════════
    CTA
-   ════════════════════════════════════════════ */
+   ═══════════════════════════════════════ */
 function CtaSection() {
   const ref = useScrollReveal();
   return (
-    <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-20">
-      <div ref={ref} className="reveal bg-gradient-to-br from-primary to-primary-light rounded-3xl p-8 sm:p-14 text-center text-white relative overflow-hidden">
-        {/* Decorative circles */}
-        <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
-        <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
-
-        <div className="relative">
-          <h2 className="text-2xl sm:text-4xl font-bold mb-4">
-            Bereit für fundierte Ernährungsberatung?
-          </h2>
-          <p className="text-white/80 mb-8 max-w-lg mx-auto text-lg">
-            Erstelle dein Profil und stelle deine erste Frage — kostenlos und
-            unverbindlich.
-          </p>
-          <Link
-            href="/sign-up"
-            className="inline-flex items-center gap-2 bg-white text-primary px-8 py-3.5 rounded-2xl font-bold text-base hover:bg-surface-bg transition-all hover:shadow-lg"
-          >
-            Jetzt loslegen
-            <ArrowRight className="w-4 h-4" />
-          </Link>
-        </div>
+    <section className="max-w-4xl mx-auto px-4 sm:px-6 pb-24">
+      <div ref={ref} className="reveal bg-primary rounded-2xl px-8 py-14 sm:px-14 sm:py-16 text-center text-white">
+        <h2 className="font-serif text-2xl sm:text-3xl font-semibold mb-4">
+          Bereit fur fundierte Ernahrungsberatung?
+        </h2>
+        <p className="text-white/70 mb-8 max-w-md mx-auto">
+          Erstelle dein Profil und stelle deine erste Frage — kostenlos und unverbindlich.
+        </p>
+        <Link
+          href="/sign-up"
+          className="inline-flex items-center gap-2 bg-white text-primary px-7 py-3 rounded-xl font-medium hover:bg-surface-bg transition"
+        >
+          Jetzt loslegen
+          <ArrowRight className="w-4 h-4" />
+        </Link>
       </div>
     </section>
   );

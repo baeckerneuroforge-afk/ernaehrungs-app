@@ -10,32 +10,33 @@ const config: Config = {
     extend: {
       colors: {
         primary: {
-          DEFAULT: "#16A34A",
-          light: "#22C55E",
-          soft: "#4ADE80",
-          pale: "#BBF7D0",
-          bg: "#DCFCE7",
+          DEFAULT: "#2D6A4F",
+          light: "#40916C",
+          soft: "#52B788",
+          pale: "#B7D7C8",
+          bg: "#E8F0EC",
         },
         accent: {
-          warm: "#F59E0B",
-          warmLight: "#FBBF24",
-          warmPale: "#FEF3C7",
+          warm: "#D4A574",
+          warmLight: "#E0BC96",
+          warmPale: "#F5EDE4",
         },
         surface: {
           DEFAULT: "#FFFFFF",
-          bg: "#FAFAF5",
-          muted: "#F5F5F0",
+          bg: "#FAFAF8",
+          muted: "#F3F2EE",
         },
         warm: {
-          dark: "#1C1917",
-          text: "#292524",
-          muted: "#78716C",
-          light: "#A8A29E",
-          border: "#E7E5E4",
+          dark: "#1A1A1A",
+          text: "#2C2C2C",
+          muted: "#6B7280",
+          light: "#9CA3AF",
+          border: "#E8E5E0",
         },
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "-apple-system", "sans-serif"],
+        sans: ["'DM Sans'", "Inter", "system-ui", "-apple-system", "sans-serif"],
+        serif: ["'Lora'", "Georgia", "'Times New Roman'", "serif"],
       },
       keyframes: {
         "fade-up": {

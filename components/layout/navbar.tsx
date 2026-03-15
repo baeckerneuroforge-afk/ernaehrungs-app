@@ -49,10 +49,10 @@ export function Navbar() {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center">
-              <Leaf className="w-5 h-5 text-white" />
+            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+              <Leaf className="w-4 h-4 text-white" />
             </div>
-            <span className="font-bold text-lg text-warm-dark hidden sm:block">
+            <span className="font-semibold text-warm-dark hidden sm:block">
               Ernährungsberatung
             </span>
           </Link>
