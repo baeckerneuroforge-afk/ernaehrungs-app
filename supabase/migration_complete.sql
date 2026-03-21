@@ -201,7 +201,7 @@ CREATE TABLE IF NOT EXISTS ea_credit_transactions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id text NOT NULL REFERENCES ea_users(clerk_id) ON DELETE CASCADE,
   amount integer NOT NULL,
-  type text NOT NULL CHECK (type IN ('subscription_grant', 'topup_purchase', 'chat_usage', 'plan_generation', 'manual_adjustment', 'expiry_reset')),
+  type text NOT NULL CHECK (type IN ('subscription_grant', 'topup_purchase', 'chat_usage', 'plan_generation', 'review', 'manual_adjustment', 'expiry_reset')),
   description text,
   balance_after integer,
   created_at timestamptz DEFAULT now()

@@ -107,8 +107,8 @@ Gerne helfe ich dir bei anderen Ernährungsthemen, zu denen ich fundierte Inform
 // 5. Model routing based on action type
 // ---------------------------------------------------------------------------
 function getModelForAction(action: string): string {
-  if (action === "plan_generation") {
-    return "claude-sonnet-4-5-20250929"; // Better model for complex plan generation
+  if (action === "plan_generation" || action === "review") {
+    return "claude-sonnet-4-5-20250929"; // Better model for complex tasks
   }
   return "claude-haiku-4-5-20251001"; // Fast + cheap for regular chat
 }
@@ -145,17 +145,16 @@ export async function POST(request: Request) {
 
     // ---- Classify action + determine credit cost ----
     const action = classifyAction(message);
-    const creditCost = action === "plan_generation"
-      ? CREDIT_COSTS.plan_generation
-      : CREDIT_COSTS.chat_usage;
+    const creditCost = CREDIT_COSTS[action === "chat" ? "chat_usage" : action];
+    const creditType = action === "chat" ? "chat_usage" : action;
+    const creditDesc = action === "plan_generation"
+      ? "Ernährungsplan generiert"
+      : action === "review"
+      ? "Wochenreview erstellt"
+      : "Chat-Nachricht";
 
     // ---- Credit check BEFORE calling Anthropic ----
-    const hasCredits = await deductCredits(
-      userId,
-      creditCost,
-      action === "plan_generation" ? "plan_generation" : "chat_usage",
-      action === "plan_generation" ? "Ernährungsplan generiert" : "Chat-Nachricht"
-    );
+    const hasCredits = await deductCredits(userId, creditCost, creditType, creditDesc);
 
     if (!hasCredits) {
       return new Response(

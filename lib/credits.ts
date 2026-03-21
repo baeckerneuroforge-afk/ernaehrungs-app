@@ -4,6 +4,7 @@ import { createSupabaseAdmin } from "@/lib/supabase/server";
 export const CREDIT_COSTS = {
   chat_usage: 1,
   plan_generation: 3,
+  review: 3,
 } as const;
 
 // Credits granted per plan per month
@@ -18,6 +19,7 @@ export type CreditActionType =
   | "topup_purchase"
   | "chat_usage"
   | "plan_generation"
+  | "review"
   | "manual_adjustment"
   | "expiry_reset";
 

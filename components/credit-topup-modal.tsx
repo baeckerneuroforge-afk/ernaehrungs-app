@@ -4,9 +4,9 @@ import { useState } from "react";
 import { X, Coins, Zap, Star } from "lucide-react";
 
 const PACKAGES = [
-  { key: "small", credits: 25, price: "4,99", icon: Coins, label: "Starter", popular: false },
-  { key: "medium", credits: 60, price: "9,99", icon: Zap, label: "Beliebt", popular: true },
-  { key: "large", credits: 150, price: "19,99", icon: Star, label: "Beste Wahl", popular: false },
+  { key: "small", credits: 30, price: "2,99", icon: Coins, label: "Starter", popular: false },
+  { key: "medium", credits: 75, price: "5,99", icon: Zap, label: "Beliebt", popular: true },
+  { key: "large", credits: 200, price: "12,99", icon: Star, label: "Beste Wahl", popular: false },
 ] as const;
 
 interface Props {
