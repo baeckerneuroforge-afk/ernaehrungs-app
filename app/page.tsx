@@ -23,6 +23,8 @@ function useScrollReveal() {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    // JS activates hiding — content visible by default if JS fails
+    el.classList.add("js-reveal");
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
@@ -30,9 +32,9 @@ function useScrollReveal() {
           observer.unobserve(el);
         }
       },
-      { threshold: 0.1 }
+      { threshold: 0.05, rootMargin: "0px 0px 50px 0px" }
     );
-    observer.observe(el);
+    requestAnimationFrame(() => observer.observe(el));
     return () => observer.disconnect();
   }, []);
   return ref;

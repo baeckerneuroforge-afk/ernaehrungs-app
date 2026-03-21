@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useUser, useAuth } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
 import { Leaf, LogOut, Menu, X, Settings } from "lucide-react";
+import { CreditBadge } from "@/components/credit-badge";
 
 export function Navbar() {
   const { user } = useUser();
@@ -84,6 +85,7 @@ export function Navbar() {
                     {link.label}
                   </Link>
                 ))}
+                <CreditBadge />
                 {isAdmin && (
                   <Link
                     href="/admin/dashboard"

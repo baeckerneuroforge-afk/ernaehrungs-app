@@ -6,6 +6,7 @@ import { ChatMessage } from "./message";
 import { HistorySidebar } from "./history-sidebar";
 import { DirectMessagePanel } from "./direct-message-panel";
 import { DmToast } from "./dm-toast";
+import { CreditTopupModal } from "@/components/credit-topup-modal";
 import { createClient } from "@/lib/supabase/client";
 
 interface Message {
@@ -48,6 +49,9 @@ export function ChatClient({ userId, userName }: ChatClientProps) {
   const [dmOpen, setDmOpen] = useState(false);
   const [unreadDMs, setUnreadDMs] = useState(0);
   const [showDmToast, setShowDmToast] = useState(false);
+
+  // Credit top-up modal
+  const [topupOpen, setTopupOpen] = useState(false);
 
   // Feedback state
   const [feedbackState, setFeedbackState] = useState<FeedbackState>("idle");
@@ -170,6 +174,21 @@ export function ChatClient({ userId, userName }: ChatClientProps) {
         body: JSON.stringify({ message: text, history: messages, userId }),
       });
 
+      if (response.status === 402) {
+        // Insufficient credits — show top-up modal
+        setMessages((prev) => {
+          const updated = [...prev];
+          updated[updated.length - 1] = {
+            role: "assistant",
+            content: "Du hast leider **keine Credits mehr**. Lade Credits nach, um weiterzumachen. 💚",
+          };
+          return updated;
+        });
+        setIsStreaming(false);
+        setTopupOpen(true);
+        return;
+      }
+
       if (!response.ok) throw new Error("Chat request failed");
 
       const reader = response.body?.getReader();
@@ -263,6 +282,9 @@ export function ChatClient({ userId, userName }: ChatClientProps) {
 
   return (
     <>
+      {/* Credit Top-Up Modal */}
+      <CreditTopupModal open={topupOpen} onClose={() => setTopupOpen(false)} />
+
       {/* DM Toast notification */}
       {showDmToast && (
         <DmToast

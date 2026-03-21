@@ -1,6 +1,8 @@
 import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { loadUserBehaviorContext } from "@/lib/utils/user-context";
+import { deductCredits, CREDIT_COSTS } from "@/lib/credits";
+import { classifyAction } from "@/lib/classify-action";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 
@@ -55,11 +57,8 @@ Bei diesen Themen antwortest du AUSSCHLIESSLICH mit einem freundlichen Verweis a
 // 2. ESKALATIONS-KEYWORDS – Pre-Check vor dem LLM
 // ---------------------------------------------------------------------------
 const ESCALATION_PATTERNS = [
-  // Essstörungen
   /\b(magersucht|bulimie|binge.?eating|essst[öo]rung|anorexie|purging)\b/i,
-  // Selbstverletzung
   /\b(suizid|selbstmord|umbringen|selbstverletz|ritzen|nicht.+leben)\b/i,
-  // Akute Symptome
   /\b(anaphyla|notarzt|notaufnahme|bewusstlos|atemnot|schock)\b/i,
 ];
 
@@ -75,7 +74,7 @@ const ESCALATION_RESPONSE = `Ich verstehe, dass dich das beschäftigt, und ich n
 Du bist nicht allein – es gibt Menschen, die dir helfen können. 💚`;
 
 // ---------------------------------------------------------------------------
-// 3. OFF-TOPIC-KEYWORDS – Fragen außerhalb Ernährung
+// 3. OFF-TOPIC-KEYWORDS
 // ---------------------------------------------------------------------------
 const OFF_TOPIC_PATTERNS = [
   /\b(programmier|coding|software|javascript|python|html)\b/i,
@@ -92,7 +91,7 @@ Hast du eine Ernährungsfrage? Dann stell sie gerne!
 💚 *Hinweis: Diese Informationen ersetzen keine ärztliche Beratung.*`;
 
 // ---------------------------------------------------------------------------
-// 4. NO-KNOWLEDGE FALLBACK – wenn RAG nichts findet
+// 4. NO-KNOWLEDGE FALLBACK
 // ---------------------------------------------------------------------------
 const NO_KNOWLEDGE_RESPONSE = `Zu dieser Frage habe ich leider **keine gesicherten Informationen** in meiner Wissensbasis.
 
@@ -105,7 +104,17 @@ Gerne helfe ich dir bei anderen Ernährungsthemen, zu denen ich fundierte Inform
 💚 *Hinweis: Diese Informationen ersetzen keine ärztliche Beratung.*`;
 
 // ---------------------------------------------------------------------------
-// 5. ROUTE HANDLER
+// 5. Model routing based on action type
+// ---------------------------------------------------------------------------
+function getModelForAction(action: string): string {
+  if (action === "plan_generation") {
+    return "claude-sonnet-4-5-20250929"; // Better model for complex plan generation
+  }
+  return "claude-haiku-4-5-20251001"; // Fast + cheap for regular chat
+}
+
+// ---------------------------------------------------------------------------
+// 6. ROUTE HANDLER
 // ---------------------------------------------------------------------------
 export async function POST(request: Request) {
   try {
@@ -117,57 +126,83 @@ export async function POST(request: Request) {
       });
     }
 
-    // ---- Pre-Check: Eskalation ----
+    // ---- Pre-Check: Eskalation (no credits consumed) ----
     if (ESCALATION_PATTERNS.some((p) => p.test(message))) {
       return streamStaticResponse(ESCALATION_RESPONSE);
     }
 
-    // ---- Pre-Check: Off-Topic ----
+    // ---- Pre-Check: Off-Topic (no credits consumed) ----
     if (OFF_TOPIC_PATTERNS.some((p) => p.test(message))) {
       return streamStaticResponse(OFF_TOPIC_RESPONSE);
     }
 
     const { userId } = await auth();
+    if (!userId) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+    }
+
     const supabase = createSupabaseAdmin();
+
+    // ---- Classify action + determine credit cost ----
+    const action = classifyAction(message);
+    const creditCost = action === "plan_generation"
+      ? CREDIT_COSTS.plan_generation
+      : CREDIT_COSTS.chat_usage;
+
+    // ---- Credit check BEFORE calling Anthropic ----
+    const hasCredits = await deductCredits(
+      userId,
+      creditCost,
+      action === "plan_generation" ? "plan_generation" : "chat_usage",
+      action === "plan_generation" ? "Ernährungsplan generiert" : "Chat-Nachricht"
+    );
+
+    if (!hasCredits) {
+      return new Response(
+        JSON.stringify({
+          error: "insufficient_credits",
+          message: "Nicht genügend Credits. Bitte lade Credits nach oder upgrade deinen Plan.",
+        }),
+        { status: 402 }
+      );
+    }
 
     // ---- Load profile + behavior context ----
     let profileContext = "";
     let behaviorContext = "";
-    if (userId) {
-      const [profileResult, behavior] = await Promise.all([
-        supabase
-          .from("ea_profiles")
-          .select("*")
-          .eq("user_id", userId)
-          .limit(1),
-        loadUserBehaviorContext(supabase, userId),
-      ]);
 
-      const profile = profileResult.data;
-      behaviorContext = behavior;
+    const [profileResult, behavior] = await Promise.all([
+      supabase
+        .from("ea_profiles")
+        .select("*")
+        .eq("user_id", userId)
+        .limit(1),
+      loadUserBehaviorContext(supabase, userId),
+    ]);
 
-      if (profile?.[0]) {
-        const p = profile[0];
-        const parts = [];
-        // Name bewusst NICHT an Claude senden (DSGVO – keine PII an externe API)
-        if (p.alter_jahre) parts.push(`Alter: ${p.alter_jahre} Jahre`);
-        if (p.geschlecht) parts.push(`Geschlecht: ${p.geschlecht}`);
-        if (p.groesse_cm) parts.push(`Größe: ${p.groesse_cm} cm`);
-        if (p.gewicht_kg) parts.push(`Gewicht: ${p.gewicht_kg} kg`);
-        if (p.ziel) parts.push(`Ziel: ${p.ziel}`);
-        if (p.allergien?.length)
-          parts.push(
-            `Allergien/Unverträglichkeiten: ${p.allergien.join(", ")}`
-          );
-        if (p.ernaehrungsform)
-          parts.push(`Ernährungsform: ${p.ernaehrungsform}`);
-        if (p.krankheiten) parts.push(`Besonderheiten: ${p.krankheiten}`);
-        if (p.aktivitaet) parts.push(`Aktivitätslevel: ${p.aktivitaet}`);
-        profileContext = parts.join("\n");
-      }
+    const profile = profileResult.data;
+    behaviorContext = behavior;
+
+    if (profile?.[0]) {
+      const p = profile[0];
+      const parts = [];
+      if (p.alter_jahre) parts.push(`Alter: ${p.alter_jahre} Jahre`);
+      if (p.geschlecht) parts.push(`Geschlecht: ${p.geschlecht}`);
+      if (p.groesse_cm) parts.push(`Größe: ${p.groesse_cm} cm`);
+      if (p.gewicht_kg) parts.push(`Gewicht: ${p.gewicht_kg} kg`);
+      if (p.ziel) parts.push(`Ziel: ${p.ziel}`);
+      if (p.allergien?.length)
+        parts.push(
+          `Allergien/Unverträglichkeiten: ${p.allergien.join(", ")}`
+        );
+      if (p.ernaehrungsform)
+        parts.push(`Ernährungsform: ${p.ernaehrungsform}`);
+      if (p.krankheiten) parts.push(`Besonderheiten: ${p.krankheiten}`);
+      if (p.aktivitaet) parts.push(`Aktivitätslevel: ${p.aktivitaet}`);
+      profileContext = parts.join("\n");
     }
 
-    // ---- RAG: Vektor-Suche mit strengerem Threshold ----
+    // ---- RAG: Vektor-Suche ----
     let knowledgeContext = "";
     let ragConfidence: "high" | "low" | "none" = "none";
 
@@ -186,7 +221,6 @@ export async function POST(request: Request) {
       });
 
       if (docs?.length) {
-        // Prüfe durchschnittliche Similarity
         const avgSimilarity =
           docs.reduce(
             (sum: number, d: { similarity: number }) => sum + d.similarity,
@@ -229,7 +263,6 @@ export async function POST(request: Request) {
 
     fullSystemPrompt += `\n\nWISSENSBASIS:\n${knowledgeContext}`;
 
-    // Bei niedriger Konfidenz: extra Warnung an das LLM
     if (ragConfidence === "low") {
       fullSystemPrompt += `\n\n⚠️ ACHTUNG: Die Relevanz der gefundenen Dokumente ist NIEDRIG. Sei besonders vorsichtig. Wenn die Dokumente die Frage nicht direkt beantworten, sage ehrlich, dass du dazu keine ausreichenden Informationen hast. Erfinde NICHTS.`;
     }
@@ -243,12 +276,15 @@ export async function POST(request: Request) {
       { role: "user" as const, content: message },
     ];
 
+    // ---- Dynamic model routing ----
+    const model = getModelForAction(action);
+
     // ---- Stream Response ----
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
     const stream = anthropic.messages.stream({
-      model: "claude-sonnet-4-5-20250929",
-      max_tokens: 1500,
+      model,
+      max_tokens: action === "plan_generation" ? 3000 : 1500,
       system: fullSystemPrompt,
       messages,
     });
