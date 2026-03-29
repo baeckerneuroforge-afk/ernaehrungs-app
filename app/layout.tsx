@@ -27,26 +27,32 @@ export const viewport: Viewport = {
 
 export const dynamic = "force-dynamic";
 
+const clerkKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return (
-    <ClerkProvider localization={deDE}>
-      <html lang="de">
-        <head>
-          <link rel="apple-touch-icon" href="/icons/icon-192.png" />
-        </head>
-        <body className="antialiased">
-          {children}
-          <script
-            dangerouslySetInnerHTML={{
-              __html: `if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js')}`,
-            }}
-          />
-        </body>
-      </html>
-    </ClerkProvider>
+  const shell = (
+    <html lang="de">
+      <head>
+        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+      </head>
+      <body className="antialiased">
+        {children}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js')}`,
+          }}
+        />
+      </body>
+    </html>
   );
+
+  if (!clerkKey) {
+    return shell;
+  }
+
+  return <ClerkProvider localization={deDE}>{shell}</ClerkProvider>;
 }
