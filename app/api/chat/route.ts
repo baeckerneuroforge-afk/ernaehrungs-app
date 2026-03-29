@@ -361,6 +361,22 @@ async function handleReviewFlow(
   supabase: ReturnType<typeof createSupabaseAdmin>,
   userId: string
 ): Promise<Response> {
+  // 0. Tier-check: load subscription plan
+  const { data: userData } = await supabase
+    .from("ea_users")
+    .select("subscription_plan")
+    .eq("clerk_id", userId)
+    .single();
+
+  const plan = userData?.subscription_plan || "free";
+
+  // Free users cannot access review
+  if (plan === "free") {
+    return streamStaticResponse(
+      "Der Wochenreview ist ab dem Basis-Plan verfügbar. Upgrade um deine Fortschritte jede Woche zusammengefasst zu bekommen. 💚"
+    );
+  }
+
   const sevenDaysAgo = new Date(
     Date.now() - 7 * 24 * 60 * 60 * 1000
   ).toISOString();
@@ -519,6 +535,9 @@ REGELN:
 - Lade ein, das Tagebuch und den Ernährungsplan auszuprobieren — als Einladung, nicht als Pflicht.`;
   }
 
+  // Tier-dependent: Block 3 only for pro_plus
+  const isPremium = plan === "pro_plus";
+
   const planEmpfehlung =
     hasActivePlan || hasFoodLog
       ? `
@@ -534,6 +553,39 @@ PLAN-EMPFEHLUNG:
       : `
 - Weise am Ende darauf hin, dass man jederzeit im Chat Fragen stellen oder einen Ernährungsplan erstellen lassen kann.
 - Erwähne dass der Plan sich an den Alltag anpasst — Fastenmodell, Mahlzeitenanzahl, Mealprep, alles wählbar.`;
+
+  // Block 3 section (only for premium)
+  const block3Section = isPremium
+    ? `
+---
+
+### 🎯 Deine Woche voraus
+
+REGELN:
+- Gib 2-3 konkrete, sofort umsetzbare Handlungsvorschläge für die nächste Woche.
+- JEDER Vorschlag muss enthalten:
+  1. Was genau tun (konkrete Handlung, nicht abstrakt)
+  2. Warum das zum Ziel passt (1 Satz, basierend auf der Wissensbasis)
+  3. Konkrete Lebensmittel oder Rezeptideen (nur aus der Wissensbasis)
+- Die Vorschläge müssen sich am Alltag orientieren. Wenn aus dem Tagebuch erkennbar ist, dass jemand wenig Zeit hat, schlage einfache Optionen vor.
+- Passe die Vorschläge an die Ernährungsform und Allergien an.
+- Formuliere als Einladung: "Du könntest nächste Woche versuchen..." nicht "Du musst..."
+${planEmpfehlung}
+
+---
+
+## Schlusssatz
+- Beende den Review mit einem motivierenden, ehrlichen Satz. Nicht übertrieben enthusiastisch, sondern authentisch.
+- Weise darauf hin, dass der Nutzer jederzeit im Chat konkrete Fragen stellen kann.`
+    : `
+---
+
+## Schlusssatz
+- Beende den Review mit einem motivierenden, kurzen Satz nach Block 2. Nicht übertrieben enthusiastisch, sondern authentisch.`;
+
+  const structureInstruction = isPremium
+    ? "Strukturiere deine Antwort IMMER in genau diese drei Abschnitte:"
+    : "Strukturiere deine Antwort in genau ZWEI Abschnitte: Gewichtsverlauf und Essgewohnheiten. Erstelle KEINEN dritten Abschnitt.";
 
   const reviewSystemPrompt = `Du bist eine KI-Ernährungsberaterin. Du erstellst gerade den persönlichen Wochenrückblick.
 
@@ -569,7 +621,7 @@ ${hasActivePlan ? JSON.stringify({ parameters: activePlan.parameters, plan_data:
 
 ## Struktur deines Wochenrückblicks
 
-Strukturiere deine Antwort IMMER in genau diese drei Abschnitte:
+${structureInstruction}
 
 ---
 
@@ -595,27 +647,7 @@ Unabhängig vom Modus gelten immer:
 - Wenn Ziel = Gesünder essen: Fokus auf Vielfalt, Mikronährstoffe, Gemüseanteil.
 - Wenn Ziel = Mehr Energie: Fokus auf Blutzuckerstabilität, Mahlzeitenregelmäßigkeit, Hydration.
 - Berücksichtige Allergien und Ernährungsform bei allen Empfehlungen.
-
----
-
-### 🎯 Deine Woche voraus
-
-REGELN:
-- Gib 2-3 konkrete, sofort umsetzbare Handlungsvorschläge für die nächste Woche.
-- JEDER Vorschlag muss enthalten:
-  1. Was genau tun (konkrete Handlung, nicht abstrakt)
-  2. Warum das zum Ziel passt (1 Satz, basierend auf der Wissensbasis)
-  3. Konkrete Lebensmittel oder Rezeptideen (nur aus der Wissensbasis)
-- Die Vorschläge müssen sich am Alltag orientieren. Wenn aus dem Tagebuch erkennbar ist, dass jemand wenig Zeit hat, schlage einfache Optionen vor.
-- Passe die Vorschläge an die Ernährungsform und Allergien an.
-- Formuliere als Einladung: "Du könntest nächste Woche versuchen..." nicht "Du musst..."
-${planEmpfehlung}
-
----
-
-## Schlusssatz
-- Beende den Review mit einem motivierenden, ehrlichen Satz. Nicht übertrieben enthusiastisch, sondern authentisch.
-- Weise darauf hin, dass der Nutzer jederzeit im Chat konkrete Fragen stellen kann.
+${block3Section}
 
 ## QUELLENREGELN — STRIKT EINHALTEN
 - Du antwortest AUSSCHLIESSLICH auf Basis der bereitgestellten Wissensbasis-Dokumente und der Nutzerdaten.
@@ -634,14 +666,18 @@ ${planEmpfehlung}
 - Keine Informationen aus externen Quellen
 - Keine Fastenmodelle die nicht in der Wissensbasis belegt sind`;
 
-  // 4. Stream via Anthropic
+  // 4. Stream via Anthropic (tier-dependent token limit)
+  const maxTokens = isPremium ? 2000 : 1200;
+
+  const proTeaserText = `\n\n---\n\n### 🎯 Deine Woche voraus\n\nMöchtest du konkrete Handlungsvorschläge für nächste Woche — mit Lebensmittelempfehlungen, Rezeptideen und einem angepassten Ernährungsplan? Upgrade auf Premium für den vollen Wochenrückblick.\n\n[Premium entdecken →]`;
+
   const anthropic = new Anthropic({
     apiKey: process.env.ANTHROPIC_API_KEY,
   });
 
   const stream = anthropic.messages.stream({
     model: getModelForAction("review"),
-    max_tokens: 2000,
+    max_tokens: maxTokens,
     system: reviewSystemPrompt,
     messages: [
       { role: "user", content: "Erstelle meinen Wochenrückblick." },
@@ -666,6 +702,16 @@ ${planEmpfehlung}
             );
           }
         }
+
+        // For pro users: append static teaser text for Block 3
+        if (!isPremium) {
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({ type: "text", text: proTeaserText })}\n\n`
+            )
+          );
+        }
+
         controller.enqueue(
           encoder.encode(
             `data: ${JSON.stringify({ type: "done" })}\n\n`
