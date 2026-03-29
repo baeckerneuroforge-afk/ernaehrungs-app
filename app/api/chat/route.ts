@@ -153,6 +153,39 @@ export async function POST(request: Request) {
       ? "Wochenreview erstellt"
       : "Chat-Nachricht";
 
+    // ---- REVIEW FLOW (tier check before credit deduction) ----
+    if (action === "review") {
+      // Check tier BEFORE deducting credits
+      const { data: userData } = await supabase
+        .from("ea_users")
+        .select("subscription_plan")
+        .eq("clerk_id", userId)
+        .single();
+
+      const userPlan = userData?.subscription_plan || "free";
+
+      if (userPlan === "free") {
+        // No credits deducted for blocked feature
+        return streamStaticResponse(
+          "Der Wochenreview ist ab dem Basis-Plan verfügbar. Upgrade um deine Fortschritte jede Woche zusammengefasst zu bekommen. 💚"
+        );
+      }
+
+      // Now deduct credits for eligible users
+      const hasCredits = await deductCredits(userId, creditCost, creditType, creditDesc);
+      if (!hasCredits) {
+        return new Response(
+          JSON.stringify({
+            error: "insufficient_credits",
+            message: "Nicht genügend Credits. Bitte lade Credits nach oder upgrade deinen Plan.",
+          }),
+          { status: 402 }
+        );
+      }
+
+      return handleReviewFlow(supabase, userId, userPlan);
+    }
+
     // ---- Credit check BEFORE calling Anthropic ----
     const hasCredits = await deductCredits(userId, creditCost, creditType, creditDesc);
 
@@ -164,11 +197,6 @@ export async function POST(request: Request) {
         }),
         { status: 402 }
       );
-    }
-
-    // ---- REVIEW FLOW ----
-    if (action === "review") {
-      return handleReviewFlow(supabase, userId);
     }
 
     // ---- Load profile + behavior context ----
@@ -359,24 +387,9 @@ async function generateEmbedding(text: string): Promise<string> {
 // ---------------------------------------------------------------------------
 async function handleReviewFlow(
   supabase: ReturnType<typeof createSupabaseAdmin>,
-  userId: string
+  userId: string,
+  plan: string
 ): Promise<Response> {
-  // 0. Tier-check: load subscription plan
-  const { data: userData } = await supabase
-    .from("ea_users")
-    .select("subscription_plan")
-    .eq("clerk_id", userId)
-    .single();
-
-  const plan = userData?.subscription_plan || "free";
-
-  // Free users cannot access review
-  if (plan === "free") {
-    return streamStaticResponse(
-      "Der Wochenreview ist ab dem Basis-Plan verfügbar. Upgrade um deine Fortschritte jede Woche zusammengefasst zu bekommen. 💚"
-    );
-  }
-
   const sevenDaysAgo = new Date(
     Date.now() - 7 * 24 * 60 * 60 * 1000
   ).toISOString();
