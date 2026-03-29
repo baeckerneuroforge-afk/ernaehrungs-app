@@ -166,6 +166,11 @@ export async function POST(request: Request) {
       );
     }
 
+    // ---- REVIEW FLOW ----
+    if (action === "review") {
+      return handleReviewFlow(supabase, userId);
+    }
+
     // ---- Load profile + behavior context ----
     let profileContext = "";
     let behaviorContext = "";
@@ -335,6 +340,357 @@ export async function POST(request: Request) {
       status: 500,
     });
   }
+}
+
+// ---------------------------------------------------------------------------
+// Helper: Generate embedding for RAG search
+// ---------------------------------------------------------------------------
+async function generateEmbedding(text: string): Promise<string> {
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const res = await openai.embeddings.create({
+    model: "text-embedding-3-small",
+    input: text,
+  });
+  return JSON.stringify(res.data[0].embedding);
+}
+
+// ---------------------------------------------------------------------------
+// REVIEW FLOW – Dedicated weekly review logic
+// ---------------------------------------------------------------------------
+async function handleReviewFlow(
+  supabase: ReturnType<typeof createSupabaseAdmin>,
+  userId: string
+): Promise<Response> {
+  const sevenDaysAgo = new Date(
+    Date.now() - 7 * 24 * 60 * 60 * 1000
+  ).toISOString();
+
+  // 1. Collect all data in parallel
+  const [weightResult, foodResult, profileResult, zieleResult, planResult] =
+    await Promise.all([
+      supabase
+        .from("ea_weight_logs")
+        .select("*")
+        .eq("user_id", userId)
+        .gte("created_at", sevenDaysAgo)
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("ea_food_log")
+        .select("*")
+        .eq("user_id", userId)
+        .gte("created_at", sevenDaysAgo)
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("ea_profiles")
+        .select("*")
+        .eq("user_id", userId)
+        .single(),
+      supabase.from("ea_ziele").select("*").eq("user_id", userId),
+      supabase
+        .from("ea_meal_plans")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("status", "active")
+        .order("created_at", { ascending: false })
+        .limit(1),
+    ]);
+
+  const weightLogs = weightResult.data;
+  const foodLogs = foodResult.data;
+  const profile = profileResult.data;
+  const ziele = zieleResult.data;
+  const activePlan = planResult.data?.[0] || null;
+
+  // 2. Build dynamic RAG search terms
+  const searchTerms: string[] = [];
+
+  if (profile?.ziel) searchTerms.push(profile.ziel);
+  if (profile?.ernaehrungsform) searchTerms.push(profile.ernaehrungsform);
+
+  if (
+    activePlan?.parameters?.fasting &&
+    activePlan.parameters.fasting !== "none"
+  ) {
+    searchTerms.push(activePlan.parameters.fasting + " Intervallfasten");
+  }
+
+  if (foodLogs?.length) {
+    const allFoods = foodLogs
+      .map(
+        (f: Record<string, unknown>) =>
+          (f.beschreibung as string) || ""
+      )
+      .join(" ")
+      .toLowerCase();
+    if (/brot|nudel|pasta|reis|kartoffel/i.test(allFoods))
+      searchTerms.push("Kohlenhydrate Sättigung Alternativen");
+    if (!/fleisch|fisch|ei|quark|tofu|linsen|bohnen/i.test(allFoods))
+      searchTerms.push("Proteinquellen");
+    if (/schoko|süß|chips|kuchen|keks/i.test(allFoods))
+      searchTerms.push("Heißhunger gesunde Snacks");
+  }
+
+  if (profile?.ziel?.toLowerCase().includes("abnehm"))
+    searchTerms.push("Gewichtsreduktion Sättigung Kaloriendefizit");
+  if (profile?.ziel?.toLowerCase().includes("muskel"))
+    searchTerms.push("Muskelaufbau Protein Kalorien Training");
+  if (profile?.ziel?.toLowerCase().includes("gesund"))
+    searchTerms.push("Ausgewogene Ernährung Mikronährstoffe Gemüse");
+  if (profile?.ziel?.toLowerCase().includes("energie"))
+    searchTerms.push("Blutzucker Energie Mahlzeitenrhythmus");
+  if (profile?.allergien?.length)
+    searchTerms.push(profile.allergien.join(" "));
+
+  const searchQuery = searchTerms.length
+    ? searchTerms.join(" ")
+    : "Ernährung gesunde Lebensweise Wochenrückblick";
+
+  let relevantDocumentsText =
+    "Keine relevanten Dokumente gefunden.";
+  try {
+    const embedding = await generateEmbedding(searchQuery);
+    const { data: relevantDocs } = await supabase.rpc(
+      "ea_match_documents",
+      {
+        query_embedding: embedding,
+        match_threshold: 0.3,
+        match_count: 8,
+      }
+    );
+    if (relevantDocs?.length) {
+      relevantDocumentsText = relevantDocs
+        .map((d: { content: string }) => d.content)
+        .join("\n\n---\n\n");
+    }
+  } catch (e) {
+    console.error("Review RAG search error:", e);
+  }
+
+  // 3. Build review system prompt
+  const hasFoodLog = foodLogs && foodLogs.length > 0;
+  const hasActivePlan = activePlan && activePlan.plan_data;
+  const hasWeightData = weightLogs && weightLogs.length > 0;
+
+  let essgewohnheitenBlock: string;
+
+  if (hasActivePlan && hasFoodLog) {
+    essgewohnheitenBlock = `
+MODUS: PLAN-VS-REALITÄT-ABGLEICH
+
+Dir liegen sowohl der aktive Ernährungsplan als auch das Tagebuch vor. Vergleiche beide — aber als Erkenntnis, NICHT als Bewertung.
+
+REGELN:
+- Erkenne wo Plan und Realität übereinstimmen und wo sie abweichen.
+- Formuliere Abweichungen IMMER als Anpassungsvorschlag, nie als Kritik. Beispiel: "Dein Plan hatte 5x Frühstück vorgesehen, du hast 3x eingetragen — vielleicht passt ein späterer Start besser zu deinem Rhythmus."
+- Wenn der Plan ein Fastenmodell hatte (z.B. 16:8): Prüfe ob die Tagebuch-Zeiten zum Fastenfenster passen. Wenn nicht, schlage ein anderes in der Wissensbasis belegtes Modell vor. ERLAUBTE Fastenmodelle: 16:8, 20:4, 5:2, 1:1 (Alternate Day), Periodisches Fasten. Schlage NIE ein Modell vor das nicht in dieser Liste steht.
+- Wenn der Plan Mealprep vorsah: Prüfe ob die vorbereiteten Gerichte im Tagebuch auftauchen. Wenn nicht, frage ob das Vorkochen zu aufwändig war und schlage einfachere Mealprep-Optionen vor.
+- Verknüpfe JEDEN Tipp mit dem persönlichen Ziel.
+- Alle Tipps müssen aus der Wissensbasis ableitbar sein.`;
+  } else if (hasFoodLog) {
+    essgewohnheitenBlock = `
+MODUS: NUR TAGEBUCH-ANALYSE
+
+Es liegt kein aktiver Ernährungsplan vor, aber ein Tagebuch. Analysiere die echten Essgewohnheiten.
+
+REGELN:
+- Erkenne Muster aus dem Tagebuch (Mahlzeitenrhythmus, häufige Lebensmittel, Lücken).
+- Verknüpfe JEDEN Tipp mit dem persönlichen Ziel.
+- Weise am Ende freundlich darauf hin, dass ein Ernährungsplan die Empfehlungen noch persönlicher machen würde — als Einladung, nicht als Pflicht.
+- Alle Tipps müssen aus der Wissensbasis ableitbar sein.`;
+  } else if (hasActivePlan) {
+    essgewohnheitenBlock = `
+MODUS: NUR PLAN VORHANDEN
+
+Es liegt ein Ernährungsplan vor, aber kein Tagebuch. Ohne Tagebuch kannst du nicht analysieren was wirklich gegessen wurde.
+
+REGELN:
+- Erkläre freundlich, dass der Review mit Tagebuch viel wertvoller wäre, weil du dann echte Muster erkennen kannst statt nur den Plan zu kommentieren.
+- Gib 1-2 allgemeine Tipps basierend auf dem Profil und der Wissensbasis, die zum Ziel passen.
+- Motiviere das Tagebuch zu nutzen — maximal 2-3 Sätze, kein Guilt-Tripping.`;
+  } else {
+    essgewohnheitenBlock = `
+MODUS: WEDER PLAN NOCH TAGEBUCH
+
+Weder Ernährungsplan noch Tagebuch sind vorhanden.
+
+REGELN:
+- Erkläre freundlich dass der Review mit Daten jede Woche persönlicher und wertvoller wird.
+- Gib 1-2 allgemeine Tipps basierend auf dem Profil und der Wissensbasis.
+- Lade ein, das Tagebuch und den Ernährungsplan auszuprobieren — als Einladung, nicht als Pflicht.`;
+  }
+
+  const planEmpfehlung =
+    hasActivePlan || hasFoodLog
+      ? `
+PLAN-EMPFEHLUNG:
+- Beende Block 3 mit einem konkreten Vorschlag für einen angepassten Ernährungsplan basierend auf den Review-Erkenntnissen.
+- Formuliere es so: "Basierend auf deiner Woche würde ich folgende Anpassungen für deinen nächsten Plan vorschlagen:" und dann konkrete Parameter-Empfehlungen.
+- ERLAUBTE Parameter-Empfehlungen (nur diese, keine anderen):
+  - Fastenmodell ändern: NUR auf 16:8, 20:4, 5:2, 1:1, Periodisches Fasten, oder Kein Fasten. KEINE anderen Fastenmodelle erfinden.
+  - Mahlzeitenanzahl anpassen (1, 2, 3, 4, 5)
+  - Mealprep an/aus oder Tage anpassen
+  - Timing anpassen
+- Beende mit: "Soll ich dir einen angepassten Plan für nächste Woche erstellen?"`
+      : `
+- Weise am Ende darauf hin, dass man jederzeit im Chat Fragen stellen oder einen Ernährungsplan erstellen lassen kann.
+- Erwähne dass der Plan sich an den Alltag anpasst — Fastenmodell, Mahlzeitenanzahl, Mealprep, alles wählbar.`;
+
+  const reviewSystemPrompt = `Du bist eine KI-Ernährungsberaterin. Du erstellst gerade den persönlichen Wochenrückblick.
+
+## Deine Persönlichkeit
+- Sprich den User mit Du an
+- Freundlich, warm, fachlich fundiert
+- Kein Arzt-Ton, kein Fitness-Influencer-Ton
+- Du bist wie eine kluge Freundin die Ernährungswissenschaft studiert hat
+- Motivierend ohne zu belehren
+
+## Wissensbasis
+
+Die folgenden Dokumente sind deine EINZIGE fachliche Grundlage. Alle Ernährungstipps, Lebensmittelempfehlungen und Handlungsvorschläge müssen sich aus diesen Dokumenten ableiten lassen.
+
+${relevantDocumentsText}
+
+## Nutzerdaten
+
+### Profil
+${JSON.stringify(profile, null, 2)}
+
+### Aktive Ziele
+${JSON.stringify(ziele, null, 2)}
+
+### Gewichtsverlauf (letzte 7 Tage)
+${hasWeightData ? JSON.stringify(weightLogs, null, 2) : "Keine Gewichtsdaten eingetragen."}
+
+### Ernährungstagebuch (letzte 7 Tage)
+${hasFoodLog ? JSON.stringify(foodLogs, null, 2) : "Kein Tagebuch geführt."}
+
+### Aktiver Ernährungsplan
+${hasActivePlan ? JSON.stringify({ parameters: activePlan.parameters, plan_data: activePlan.plan_data }, null, 2) : "Kein aktiver Ernährungsplan vorhanden."}
+
+## Struktur deines Wochenrückblicks
+
+Strukturiere deine Antwort IMMER in genau diese drei Abschnitte:
+
+---
+
+### 📊 Dein Gewichtsverlauf
+
+REGELN — STRIKT EINHALTEN:
+- Beschreibe das Gewicht AUSSCHLIESSLICH als Bereich: "Dein Gewicht lag diese Woche zwischen X und Y kg."
+- Nenne NIEMALS eine einzelne Veränderung als "Zunahme" oder "Abnahme".
+- Sprich nur von einem Trend, wenn der Nutzer seit 3+ Wochen Daten einträgt UND eine konsistente Richtung erkennbar ist. Bei einer einzelnen Woche gibt es keinen Trend — nur eine Momentaufnahme.
+- Gewichtsschwankungen von bis zu 1-2 kg sind völlig normal. Erwähne das IMMER wenn Schwankungen in diesem Bereich liegen, mit möglichen Ursachen: Wasserhaushalt, hormoneller Zyklus, Salzkonsum, Stress, Schlafqualität.
+- Vermeide JEDE Formulierung die Schuld oder Wertung impliziert: kein "trotzdem zugenommen", kein "leider gestiegen", kein "nicht geschafft", kein "super abgenommen", kein "toll gemacht".
+- Berichte das Gewicht wie einen Wetterbericht: sachlich, neutral, informativ.
+- Falls keine Gewichtsdaten vorhanden: Ermutige freundlich, das Tracking zu nutzen. Erkläre kurz den Nutzen (Muster erkennen über Zeit, nicht kontrollieren). Maximal 2-3 Sätze.
+
+---
+
+### 🍽️ Deine Essgewohnheiten
+${essgewohnheitenBlock}
+
+Unabhängig vom Modus gelten immer:
+- Wenn Ziel = Abnehmen: Fokus auf Sättigung, Proteinverteilung, Mahlzeitenrhythmus.
+- Wenn Ziel = Muskelaufbau: Fokus auf Proteinmenge, Timing, Kalorienversorgung.
+- Wenn Ziel = Gesünder essen: Fokus auf Vielfalt, Mikronährstoffe, Gemüseanteil.
+- Wenn Ziel = Mehr Energie: Fokus auf Blutzuckerstabilität, Mahlzeitenregelmäßigkeit, Hydration.
+- Berücksichtige Allergien und Ernährungsform bei allen Empfehlungen.
+
+---
+
+### 🎯 Deine Woche voraus
+
+REGELN:
+- Gib 2-3 konkrete, sofort umsetzbare Handlungsvorschläge für die nächste Woche.
+- JEDER Vorschlag muss enthalten:
+  1. Was genau tun (konkrete Handlung, nicht abstrakt)
+  2. Warum das zum Ziel passt (1 Satz, basierend auf der Wissensbasis)
+  3. Konkrete Lebensmittel oder Rezeptideen (nur aus der Wissensbasis)
+- Die Vorschläge müssen sich am Alltag orientieren. Wenn aus dem Tagebuch erkennbar ist, dass jemand wenig Zeit hat, schlage einfache Optionen vor.
+- Passe die Vorschläge an die Ernährungsform und Allergien an.
+- Formuliere als Einladung: "Du könntest nächste Woche versuchen..." nicht "Du musst..."
+${planEmpfehlung}
+
+---
+
+## Schlusssatz
+- Beende den Review mit einem motivierenden, ehrlichen Satz. Nicht übertrieben enthusiastisch, sondern authentisch.
+- Weise darauf hin, dass der Nutzer jederzeit im Chat konkrete Fragen stellen kann.
+
+## QUELLENREGELN — STRIKT EINHALTEN
+- Du antwortest AUSSCHLIESSLICH auf Basis der bereitgestellten Wissensbasis-Dokumente und der Nutzerdaten.
+- Wenn die Wissensbasis keine Information zu einem Thema enthält, sage ehrlich "Dazu habe ich in meiner Wissensbasis keine spezifische Information" — erfinde NICHTS.
+- Nutze KEIN allgemeines Wissen aus deinem Training.
+- Nenne keine Studien, Statistiken oder Zahlen die nicht in der Wissensbasis stehen.
+- Schlage NIEMALS ein Fastenmodell vor das nicht in der erlaubten Liste steht (16:8, 20:4, 5:2, 1:1, Periodisches Fasten).
+
+## VERBOTEN
+- Keine Kalorienzählung (es sei denn explizit als Ziel gesetzt)
+- Keine BMI-Berechnungen
+- Keine medizinischen Diagnosen oder Empfehlungen
+- Kein Vergleich mit Normwerten oder anderen Personen
+- Keine moralische Bewertung von Essverhalten ("Sünde", "Cheat Day", "geschummelt")
+- Keine geschlechterspezifischen Stereotypen
+- Keine Informationen aus externen Quellen
+- Keine Fastenmodelle die nicht in der Wissensbasis belegt sind`;
+
+  // 4. Stream via Anthropic
+  const anthropic = new Anthropic({
+    apiKey: process.env.ANTHROPIC_API_KEY,
+  });
+
+  const stream = anthropic.messages.stream({
+    model: getModelForAction("review"),
+    max_tokens: 2000,
+    system: reviewSystemPrompt,
+    messages: [
+      { role: "user", content: "Erstelle meinen Wochenrückblick." },
+    ],
+  });
+
+  const encoder = new TextEncoder();
+
+  const readableStream = new ReadableStream({
+    async start(controller) {
+      try {
+        const messageStream = await stream;
+        for await (const event of messageStream) {
+          if (
+            event.type === "content_block_delta" &&
+            event.delta.type === "text_delta"
+          ) {
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({ type: "text", text: event.delta.text })}\n\n`
+              )
+            );
+          }
+        }
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({ type: "done" })}\n\n`
+          )
+        );
+        controller.close();
+      } catch (err) {
+        console.error("Review stream error:", err);
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({ type: "error", error: "Review fehlgeschlagen" })}\n\n`
+          )
+        );
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(readableStream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    },
+  });
 }
 
 // ---------------------------------------------------------------------------
