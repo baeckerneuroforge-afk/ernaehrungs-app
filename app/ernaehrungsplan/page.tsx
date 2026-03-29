@@ -1,38 +1,50 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
-import { ChatMessage } from "@/components/chat/message";
-import { MealPlan } from "@/types";
+import { PlanCreator } from "@/components/meal-plan/plan-creator";
+import { WeekGrid } from "@/components/meal-plan/week-grid";
+import type { WeekPlanData, PlanParameters } from "@/types/meal-plan";
 import {
   UtensilsCrossed,
   Plus,
   Loader2,
   FileText,
   Trash2,
-  X,
+  ArrowLeft,
 } from "lucide-react";
-import Link from "next/link";
+
+interface SavedPlan {
+  id: string;
+  titel: string;
+  zeitraum: string | null;
+  created_at: string;
+  plan_data: WeekPlanData | null;
+  parameters: PlanParameters | null;
+  status: string;
+}
 
 export default function ErnaehrungsplanPage() {
-  const [plans, setPlans] = useState<
-    Pick<MealPlan, "id" | "titel" | "zeitraum" | "created_at">[]
-  >([]);
+  const [plans, setPlans] = useState<SavedPlan[]>([]);
   const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState(false);
-  const [showForm, setShowForm] = useState(false);
-  const [streamContent, setStreamContent] = useState("");
+  const [showCreator, setShowCreator] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
 
-  // Form
-  const [zeitraum, setZeitraum] = useState("7 Tage");
-  const [zusatzwunsch, setZusatzwunsch] = useState("");
-  const streamRef = useRef<string>("");
+  // Active plan view
+  const [activePlan, setActivePlan] = useState<{
+    data: WeekPlanData;
+    params: PlanParameters;
+    id?: string;
+    titel?: string;
+  } | null>(null);
 
   const loadPlans = useCallback(async () => {
     const res = await fetch("/api/ernaehrungsplan");
-    if (res.ok) setPlans(await res.json());
+    if (res.ok) {
+      const data = await res.json();
+      setPlans(data);
+    }
     setLoading(false);
   }, []);
 
@@ -40,57 +52,72 @@ export default function ErnaehrungsplanPage() {
     loadPlans();
   }, [loadPlans]);
 
-  async function handleGenerate(e: React.FormEvent) {
-    e.preventDefault();
-    setGenerating(true);
-    setStreamContent("");
-    streamRef.current = "";
+  function handlePlanGenerated(data: WeekPlanData, params: PlanParameters) {
+    setActivePlan({ data, params });
+    setShowCreator(false);
 
-    try {
-      const res = await fetch("/api/ernaehrungsplan/generieren", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ zeitraum, zusatzwunsch: zusatzwunsch || null }),
-      });
-
-      if (!res.ok) throw new Error("Generation failed");
-
-      const reader = res.body?.getReader();
-      const decoder = new TextDecoder();
-      if (!reader) throw new Error("No reader");
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value);
-        const lines = chunk.split("\n").filter((l) => l.startsWith("data: "));
-
-        for (const line of lines) {
-          const data = JSON.parse(line.slice(6));
-          if (data.type === "text") {
-            streamRef.current += data.text;
-            setStreamContent(streamRef.current);
-          }
-          if (data.type === "done") {
-            loadPlans();
-          }
+    // Save plan
+    fetch("/api/ernaehrungsplan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ planData: data, parameters: params }),
+    })
+      .then((r) => r.json())
+      .then((saved) => {
+        if (saved.id) {
+          setActivePlan((prev) => prev ? { ...prev, id: saved.id, titel: saved.titel } : prev);
+          loadPlans();
         }
-      }
-    } catch (err) {
-      console.error("Generation error:", err);
-    } finally {
-      setGenerating(false);
-      setShowForm(false);
-      setZusatzwunsch("");
-    }
+      })
+      .catch(console.error);
   }
 
   async function handleDelete(id: string) {
     setDeleting(id);
     await fetch(`/api/ernaehrungsplan/${id}`, { method: "DELETE" });
     setDeleting(null);
+    if (activePlan?.id === id) setActivePlan(null);
     loadPlans();
+  }
+
+  async function handleLoadPlan(plan: SavedPlan) {
+    if (plan.plan_data && plan.parameters) {
+      setActivePlan({
+        data: plan.plan_data,
+        params: plan.parameters,
+        id: plan.id,
+        titel: plan.titel,
+      });
+      setShowCreator(false);
+    } else {
+      // Legacy plan without structured data — load detail page
+      window.location.href = `/ernaehrungsplan/${plan.id}`;
+    }
+  }
+
+  // Show active plan view
+  if (activePlan) {
+    return (
+      <div className="min-h-screen flex flex-col bg-surface-bg">
+        <Navbar />
+        <main className="flex-1 max-w-6xl mx-auto px-4 sm:px-6 py-6 w-full">
+          <div className="flex items-center justify-between mb-5">
+            <button
+              onClick={() => setActivePlan(null)}
+              className="flex items-center gap-1.5 text-sm text-warm-muted hover:text-primary transition"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Zurück
+            </button>
+            <h2 className="text-sm font-medium text-warm-dark">
+              {activePlan.titel || "Aktueller Plan"}
+            </h2>
+          </div>
+          <WeekGrid data={activePlan.data} params={activePlan.params} />
+        </main>
+        <Footer />
+      </div>
+    );
   }
 
   return (
@@ -99,124 +126,49 @@ export default function ErnaehrungsplanPage() {
       <main className="flex-1 max-w-3xl mx-auto px-4 sm:px-6 py-10 w-full">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">
+            <h1 className="text-2xl font-semibold text-warm-dark">
               Ernährungsplan
             </h1>
-            <p className="text-gray-500 text-sm mt-1">
-              Lass dir einen individuellen Plan erstellen, basierend auf deinem
-              Profil.
+            <p className="text-warm-muted text-sm mt-1">
+              Individueller 7-Tage-Plan basierend auf deinem Profil.
             </p>
           </div>
-          {!generating && (
+          {!showCreator && (
             <button
-              onClick={() => setShowForm(!showForm)}
-              className="flex items-center gap-1.5 bg-primary text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-primary-light transition"
+              onClick={() => setShowCreator(true)}
+              className="flex items-center gap-1.5 bg-primary text-white px-3 py-2 rounded-xl text-sm font-medium hover:bg-primary-light transition"
             >
-              {showForm ? (
-                <X className="w-4 h-4" />
-              ) : (
-                <Plus className="w-4 h-4" />
-              )}
-              {showForm ? "Abbrechen" : "Neuer Plan"}
+              <Plus className="w-4 h-4" />
+              Neuer Plan
             </button>
           )}
         </div>
 
-        {/* Generate Form */}
-        {showForm && !generating && (
-          <form
-            onSubmit={handleGenerate}
-            className="bg-white rounded-2xl border border-gray-100 p-5 mb-6"
-          >
-            <h3 className="font-semibold text-gray-800 text-sm mb-3">
-              Plan erstellen
-            </h3>
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs text-gray-500 mb-1 block">
-                  Zeitraum
-                </label>
-                <div className="flex gap-2">
-                  {["1 Tag", "3 Tage", "7 Tage"].map((z) => (
-                    <button
-                      key={z}
-                      type="button"
-                      onClick={() => setZeitraum(z)}
-                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
-                        zeitraum === z
-                          ? "bg-primary text-white"
-                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                      }`}
-                    >
-                      {z}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <label className="text-xs text-gray-500 mb-1 block">
-                  Zusätzliche Wünsche (optional)
-                </label>
-                <input
-                  type="text"
-                  value={zusatzwunsch}
-                  onChange={(e) => setZusatzwunsch(e.target.value)}
-                  placeholder="z.B. Viel Protein, wenig Aufwand, Budget-freundlich..."
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                />
-              </div>
-            </div>
+        {/* Creator */}
+        {showCreator && (
+          <div className="mb-6">
+            <PlanCreator onPlanGenerated={handlePlanGenerated} />
             <button
-              type="submit"
-              className="mt-4 flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary-light transition"
+              onClick={() => setShowCreator(false)}
+              className="mt-2 text-xs text-warm-light hover:text-warm-muted transition"
             >
-              <UtensilsCrossed className="w-4 h-4" />
-              Plan generieren
+              Abbrechen
             </button>
-          </form>
-        )}
-
-        {/* Streaming Output */}
-        {(generating || streamContent) && (
-          <div className="bg-white rounded-2xl border border-gray-100 p-5 mb-6">
-            <div className="flex items-center gap-2 mb-3">
-              {generating && (
-                <Loader2 className="w-4 h-4 animate-spin text-primary" />
-              )}
-              <h3 className="font-semibold text-gray-800 text-sm">
-                {generating
-                  ? "Plan wird erstellt..."
-                  : "Dein neuer Ernährungsplan"}
-              </h3>
-            </div>
-            <ChatMessage content={streamContent} isStreaming={generating} />
-            {!generating && streamContent && (
-              <div className="mt-4 pt-3 border-t border-gray-100">
-                <button
-                  onClick={() => {
-                    setStreamContent("");
-                  }}
-                  className="text-xs text-gray-400 hover:text-gray-600 transition"
-                >
-                  Vorschau schließen
-                </button>
-              </div>
-            )}
           </div>
         )}
 
         {/* Saved Plans */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-5">
-          <h3 className="font-semibold text-gray-800 text-sm mb-4">
+        <div className="bg-white rounded-2xl border border-warm-border p-5">
+          <h3 className="font-semibold text-warm-dark text-sm mb-4">
             Gespeicherte Pläne ({plans.length})
           </h3>
           {loading ? (
             <div className="flex justify-center py-8">
-              <Loader2 className="w-5 h-5 animate-spin text-gray-300" />
+              <Loader2 className="w-5 h-5 animate-spin text-warm-light" />
             </div>
           ) : plans.length === 0 ? (
-            <div className="text-center py-8 text-gray-400">
-              <UtensilsCrossed className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+            <div className="text-center py-8 text-warm-light">
+              <UtensilsCrossed className="w-8 h-8 mx-auto mb-2 text-warm-border" />
               <p className="text-sm">Noch keine Pläne erstellt.</p>
               <p className="text-xs mt-1">
                 Erstelle deinen ersten Ernährungsplan.
@@ -229,25 +181,27 @@ export default function ErnaehrungsplanPage() {
                   key={plan.id}
                   className="flex items-center justify-between px-4 py-3 bg-surface-muted rounded-xl"
                 >
-                  <Link
-                    href={`/ernaehrungsplan/${plan.id}`}
-                    className="flex items-center gap-3 flex-1 hover:text-primary transition"
+                  <button
+                    onClick={() => handleLoadPlan(plan)}
+                    className="flex items-center gap-3 flex-1 text-left hover:text-primary transition"
                   >
                     <FileText className="w-5 h-5 text-primary flex-shrink-0" />
                     <div>
-                      <p className="text-sm font-medium text-gray-700">
+                      <p className="text-sm font-medium text-warm-text">
                         {plan.titel}
                       </p>
-                      <p className="text-xs text-gray-400">
-                        {plan.zeitraum} ·{" "}
+                      <p className="text-xs text-warm-light">
+                        {plan.status === "active" && (
+                          <span className="text-primary font-medium mr-1">Aktiv</span>
+                        )}
                         {new Date(plan.created_at).toLocaleDateString("de-DE")}
                       </p>
                     </div>
-                  </Link>
+                  </button>
                   <button
                     onClick={() => handleDelete(plan.id)}
                     disabled={deleting === plan.id}
-                    className="text-gray-400 hover:text-red-500 transition p-1"
+                    className="text-warm-light hover:text-red-500 transition p-1"
                   >
                     {deleting === plan.id ? (
                       <Loader2 className="w-4 h-4 animate-spin" />

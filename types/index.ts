@@ -88,8 +88,11 @@ export interface MealPlan {
   user_id: string;
   titel: string;
   zeitraum: string | null;
-  inhalt: string;
-  profil_snapshot: Record<string, unknown> | null;
+  inhalt?: string;
+  profil_snapshot?: Record<string, unknown> | null;
+  plan_data?: Record<string, unknown> | null;
+  parameters?: Record<string, unknown> | null;
+  status: string;
   created_at: string;
 }
 

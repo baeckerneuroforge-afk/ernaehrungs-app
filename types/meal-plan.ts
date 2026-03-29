@@ -1,0 +1,66 @@
+export interface MealRecipe {
+  ingredients: string[];
+  steps: string[];
+  prepTime: string;
+  mealPrepNote?: string;
+}
+
+export interface Meal {
+  type: string;
+  time: string;
+  name: string;
+  shortDescription: string;
+  calories?: number;
+  fullRecipe: MealRecipe;
+}
+
+export interface DayPlan {
+  day: string;
+  meals: Meal[];
+}
+
+export interface MealPrepPlan {
+  prepDay: string;
+  tasks: string[];
+}
+
+export interface WeekPlanData {
+  weekPlan: DayPlan[];
+  shoppingList: string[];
+  mealPrepPlan?: MealPrepPlan;
+}
+
+export interface PlanParameters {
+  fasting: string;
+  mealsPerDay: number;
+  timing: Record<string, string>;
+  flexibleTiming: boolean;
+  mealprep: boolean;
+  mealPrepDays?: number;
+  userMessage?: string;
+}
+
+export const FASTING_OPTIONS = [
+  { value: "none", label: "Kein Fasten" },
+  { value: "16:8", label: "16:8 Intervallfasten" },
+  { value: "14:10", label: "14:10 Intervallfasten" },
+  { value: "5:2", label: "5:2 Fasten" },
+] as const;
+
+export const MEAL_LABELS: Record<number, string[]> = {
+  2: ["Erste Mahlzeit", "Zweite Mahlzeit"],
+  3: ["Frühstück", "Mittagessen", "Abendessen"],
+  4: ["Frühstück", "Mittagessen", "Snack", "Abendessen"],
+  5: ["Frühstück", "Snack 1", "Mittagessen", "Snack 2", "Abendessen"],
+};
+
+export const TIMING_RANGES: Record<string, { start: number; end: number }> = {
+  "Frühstück": { start: 6, end: 10 },
+  "Erste Mahlzeit": { start: 6, end: 14 },
+  "Mittagessen": { start: 11, end: 14 },
+  "Zweite Mahlzeit": { start: 16, end: 21 },
+  "Snack": { start: 10, end: 18 },
+  "Snack 1": { start: 10, end: 12 },
+  "Snack 2": { start: 15, end: 17 },
+  "Abendessen": { start: 17, end: 21 },
+};

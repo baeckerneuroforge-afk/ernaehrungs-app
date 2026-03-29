@@ -127,7 +127,7 @@ export default function PlanDetailPage() {
 
         {/* Plan Content */}
         <div className="bg-white rounded-2xl border border-gray-100 p-6 print:border-none print:shadow-none">
-          <ChatMessage content={plan.inhalt} />
+          <ChatMessage content={plan.inhalt || ""} />
         </div>
 
         <p className="text-xs text-gray-400 text-center mt-4">

@@ -1,73 +1,109 @@
 import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { loadUserBehaviorContext } from "@/lib/utils/user-context";
+import { deductCredits, CREDIT_COSTS } from "@/lib/credits";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
+import type { PlanParameters } from "@/types/meal-plan";
+import { MEAL_LABELS } from "@/types/meal-plan";
 
 // ---------------------------------------------------------------------------
-// 1. SYSTEM PROMPT – RAG-basiert, keine Halluzination
+// 1. SYSTEM PROMPT – Structured JSON output
 // ---------------------------------------------------------------------------
-const MEAL_PLAN_PROMPT = `Du bist eine erfahrene Ernährungswissenschaftlerin und erstellst strukturierte, praxisnahe Ernährungspläne. Du arbeitest auf Basis der bereitgestellten Wissensbasis.
+function buildMealPlanPrompt(params: PlanParameters): string {
+  const mealLabels = MEAL_LABELS[params.mealsPerDay] || MEAL_LABELS[3];
+
+  const timingBlock = params.flexibleTiming
+    ? "Wähle passende Uhrzeiten basierend auf dem Profil und Fastenmodell."
+    : Object.entries(params.timing)
+        .map(([label, time]) => `- ${label}: ${time} Uhr`)
+        .join("\n");
+
+  const fastingBlock =
+    params.fasting === "none"
+      ? "Kein Intervallfasten."
+      : `Fastenmodell: ${params.fasting}. Alle Mahlzeiten müssen innerhalb des Essensfensters liegen.`;
+
+  const mealprepBlock = params.mealprep
+    ? `Mealprep: Ja, für ${params.mealPrepDays || 3} Tage. Füge einen mealPrepPlan mit prepDay und tasks hinzu.`
+    : "Mealprep: Nein. Lasse mealPrepPlan weg.";
+
+  return `Du bist eine erfahrene Ernährungswissenschaftlerin und erstellst strukturierte, praxisnahe 7-Tage-Ernährungspläne als JSON.
 
 ## ABSOLUTE REGELN (NIEMALS brechen):
 
 ### Wissensbasis-Pflicht
 - Verwende die bereitgestellte WISSENSBASIS als Grundlage für Empfehlungen.
-- Wenn die Wissensbasis spezifische Empfehlungen zu Lebensmitteln, Nährstoffen oder Ernährungsformen enthält, NUTZE diese.
 - Erfinde KEINE Nährwertangaben oder gesundheitsbezogenen Fakten, die nicht in der Wissensbasis stehen.
-- Rezepte und Mahlzeiten basieren auf allgemeinem Ernährungswissen UND der Wissensbasis.
+- Rezepte basieren auf allgemeinem Ernährungswissen UND der Wissensbasis.
 
 ### Medizinische Grenze – HART
 - Gib KEINE medizinischen Diagnosen, Medikamenten-Empfehlungen oder Therapievorschläge.
-- Gib KEINE Empfehlungen zu Nahrungsergänzungsmitteln, Dosierungen oder Supplementen.
-- Bei Krankheiten im Profil (Diabetes, Schilddrüse, Nierenerkrankungen, etc.):
-  Berücksichtige sie bei der Planung, aber ergänze IMMER den Hinweis, dass eine individuelle Abstimmung mit dem Arzt nötig ist.
-- Erstelle KEINE Pläne unter 1200 kcal/Tag ohne expliziten Hinweis auf ärztliche Begleitung.
+- Gib KEINE Empfehlungen zu Nahrungsergänzungsmitteln.
+- Bei Krankheiten im Profil: Berücksichtige sie, aber erstelle trotzdem den Plan.
+- Erstelle KEINE Pläne unter 1200 kcal/Tag.
 
 ### Eskalation
-Bei diesen Themen erstellst du KEINEN Plan, sondern verweist freundlich an Fachpersonal:
-- Essstörungen (Magersucht, Bulimie, Binge Eating)
-- Extreme Diäten unter 800 kcal
-- Schwangerschaft & Stillzeit (Verweis an Gynäkologen/Hebamme)
-- Kinder unter 12 Jahren (Verweis an Kinderarzt)
+Bei Essstörungen, Extremdiäten unter 800 kcal, Schwangerschaft/Stillzeit, Kinder unter 12: Erstelle KEINEN Plan.
 
-### Tonalität
-- Antworte auf Deutsch, warmherzig aber fachlich
-- Duze die Nutzer
-- Berücksichtige ALLE Profil-Einschränkungen strikt (Allergien = absolute No-Gos)
-- Sprich den Nutzer NIEMALS mit Namen an – verwende nur "du"
-- Nutze Markdown: ## für Tage, ### für Mahlzeiten, **fett** für wichtige Hinweise
-- Füge ungefähre Kalorienangaben pro Mahlzeit hinzu
-- Beende jeden Plan mit einer kompakten Einkaufsliste
-- Beende JEDEN Plan mit: "💚 *Hinweis: Dieser Plan ersetzt keine ärztliche Beratung. Besprich Änderungen deiner Ernährung bei Vorerkrankungen mit deinem Arzt.*"
+### Output-Format
+Antworte AUSSCHLIESSLICH mit einem validen JSON-Objekt. Kein Markdown, kein Text drumherum, nur JSON.
 
-### Was du NICHT darfst
-- Über Themen außerhalb von Ernährung sprechen
-- Eigene Meinungen äußern
-- Internet-Quellen oder Studien zitieren, die nicht in der Wissensbasis stehen
+## PARAMETER:
+- ${fastingBlock}
+- Mahlzeiten pro Tag: ${params.mealsPerDay} (${mealLabels.join(", ")})
+- Timing:
+${timingBlock}
+- ${mealprepBlock}
+${params.userMessage ? `- Individuelle Wünsche: ${params.userMessage}` : ""}
 
-STRUKTUR:
-## Zusammenfassung
-[Was wurde berücksichtigt]
+## JSON-STRUKTUR (exakt einhalten):
+{
+  "weekPlan": [
+    {
+      "day": "Montag",
+      "meals": [
+        {
+          "type": "${mealLabels[0]}",
+          "time": "08:00",
+          "name": "Rezeptname",
+          "shortDescription": "Kurzbeschreibung (max 60 Zeichen)",
+          "calories": 450,
+          "fullRecipe": {
+            "ingredients": ["200g Haferflocken", "1 Banane", ...],
+            "steps": ["Haferflocken in Milch kochen", ...],
+            "prepTime": "10 Min",
+            "mealPrepNote": "Kann am Vorabend vorbereitet werden"
+          }
+        }
+      ]
+    }
+  ],
+  "shoppingList": ["500g Haferflocken", "7 Bananen", ...],
+  "mealPrepPlan": {
+    "prepDay": "Sonntag",
+    "tasks": ["Reis für 3 Tage kochen", "Gemüse schneiden und portionieren", ...]
+  }
+}
 
-## [Tag]
-### Frühstück (ca. X kcal)
-[Konkrete Mahlzeit mit Portionsangaben]
-
-### Mittagessen (ca. X kcal)
-...
-
-### Abendessen (ca. X kcal)
-...
-
-### Snacks
-...
-
-## Einkaufsliste
-[Gruppiert nach Kategorie]`;
+## REGELN FÜR DEN INHALT:
+- 7 Tage: Montag bis Sonntag
+- Jeder Tag hat exakt ${params.mealsPerDay} Mahlzeiten mit den types: ${mealLabels.map((l) => `"${l}"`).join(", ")}
+- "time" ist die Uhrzeit im Format "HH:MM"
+- "calories" ist eine realistische Schätzung pro Mahlzeit
+- "shortDescription" max 60 Zeichen, beschreibt das Gericht kurz
+- "ingredients" mit Mengenangaben
+- "steps" als klare Zubereitungsschritte
+- "prepTime" als geschätzte Zubereitungszeit
+- "mealPrepNote" nur wenn relevant (kann Mahlzeit vorbereitet werden?)
+- "shoppingList" ist eine aggregierte Einkaufsliste für die ganze Woche mit Mengen
+- Allergien aus dem Profil sind ABSOLUTE No-Gos
+- Berücksichtige Ernährungsform strikt (vegan = keine tierischen Produkte etc.)
+${params.mealprep ? '- "mealPrepPlan" MUSS vorhanden sein mit prepDay und tasks' : '- KEIN "mealPrepPlan" im Output'}`;
+}
 
 // ---------------------------------------------------------------------------
-// 2. ESKALATIONS-CHECK für Zusatzwünsche
+// 2. ESKALATIONS-CHECK
 // ---------------------------------------------------------------------------
 const ESCALATION_PATTERNS = [
   /\b(magersucht|bulimie|binge.?eating|essst[öo]rung|anorexie|purging)\b/i,
@@ -75,28 +111,21 @@ const ESCALATION_PATTERNS = [
   /\b(anaphyla|notarzt|notaufnahme|bewusstlos|atemnot|schock)\b/i,
 ];
 
-const ESCALATION_RESPONSE = `Ich verstehe, dass dich das beschäftigt, und ich nehme das sehr ernst.
-
-**Bei diesem Thema kann ich leider keinen Ernährungsplan erstellen.** Bitte wende dich an:
-
-- **Akute Notfälle:** Notarzt 112
-- **Telefonseelsorge:** 0800 111 0 111 (kostenlos, 24/7)
-- **Essstörungen:** Bundeszentrale für gesundheitliche Aufklärung – 0221 892031
-- **Deine Hausärztin / dein Hausarzt** für eine individuelle Beratung
-
-Du bist nicht allein – es gibt Menschen, die dir helfen können. 💚`;
+const ESCALATION_JSON = JSON.stringify({
+  error: "escalation",
+  message:
+    "Bei diesem Thema kann ich leider keinen Ernährungsplan erstellen. Bitte wende dich an Fachpersonal.",
+});
 
 // ---------------------------------------------------------------------------
-// Helper: Statische Antwort als SSE streamen
+// Helper: Static SSE response
 // ---------------------------------------------------------------------------
 function streamStaticResponse(text: string): Response {
   const encoder = new TextEncoder();
   const readableStream = new ReadableStream({
     start(controller) {
       controller.enqueue(
-        encoder.encode(
-          `data: ${JSON.stringify({ type: "text", text })}\n\n`
-        )
+        encoder.encode(`data: ${JSON.stringify({ type: "text", text })}\n\n`)
       );
       controller.enqueue(
         encoder.encode(`data: ${JSON.stringify({ type: "done" })}\n\n`)
@@ -119,19 +148,37 @@ function streamStaticResponse(text: string): Response {
 // ---------------------------------------------------------------------------
 export async function POST(request: Request) {
   try {
-    const { zeitraum, zusatzwunsch } = await request.json();
+    const { planParameters } = (await request.json()) as {
+      planParameters: PlanParameters;
+    };
 
-    // ---- Pre-Check: Eskalation im Zusatzwunsch ----
-    if (zusatzwunsch && ESCALATION_PATTERNS.some((p) => p.test(zusatzwunsch))) {
-      return streamStaticResponse(ESCALATION_RESPONSE);
+    // Escalation check on user message
+    if (
+      planParameters.userMessage &&
+      ESCALATION_PATTERNS.some((p) => p.test(planParameters.userMessage!))
+    ) {
+      return streamStaticResponse(ESCALATION_JSON);
     }
 
     const { userId } = await auth();
-
     if (!userId) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
       });
+    }
+
+    // Credit check & deduction
+    const hasCredits = await deductCredits(
+      userId,
+      CREDIT_COSTS.plan_generation,
+      "plan_generation",
+      "Ernährungsplan generiert"
+    );
+    if (!hasCredits) {
+      return new Response(
+        JSON.stringify({ error: "insufficient_credits" }),
+        { status: 402 }
+      );
     }
 
     const supabase = createSupabaseAdmin();
@@ -147,61 +194,33 @@ export async function POST(request: Request) {
     ]);
 
     const p = profileResult.data?.[0];
-    const profilSnapshot: Record<string, unknown> = {};
     const profilParts: string[] = [];
 
     if (p) {
-      // Name bewusst NICHT an Claude senden (DSGVO – keine PII an externe API)
-      // Aber im Snapshot speichern (bleibt lokal in Supabase)
-      if (p.name) {
-        profilSnapshot.name = p.name;
-      }
-      if (p.alter_jahre) {
-        profilParts.push(`Alter: ${p.alter_jahre} Jahre`);
-        profilSnapshot.alter_jahre = p.alter_jahre;
-      }
-      if (p.geschlecht) {
-        profilParts.push(`Geschlecht: ${p.geschlecht}`);
-        profilSnapshot.geschlecht = p.geschlecht;
-      }
-      if (p.groesse_cm) {
-        profilParts.push(`Größe: ${p.groesse_cm} cm`);
-        profilSnapshot.groesse_cm = p.groesse_cm;
-      }
-      if (p.gewicht_kg) {
-        profilParts.push(`Gewicht: ${p.gewicht_kg} kg`);
-        profilSnapshot.gewicht_kg = p.gewicht_kg;
-      }
-      if (p.ziel) {
-        profilParts.push(`Ziel: ${p.ziel}`);
-        profilSnapshot.ziel = p.ziel;
-      }
-      if (p.allergien?.length) {
+      if (p.alter_jahre) profilParts.push(`Alter: ${p.alter_jahre} Jahre`);
+      if (p.geschlecht) profilParts.push(`Geschlecht: ${p.geschlecht}`);
+      if (p.groesse_cm) profilParts.push(`Größe: ${p.groesse_cm} cm`);
+      if (p.gewicht_kg) profilParts.push(`Gewicht: ${p.gewicht_kg} kg`);
+      if (p.ziel) profilParts.push(`Ziel: ${p.ziel}`);
+      if (p.allergien?.length)
         profilParts.push(
           `Allergien/Unverträglichkeiten: ${p.allergien.join(", ")}`
         );
-        profilSnapshot.allergien = p.allergien;
-      }
-      if (p.ernaehrungsform) {
+      if (p.ernaehrungsform)
         profilParts.push(`Ernährungsform: ${p.ernaehrungsform}`);
-        profilSnapshot.ernaehrungsform = p.ernaehrungsform;
-      }
-      if (p.krankheiten) {
+      if (p.krankheiten)
         profilParts.push(`Besonderheiten: ${p.krankheiten}`);
-        profilSnapshot.krankheiten = p.krankheiten;
-      }
-      if (p.aktivitaet) {
+      if (p.aktivitaet)
         profilParts.push(`Aktivitätslevel: ${p.aktivitaet}`);
-        profilSnapshot.aktivitaet = p.aktivitaet;
-      }
     }
 
-    // ---- RAG: Vektor-Suche mit Confidence-Scoring ----
+    // ---- RAG: Vector search with confidence scoring ----
     let knowledgeContext = "";
     let ragConfidence: "high" | "low" | "none" = "none";
 
     try {
-      const ragQuery = `Ernährungsplan ${zeitraum || "7 Tage"} ${p?.ernaehrungsform || ""} ${p?.allergien?.join(" ") || ""} ${p?.ziel || ""} ${p?.krankheiten || ""}`.trim();
+      const ragQuery =
+        `Ernährungsplan 7 Tage ${p?.ernaehrungsform || ""} ${p?.allergien?.join(" ") || ""} ${p?.ziel || ""} ${p?.krankheiten || ""} ${planParameters.fasting !== "none" ? planParameters.fasting : ""}`.trim();
 
       const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
       const embeddingResponse = await openai.embeddings.create({
@@ -224,11 +243,8 @@ export async function POST(request: Request) {
             0
           ) / docs.length;
 
-        if (avgSimilarity >= 0.45) {
-          ragConfidence = "high";
-        } else if (avgSimilarity >= 0.3) {
-          ragConfidence = "low";
-        }
+        if (avgSimilarity >= 0.45) ragConfidence = "high";
+        else if (avgSimilarity >= 0.3) ragConfidence = "low";
 
         knowledgeContext = docs
           .map(
@@ -241,8 +257,8 @@ export async function POST(request: Request) {
       console.error("RAG search error:", e);
     }
 
-    // ---- System Prompt bauen ----
-    let systemPrompt = MEAL_PLAN_PROMPT;
+    // ---- Build system prompt ----
+    let systemPrompt = buildMealPlanPrompt(planParameters);
 
     if (profilParts.length) {
       systemPrompt += `\n\nNUTZERPROFIL:\n${profilParts.join("\n")}`;
@@ -250,36 +266,35 @@ export async function POST(request: Request) {
 
     if (behaviorContext) {
       systemPrompt += `\n\n${behaviorContext}`;
-      systemPrompt += `\n\nHINWEIS ZUM VERHALTENKONTEXT: Nutze das Ernährungstagebuch und den Gewichtsverlauf, um den Plan an das tatsächliche Essverhalten anzupassen. Wenn du Muster erkennst (z.B. wenig Protein, viele Snacks abends, fehlende Mahlzeiten, stagnierendes Gewicht), passe den Plan proaktiv an. Erkläre kurz in der Zusammenfassung, was du aus den echten Daten berücksichtigt hast.`;
+      systemPrompt += `\n\nHINWEIS: Nutze Ernährungstagebuch und Gewichtsverlauf, um den Plan an das tatsächliche Essverhalten anzupassen.`;
     }
 
     if (knowledgeContext) {
       systemPrompt += `\n\nWISSENSBASIS:\n${knowledgeContext}`;
     }
 
-    // Bei niedriger RAG-Konfidenz: extra Warnung
     if (ragConfidence === "low") {
-      systemPrompt += `\n\n⚠️ ACHTUNG: Die Relevanz der gefundenen Dokumente ist NIEDRIG. Halte dich besonders strikt an allgemein anerkannte Ernährungsempfehlungen. Erfinde NICHTS.`;
+      systemPrompt += `\n\n⚠️ ACHTUNG: Die Relevanz der gefundenen Dokumente ist NIEDRIG. Halte dich besonders strikt an allgemein anerkannte Ernährungsempfehlungen.`;
     }
-
-    // Bei keinen RAG-Treffern: trotzdem Plan erstellen (Ernährungspläne basieren auch auf allgemeinem Wissen)
-    // aber mit deutlichem Hinweis
     if (ragConfidence === "none") {
-      systemPrompt += `\n\n⚠️ HINWEIS: Zu diesem Thema wurden KEINE spezifischen Dokumente in der Wissensbasis gefunden. Erstelle den Plan basierend auf allgemein anerkannten Ernährungsempfehlungen. Weise den Nutzer darauf hin, dass eine persönliche Beratung bei einer Ernährungsberaterin für eine individuelle Anpassung empfehlenswert ist.`;
+      systemPrompt += `\n\n⚠️ Keine spezifischen Dokumente in der Wissensbasis gefunden. Erstelle den Plan basierend auf allgemein anerkannten Ernährungsempfehlungen.`;
     }
 
-    const userMessage = `Erstelle einen Ernährungsplan für ${zeitraum || "7 Tage"}.${zusatzwunsch ? ` Zusätzlicher Wunsch: ${zusatzwunsch}` : ""}`;
+    const userMessage = `Erstelle einen strukturierten 7-Tage-Ernährungsplan als JSON. Antworte NUR mit dem JSON-Objekt.`;
 
     // Stream response
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const anthropic = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+    });
     const stream = anthropic.messages.stream({
       model: "claude-sonnet-4-5-20250929",
-      max_tokens: 4000,
+      max_tokens: 8000,
       system: systemPrompt,
       messages: [{ role: "user", content: userMessage }],
     });
 
     const encoder = new TextEncoder();
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for future plan-saving in stream
     let fullContent = "";
 
     const readableStream = new ReadableStream({
@@ -300,23 +315,9 @@ export async function POST(request: Request) {
             }
           }
 
-          // Save meal plan after streaming
-          const titel = `${zeitraum || "7 Tage"}-Plan vom ${new Date().toLocaleDateString("de-DE")}`;
-          const { data: saved } = await supabase
-            .from("ea_meal_plans")
-            .insert({
-              user_id: userId,
-              titel,
-              zeitraum: zeitraum || "7 Tage",
-              inhalt: fullContent,
-              profil_snapshot: profilSnapshot,
-            })
-            .select("id")
-            .limit(1);
-
           controller.enqueue(
             encoder.encode(
-              `data: ${JSON.stringify({ type: "done", planId: saved?.[0]?.id })}\n\n`
+              `data: ${JSON.stringify({ type: "done" })}\n\n`
             )
           );
           controller.close();
