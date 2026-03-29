@@ -37,17 +37,22 @@ export interface PlanParameters {
   flexibleTiming: boolean;
   mealprep: boolean;
   mealPrepDays?: number;
+  periodicEatDays?: number;
+  periodicFastDays?: number;
   userMessage?: string;
 }
 
 export const FASTING_OPTIONS = [
   { value: "none", label: "Kein Fasten" },
   { value: "16:8", label: "16:8 Intervallfasten" },
-  { value: "14:10", label: "14:10 Intervallfasten" },
+  { value: "20:4", label: "20:4 Intervallfasten" },
   { value: "5:2", label: "5:2 Fasten" },
+  { value: "1:1", label: "1:1 Fasten (Alternate Day)" },
+  { value: "periodic", label: "Periodisches Fasten (mehrtägig)" },
 ] as const;
 
 export const MEAL_LABELS: Record<number, string[]> = {
+  1: ["Hauptmahlzeit"],
   2: ["Erste Mahlzeit", "Zweite Mahlzeit"],
   3: ["Frühstück", "Mittagessen", "Abendessen"],
   4: ["Frühstück", "Mittagessen", "Snack", "Abendessen"],

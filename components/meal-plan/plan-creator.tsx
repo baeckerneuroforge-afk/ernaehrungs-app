@@ -33,9 +33,9 @@ function getConstrainedRange(
     // Eating window typically 12:00–20:00
     return { start: Math.max(base.start, 12), end: Math.min(base.end, 20) };
   }
-  if (fasting === "14:10") {
-    // Eating window typically 10:00–20:00
-    return { start: Math.max(base.start, 10), end: Math.min(base.end, 20) };
+  if (fasting === "20:4") {
+    // Eating window typically 16:00–20:00
+    return { start: Math.max(base.start, 16), end: Math.min(base.end, 20) };
   }
   return base;
 }
@@ -47,16 +47,22 @@ export function PlanCreator({ onPlanGenerated }: Props) {
   const [timing, setTiming] = useState<Record<string, string>>({});
   const [mealprep, setMealprep] = useState(false);
   const [mealPrepDays, setMealPrepDays] = useState(3);
+  const [periodicEatDays, setPeriodicEatDays] = useState(3);
+  const [periodicFastDays, setPeriodicFastDays] = useState(4);
   const [userMessage, setUserMessage] = useState("");
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
 
   // Constrain meals per day based on fasting
-  const maxMeals = fasting === "16:8" || fasting === "14:10" ? 3 : 5;
+  const minMeals = fasting === "20:4" ? 1 : 2;
+  const maxMeals = fasting === "20:4" ? 2 : fasting === "16:8" ? 3 : 5;
 
-  // Auto-adjust if current selection exceeds max
+  // Auto-adjust if current selection exceeds max or is below min
   if (mealsPerDay > maxMeals) {
     setMealsPerDay(maxMeals);
+  }
+  if (mealsPerDay < minMeals) {
+    setMealsPerDay(minMeals);
   }
 
   const mealLabels = useMemo(() => MEAL_LABELS[mealsPerDay] || MEAL_LABELS[3], [mealsPerDay]);
@@ -82,6 +88,8 @@ export function PlanCreator({ onPlanGenerated }: Props) {
       flexibleTiming,
       mealprep,
       mealPrepDays: mealprep ? mealPrepDays : undefined,
+      periodicEatDays: fasting === "periodic" ? periodicEatDays : undefined,
+      periodicFastDays: fasting === "periodic" ? periodicFastDays : undefined,
       userMessage: userMessage || undefined,
     };
 
@@ -173,6 +181,38 @@ export function PlanCreator({ onPlanGenerated }: Props) {
             </select>
             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-warm-light pointer-events-none" />
           </div>
+          {fasting === "periodic" && (
+            <div className="mt-2">
+              <label className="text-[11px] text-warm-muted mb-1 block">
+                Wie viele Tage essen / fasten?
+              </label>
+              <div className="flex items-center gap-2">
+                <div className="flex-1">
+                  <input
+                    type="number"
+                    min={1}
+                    max={7}
+                    value={periodicEatDays}
+                    onChange={(e) => setPeriodicEatDays(Math.max(1, Math.min(7, Number(e.target.value))))}
+                    className="w-full px-2.5 py-1.5 border border-warm-border rounded-lg text-xs text-center bg-white focus:outline-none focus:ring-1 focus:ring-primary/20"
+                  />
+                  <p className="text-[10px] text-warm-light text-center mt-0.5">Essen</p>
+                </div>
+                <span className="text-xs text-warm-light">/</span>
+                <div className="flex-1">
+                  <input
+                    type="number"
+                    min={1}
+                    max={7}
+                    value={periodicFastDays}
+                    onChange={(e) => setPeriodicFastDays(Math.max(1, Math.min(7, Number(e.target.value))))}
+                    className="w-full px-2.5 py-1.5 border border-warm-border rounded-lg text-xs text-center bg-white focus:outline-none focus:ring-1 focus:ring-primary/20"
+                  />
+                  <p className="text-[10px] text-warm-light text-center mt-0.5">Fasten</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 2. Mahlzeiten pro Tag */}
@@ -181,8 +221,8 @@ export function PlanCreator({ onPlanGenerated }: Props) {
             Mahlzeiten pro Tag
           </label>
           <div className="flex gap-1.5">
-            {[2, 3, 4, 5].map((n) => {
-              const disabled = n > maxMeals;
+            {[1, 2, 3, 4, 5].map((n) => {
+              const disabled = n > maxMeals || n < minMeals;
               return (
                 <button
                   key={n}
@@ -202,9 +242,9 @@ export function PlanCreator({ onPlanGenerated }: Props) {
               );
             })}
           </div>
-          {maxMeals < 5 && (
+          {(maxMeals < 5 || minMeals > 1) && (
             <p className="text-[11px] text-warm-light mt-1">
-              Bei {fasting} max. {maxMeals} Mahlzeiten
+              Bei {fasting}: {minMeals}–{maxMeals} Mahlzeiten
             </p>
           )}
         </div>

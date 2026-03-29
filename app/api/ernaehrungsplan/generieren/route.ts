@@ -19,10 +19,29 @@ function buildMealPlanPrompt(params: PlanParameters): string {
         .map(([label, time]) => `- ${label}: ${time} Uhr`)
         .join("\n");
 
-  const fastingBlock =
-    params.fasting === "none"
-      ? "Kein Intervallfasten."
-      : `Fastenmodell: ${params.fasting}. Alle Mahlzeiten müssen innerhalb des Essensfensters liegen.`;
+  let fastingBlock: string;
+  switch (params.fasting) {
+    case "none":
+      fastingBlock = "Kein Intervallfasten.";
+      break;
+    case "16:8":
+      fastingBlock = "Fastenmodell: 16:8 Intervallfasten. Essensfenster 8 Stunden (z.B. 12:00–20:00). Alle Mahlzeiten innerhalb des Fensters.";
+      break;
+    case "20:4":
+      fastingBlock = "Fastenmodell: 20:4 Intervallfasten. Essensfenster nur 4 Stunden (z.B. 16:00–20:00). Maximal 1–2 Mahlzeiten.";
+      break;
+    case "5:2":
+      fastingBlock = "Fastenmodell: 5:2 Fasten. 5 Tage normal essen, 2 Tage stark reduziert (ca. 500–600 kcal). Markiere die Fastentage im Plan.";
+      break;
+    case "1:1":
+      fastingBlock = "Fastenmodell: 1:1 Alternate Day Fasting. Abwechselnd ein Tag normal essen, ein Tag fasten (ca. 500 kcal). Markiere die Fastentage.";
+      break;
+    case "periodic":
+      fastingBlock = `Fastenmodell: Periodisches Fasten. ${params.periodicEatDays || 3} Tage normal essen, dann ${params.periodicFastDays || 4} Tage fasten. Plane nur die Esstage mit vollen Mahlzeiten, Fastentage mit minimalem Essen (Wasser, Tee, ggf. Brühe).`;
+      break;
+    default:
+      fastingBlock = "Kein Intervallfasten.";
+  }
 
   const mealprepBlock = params.mealprep
     ? `Mealprep: Ja, für ${params.mealPrepDays || 3} Tage. Füge einen mealPrepPlan mit prepDay und tasks hinzu.`
