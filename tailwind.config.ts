@@ -16,6 +16,12 @@ const config: Config = {
           pale: "#B7D7C8",
           bg: "#E8F0EC",
         },
+        sage: {
+          DEFAULT: "#A8C99B",
+          light: "#C5DFB8",
+          pale: "#E2F0DB",
+          faint: "#F0F7EC",
+        },
         accent: {
           warm: "#D4A574",
           warmLight: "#E0BC96",
@@ -43,9 +49,14 @@ const config: Config = {
           "0%": { opacity: "0", transform: "translateY(24px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
+        "rotate-slow": {
+          "0%": { transform: "rotate(0deg)" },
+          "100%": { transform: "rotate(360deg)" },
+        },
       },
       animation: {
         "fade-up": "fade-up 0.6s ease-out forwards",
+        "rotate-slow": "rotate-slow 20s linear infinite",
       },
     },
   },
