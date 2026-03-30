@@ -68,79 +68,32 @@ export default function LandingPage() {
 }
 
 /* ═══════════════════════════════════════
-   1. HERO — Interactive Chat Simulation
+   1. HERO — Video Demo in Phone Frame
    ═══════════════════════════════════════ */
-const TYPING_MESSAGE = "Was kann ich als Snack essen wenn ich Laktoseintoleranz habe?";
-const AI_RESPONSE_LINES = [
-  "Hier sind 5 leckere Snack-Ideen f\u00fcr dich:",
-  "1. N\u00fcsse & Trockenf\u00fcchte-Mix",
-  "2. Reiswaffeln mit Avocado",
-  "3. Dunkle Schokolade (ab 70%)",
-  "4. Hummus mit Gem\u00fcsesticks",
-  "5. Laktosefreier Joghurt mit Beeren",
-];
-
 function HeroSection() {
-  const sectionRef = useRef<HTMLDivElement>(null);
-  const [phase, setPhase] = useState<"idle" | "typing" | "waiting" | "responding" | "done">("idle");
-  const [typedChars, setTypedChars] = useState(0);
-  const [showResponse, setShowResponse] = useState(false);
-  const hasStarted = useRef(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const phoneRef = useRef<HTMLDivElement>(null);
+  const [videoFailed, setVideoFailed] = useState(false);
 
-  // Start animation when hero is visible
+  // Auto-play video when phone frame scrolls into view
   useEffect(() => {
-    const el = sectionRef.current;
-    if (!el) return;
-    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (prefersReduced) {
-      setPhase("done");
-      setTypedChars(TYPING_MESSAGE.length);
-      setShowResponse(true);
-      return;
-    }
+    const el = phoneRef.current;
+    const video = videoRef.current;
+    if (!el || !video) return;
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting && !hasStarted.current) {
-          hasStarted.current = true;
-          setTimeout(() => setPhase("typing"), 600);
+        if (entry.isIntersecting) {
+          video.play().catch(() => {});
         }
       },
       { threshold: 0.3 }
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
-
-  // Typing animation
-  useEffect(() => {
-    if (phase !== "typing") return;
-    if (typedChars >= TYPING_MESSAGE.length) {
-      setPhase("waiting");
-      return;
-    }
-    const timeout = setTimeout(() => setTypedChars((c) => c + 1), 35);
-    return () => clearTimeout(timeout);
-  }, [phase, typedChars]);
-
-  // Waiting → Responding
-  useEffect(() => {
-    if (phase !== "waiting") return;
-    const timeout = setTimeout(() => {
-      setPhase("responding");
-      setShowResponse(true);
-    }, 1200);
-    return () => clearTimeout(timeout);
-  }, [phase]);
-
-  // Responding → Done
-  useEffect(() => {
-    if (phase !== "responding") return;
-    const timeout = setTimeout(() => setPhase("done"), 400);
-    return () => clearTimeout(timeout);
-  }, [phase]);
+  }, [videoFailed]);
 
   return (
-    <section ref={sectionRef} className="relative overflow-hidden">
+    <section className="relative overflow-hidden">
       {/* Soft organic background shapes */}
       <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-sage-pale/60 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-accent-warmPale/40 rounded-full blur-3xl translate-y-1/2 -translate-x-1/3 pointer-events-none" />
@@ -176,100 +129,37 @@ function HeroSection() {
             </div>
           </div>
 
-          {/* Right: iPhone Chat Mockup */}
+          {/* Right: iPhone with Video */}
           <div className="relative lg:pl-4 flex justify-center lg:justify-end">
             {/* Decorative ring */}
             <div className="absolute -top-8 -right-8 w-80 h-80 border border-sage-pale rounded-full pointer-events-none hidden lg:block" />
 
             {/* Phone frame */}
-            <div className="relative w-[280px] sm:w-[300px]">
-              {/* iPhone outer shell */}
+            <div ref={phoneRef} className="relative w-[280px] sm:w-[300px]">
               <div className="bg-[#1A1A1A] rounded-[44px] p-[6px] shadow-2xl shadow-black/15">
-                <div className="bg-white rounded-[40px] overflow-hidden">
-                  {/* Notch */}
-                  <div className="flex justify-center pt-2.5 pb-1 bg-primary">
-                    <div className="w-28 h-[26px] bg-[#1A1A1A] rounded-full" />
-                  </div>
+                <div className="bg-[#F0F7EC] rounded-[40px] overflow-hidden relative">
+                  {/* Notch overlay */}
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[120px] h-[28px] bg-[#1A1A1A] rounded-b-2xl z-10" />
 
-                  {/* Chat header */}
-                  <div className="bg-primary px-4 pb-3 flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-lg bg-white/15 flex items-center justify-center">
-                      <Leaf className="w-3.5 h-3.5 text-white" />
-                    </div>
-                    <div>
-                      <p className="text-white font-medium text-xs">Ern&auml;hrungsberatung</p>
-                      <p className="text-white/60 text-[10px]">Online</p>
-                    </div>
-                  </div>
+                  {/* Video or fallback */}
+                  {!videoFailed ? (
+                    <video
+                      ref={videoRef}
+                      src="/ernaehrungsapp-demo.mp4"
+                      autoPlay
+                      muted
+                      loop
+                      playsInline
+                      onError={() => setVideoFailed(true)}
+                      className="w-full aspect-[9/19.5] object-cover"
+                    />
+                  ) : (
+                    <HeroFallback />
+                  )}
 
-                  {/* Chat messages */}
-                  <div className="bg-surface-bg px-3 py-4 space-y-3 min-h-[320px] sm:min-h-[360px]">
-                    {/* User message with typing animation */}
-                    {typedChars > 0 && (
-                      <div className="flex justify-end">
-                        <div className="bg-primary text-white px-3 py-2.5 rounded-2xl rounded-br-sm max-w-[85%]">
-                          <p className="text-xs leading-relaxed">
-                            {TYPING_MESSAGE.slice(0, typedChars)}
-                            {phase === "typing" && (
-                              <span className="inline-block w-[2px] h-3 bg-white/80 ml-0.5 animate-pulse align-middle" />
-                            )}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Typing indicator */}
-                    {phase === "waiting" && (
-                      <div className="flex gap-2">
-                        <div className="w-6 h-6 rounded-lg bg-sage-pale flex items-center justify-center flex-shrink-0">
-                          <Sparkles className="w-3 h-3 text-primary" />
-                        </div>
-                        <div className="bg-white border border-warm-border/80 px-3.5 py-2.5 rounded-2xl rounded-bl-sm shadow-sm">
-                          <div className="flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-warm-light animate-bounce [animation-delay:0ms]" />
-                            <span className="w-1.5 h-1.5 rounded-full bg-warm-light animate-bounce [animation-delay:150ms]" />
-                            <span className="w-1.5 h-1.5 rounded-full bg-warm-light animate-bounce [animation-delay:300ms]" />
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* AI response */}
-                    {showResponse && (
-                      <div className="flex gap-2 animate-fade-up motion-reduce:animate-none">
-                        <div className="w-6 h-6 rounded-lg bg-sage-pale flex items-center justify-center flex-shrink-0 mt-0.5">
-                          <Sparkles className="w-3 h-3 text-primary" />
-                        </div>
-                        <div className="bg-white border border-warm-border/80 px-3 py-2.5 rounded-2xl rounded-bl-sm max-w-[88%] shadow-sm">
-                          <p className="text-xs text-warm-text leading-relaxed mb-2 font-medium">
-                            {AI_RESPONSE_LINES[0]}
-                          </p>
-                          <ul className="text-xs text-warm-muted space-y-0.5">
-                            {AI_RESPONSE_LINES.slice(1).map((line) => (
-                              <li key={line} className="flex items-start gap-1.5">
-                                <span className="text-primary font-medium">{line.slice(0, 2)}</span>
-                                <span>{line.slice(3)}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Input bar */}
-                  <div className="px-3 py-2.5 border-t border-warm-border/60 bg-white flex items-center gap-2">
-                    <div className="flex-1 bg-surface-muted rounded-xl px-3 py-2">
-                      <p className="text-[10px] text-warm-light">Stelle eine Frage...</p>
-                    </div>
-                    <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
-                      <Send className="w-3 h-3 text-white" />
-                    </div>
-                  </div>
-
-                  {/* Home indicator */}
-                  <div className="flex justify-center py-2 bg-white">
-                    <div className="w-24 h-1 bg-warm-border rounded-full" />
+                  {/* Home indicator overlay */}
+                  <div className="absolute bottom-0 left-0 right-0 flex justify-center py-2 z-10">
+                    <div className="w-24 h-1 bg-black/10 rounded-full" />
                   </div>
                 </div>
               </div>
@@ -278,6 +168,60 @@ function HeroSection() {
         </div>
       </div>
     </section>
+  );
+}
+
+/* Static fallback if video fails to load */
+function HeroFallback() {
+  return (
+    <div className="flex flex-col">
+      {/* Header */}
+      <div className="bg-primary px-4 pt-10 pb-3 flex items-center gap-2.5">
+        <div className="w-7 h-7 rounded-lg bg-white/15 flex items-center justify-center">
+          <Leaf className="w-3.5 h-3.5 text-white" />
+        </div>
+        <div>
+          <p className="text-white font-medium text-xs">Ern&auml;hrungsberatung</p>
+          <p className="text-white/60 text-[10px]">Online</p>
+        </div>
+      </div>
+      {/* Messages */}
+      <div className="bg-surface-bg px-3 py-4 space-y-3 min-h-[320px] sm:min-h-[360px]">
+        <div className="flex justify-end">
+          <div className="bg-primary text-white px-3 py-2.5 rounded-2xl rounded-br-sm max-w-[85%]">
+            <p className="text-xs leading-relaxed">
+              Was kann ich als Snack essen wenn ich Laktoseintoleranz habe?
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <div className="w-6 h-6 rounded-lg bg-sage-pale flex items-center justify-center flex-shrink-0 mt-0.5">
+            <Sparkles className="w-3 h-3 text-primary" />
+          </div>
+          <div className="bg-white border border-warm-border/80 px-3 py-2.5 rounded-2xl rounded-bl-sm max-w-[88%] shadow-sm">
+            <p className="text-xs text-warm-text leading-relaxed mb-2 font-medium">
+              Hier sind 5 leckere Snack-Ideen f&uuml;r dich:
+            </p>
+            <ul className="text-xs text-warm-muted space-y-0.5">
+              <li>1. N&uuml;sse &amp; Trockenf&uuml;chte-Mix</li>
+              <li>2. Reiswaffeln mit Avocado</li>
+              <li>3. Dunkle Schokolade (ab 70%)</li>
+              <li>4. Hummus mit Gem&uuml;sesticks</li>
+              <li>5. Laktosefreier Joghurt mit Beeren</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      {/* Input */}
+      <div className="px-3 py-2.5 border-t border-warm-border/60 bg-white flex items-center gap-2">
+        <div className="flex-1 bg-surface-muted rounded-xl px-3 py-2">
+          <p className="text-[10px] text-warm-light">Stelle eine Frage...</p>
+        </div>
+        <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
+          <Send className="w-3 h-3 text-white" />
+        </div>
+      </div>
+    </div>
   );
 }
 
