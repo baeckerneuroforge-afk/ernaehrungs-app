@@ -20,6 +20,7 @@ import {
   FlaskConical,
   Heart,
   Leaf,
+  Clock,
 } from "lucide-react";
 
 /* ═══════════════════════════════════════
@@ -58,6 +59,7 @@ export default function LandingPage() {
         <ClosedLoopSection />
         <ExampleQuestionsSection />
         <PricingSection />
+        <JanineDirectSection />
         <AboutJanineSection />
         <FaqSection />
         <CtaFooterSection />
@@ -231,7 +233,7 @@ function HeroFallback() {
 function TrustBar() {
   const ref = useScrollReveal();
   const items = [
-    { icon: <GraduationCap className="w-4 h-4" />, text: "Studierte Ern\u00e4hrungswissenschaftlerin" },
+    { icon: <GraduationCap className="w-4 h-4" />, text: "Studierte Ernährungswissenschaftlerin" },
     { icon: <FlaskConical className="w-4 h-4" />, text: "Wissenschaftlich fundiert" },
     { icon: <Shield className="w-4 h-4" />, text: "DSGVO-konform" },
   ];
@@ -261,7 +263,7 @@ function HowItWorksSection() {
     {
       num: "01",
       title: "Profil anlegen",
-      desc: "Ziele, Allergien, Ern\u00e4hrungsform \u2014 dauert 2 Minuten.",
+      desc: "Ziele, Allergien, Ernährungsform — dauert 2 Minuten.",
       icon: <User className="w-5 h-5" />,
     },
     {
@@ -272,7 +274,7 @@ function HowItWorksSection() {
     },
     {
       num: "03",
-      title: "Tagebuch f\u00fchren",
+      title: "Tagebuch führen",
       desc: "Erfasse was du isst. Die KI lernt dich besser kennen.",
       icon: <BookOpen className="w-5 h-5" />,
     },
@@ -329,19 +331,19 @@ function FeaturesSection() {
       icon: <MessageCircle className="w-5 h-5" />,
       title: "Chat mit KI-Beraterin",
       description:
-        "Stelle jede Frage rund um Ern\u00e4hrung. Sofort fundierte Antworten \u2014 basierend auf deinem Profil, Tagebuch und Zielen.",
+        "Stelle jede Frage rund um Ernährung. Sofort fundierte Antworten — basierend auf deinem Profil, Tagebuch und Zielen.",
     },
     {
       icon: <CalendarDays className="w-5 h-5" />,
-      title: "Dein Ern\u00e4hrungsplan",
+      title: "Dein Ernährungsplan",
       description:
-        "KI-generierte Wochenpl\u00e4ne abgestimmt auf deine Ziele, Allergien, Vorlieben und dein echtes Essverhalten.",
+        "KI-generierte Wochenpläne abgestimmt auf deine Ziele, Allergien, Vorlieben und dein echtes Essverhalten.",
     },
     {
       icon: <TrendingUp className="w-5 h-5" />,
       title: "Wochenreview",
       description:
-        "Jeden Sonntag: Was lief gut, was kannst du verbessern, Fokus f\u00fcr die n\u00e4chste Woche. Warmherzig und fachlich.",
+        "Jeden Sonntag: Was lief gut, was kannst du verbessern, Fokus für die nächste Woche. Warmherzig und fachlich.",
     },
   ];
 
@@ -444,10 +446,10 @@ function ClosedLoopSection() {
               <path d="M325 245 Q 310 305 250 325" fill="none" stroke="#C5DFB8" strokeWidth="2" />
               <polygon points="250,327 258,320 255,332" fill="#A8C99B" />
               {/* Bottom → Left */}
-              <path d="M150 325 Q 90 305 75 245" fill="none" stroke="#C5DFB8" strokeWidth="2" />
-              <polygon points="73,245 80,255 68,252" fill="#A8C99B" />
+              <path d="M150 325 Q 60 305 45 245" fill="none" stroke="#C5DFB8" strokeWidth="2" />
+              <polygon points="43,245 50,255 38,252" fill="#A8C99B" />
               {/* Left → Top */}
-              <path d="M75 155 Q 90 95 150 75" fill="none" stroke="#C5DFB8" strokeWidth="2" />
+              <path d="M45 155 Q 60 95 150 75" fill="none" stroke="#C5DFB8" strokeWidth="2" />
               <polygon points="150,73 142,80 145,68" fill="#A8C99B" />
             </svg>
 
@@ -464,7 +466,7 @@ function ClosedLoopSection() {
                 "top-0 left-1/2 -translate-x-1/2 -translate-y-1",
                 "right-0 top-1/2 -translate-y-1/2 translate-x-1",
                 "bottom-0 left-1/2 -translate-x-1/2 translate-y-1",
-                "left-0 top-1/2 -translate-y-1/2 -translate-x-1",
+                "left-0 top-1/2 -translate-y-1/2 -translate-x-10",
               ];
               return (
                 <div
@@ -504,8 +506,8 @@ function ExampleQuestionsSection() {
     "Wie bekomme ich genug Protein als Vegetarierin?",
     "Welche Lebensmittel helfen bei Eisenmangel?",
     "Erstelle mir einen Wochenplan ohne Gluten",
-    "Was sind gesunde Snacks f\u00fcr unterwegs?",
-    "Wie ern\u00e4hre ich mich in der Schwangerschaft optimal?",
+    "Was sind gesunde Snacks für unterwegs?",
+    "Wie ernähre ich mich in der Schwangerschaft optimal?",
   ];
 
   return (
@@ -631,11 +633,11 @@ function PricingSection() {
           </div>
           <ul className="space-y-3.5 mb-10 flex-1">
             <PricingFeature text="100 Credits pro Monat" highlight />
-            <PricingFeature text="Pers\u00f6nliche Ern\u00e4hrungspl\u00e4ne" highlight />
-            <PricingFeature text="Ern\u00e4hrungstagebuch" highlight />
+            <PricingFeature text="Persönliche Ernährungspläne" highlight />
+            <PricingFeature text="Ernährungstagebuch" highlight />
             <PricingFeature text="Gewichts- & Ziel-Tracker" />
-            <PricingFeature text="W\u00f6chentlicher KI-Review" />
-            <PricingFeature text="Rezeptvorschl\u00e4ge" />
+            <PricingFeature text="Wöchentlicher KI-Review" />
+            <PricingFeature text="Rezeptvorschläge" />
           </ul>
           <Link
             href="/sign-up"
@@ -661,9 +663,9 @@ function PricingSection() {
           <ul className="space-y-3.5 mb-10 flex-1">
             <PricingFeature text="400 Credits pro Monat" highlight />
             <PricingFeature text="Alles aus Basis" />
-            <PricingFeature text="W\u00f6chentliche Reviews von Janine" highlight />
+            <PricingFeature text="Wöchentliche Reviews von Janine" highlight />
             <PricingFeature text="Direktnachrichten an Janine" highlight />
-            <PricingFeature text="Priorit\u00e4ts-Support" />
+            <PricingFeature text="Prioritäts-Support" />
           </ul>
           <Link
             href="/sign-up"
@@ -697,6 +699,86 @@ function PricingFeature({ text, highlight }: { text: string; highlight?: boolean
         {text}
       </span>
     </li>
+  );
+}
+
+/* ═══════════════════════════════════════
+   7b. SPRICH DIREKT MIT JANINE
+   ═══════════════════════════════════════ */
+function JanineDirectSection() {
+  const ref = useScrollReveal();
+  const points = [
+    {
+      icon: <MessageCircle className="w-5 h-5" />,
+      title: "Persönliche Nachrichten",
+      desc: "Schreibe Janine direkt in der App und erhalte eine individuelle Antwort.",
+    },
+    {
+      icon: <Clock className="w-5 h-5" />,
+      title: "Antwort innerhalb von 24h",
+      desc: "Kein Bot, keine Warteschleife — echte Expertise, wenn du sie brauchst.",
+    },
+    {
+      icon: <Heart className="w-5 h-5" />,
+      title: "Empathisch & fachlich",
+      desc: "Janine kennt dein Profil und gibt dir Rat, der wirklich zu dir passt.",
+    },
+  ];
+
+  return (
+    <section className="max-w-6xl mx-auto px-4 sm:px-6 py-28">
+      <div ref={ref} className="reveal">
+        <div className="grid md:grid-cols-[1fr_1.2fr] gap-12 lg:gap-16 items-center">
+          {/* Left — Photo placeholder */}
+          <div className="flex justify-center md:justify-start">
+            <div className="w-64 h-72 sm:w-72 sm:h-80 rounded-3xl bg-gradient-to-br from-sage-pale to-accent-warmPale flex items-center justify-center border-2 border-sage-light/50 relative overflow-hidden">
+              <span className="text-7xl font-serif font-semibold text-primary/20">J</span>
+              <div className="absolute bottom-4 left-4 right-4 bg-white/80 backdrop-blur-sm rounded-xl px-4 py-3 border border-sage-light/40">
+                <p className="text-xs font-medium text-primary">Janine</p>
+                <p className="text-[11px] text-warm-muted">Ernährungswissenschaftlerin</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Right — Text block */}
+          <div>
+            <p className="text-sm font-medium text-primary tracking-wide uppercase mb-3">
+              Premium-Funktion
+            </p>
+            <h2 className="font-serif text-3xl sm:text-4xl font-semibold text-warm-dark mb-4">
+              Sprich direkt mit Janine
+            </h2>
+            <p className="text-warm-muted leading-relaxed mb-8 max-w-lg">
+              Manchmal braucht man mehr als eine KI-Antwort. Im Premium-Plan
+              kannst du Janine persönlich schreiben und bekommst fundierte,
+              individuelle Beratung.
+            </p>
+
+            <div className="space-y-5 mb-10">
+              {points.map((point) => (
+                <div key={point.title} className="flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-sage-pale flex items-center justify-center text-primary flex-shrink-0">
+                    {point.icon}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-warm-dark mb-0.5">{point.title}</p>
+                    <p className="text-sm text-warm-muted leading-relaxed">{point.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <Link
+              href="/sign-up"
+              className="inline-flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-full text-sm font-medium hover:bg-primary-light transition shadow-md shadow-primary/20 cursor-pointer"
+            >
+              Premium entdecken
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -750,32 +832,32 @@ function FaqSection() {
     {
       question: "Was unterscheidet diese App von ChatGPT?",
       answer:
-        "Die Wissensbasis wurde von einer studierten Ern\u00e4hrungswissenschaftlerin kuratiert. Dazu flie\u00dfen dein Profil, Tagebuch und Gewichtsverlauf in jede Antwort ein \u2014 das kann kein generischer Chatbot.",
+        "Die Wissensbasis wurde von einer studierten Ernährungswissenschaftlerin kuratiert. Dazu fließen dein Profil, Tagebuch und Gewichtsverlauf in jede Antwort ein — das kann kein generischer Chatbot.",
     },
     {
       question: "Werden meine Daten an die KI weitergegeben?",
       answer:
-        "Dein Name wird nie an die KI gesendet. Nur anonymisierte Profildaten (Ziele, Allergien) flie\u00dfen ein, damit die Antworten zu dir passen. Vollst\u00e4ndig DSGVO-konform.",
+        "Dein Name wird nie an die KI gesendet. Nur anonymisierte Profildaten (Ziele, Allergien) fließen ein, damit die Antworten zu dir passen. Vollständig DSGVO-konform.",
     },
     {
       question: "Kann ich die App auch vegan oder vegetarisch nutzen?",
       answer:
-        "Ja. Im Profil gibst du deine Ern\u00e4hrungsform an und alle Empfehlungen werden darauf abgestimmt.",
+        "Ja. Im Profil gibst du deine Ernährungsform an und alle Empfehlungen werden darauf abgestimmt.",
     },
     {
       question: "Ersetzt die App eine echte Ern\u00e4hrungsberatung?",
       answer:
-        "Die App bietet fundiertes Fachwissen, ersetzt aber keine \u00e4rztliche Beratung. Bei ernsthaften Beschwerden empfehlen wir immer den Gang zum Arzt.",
+        "Die App bietet fundiertes Fachwissen, ersetzt aber keine ärztliche Beratung. Bei ernsthaften Beschwerden empfehlen wir immer den Gang zum Arzt.",
     },
     {
       question: "Was ist der Wochencheck?",
       answer:
-        "Jeden Sonntag analysiert die KI dein Tagebuch der letzten Woche und gibt dir einen pers\u00f6nlichen R\u00fcckblick: Was lief gut, was kannst du verbessern, und einen Fokus f\u00fcr die n\u00e4chste Woche.",
+        "Jeden Sonntag analysiert die KI dein Tagebuch der letzten Woche und gibt dir einen persönlichen Rückblick: Was lief gut, was kannst du verbessern, und einen Fokus für die nächste Woche.",
     },
     {
       question: "Kann ich Janine direkt schreiben?",
       answer:
-        "Ja, im Premium-Plan kannst du Janine direkt in der App eine Nachricht schreiben und bekommst eine pers\u00f6nliche Antwort.",
+        "Ja, im Premium-Plan kannst du Janine direkt in der App eine Nachricht schreiben und bekommst eine persönliche Antwort.",
     },
   ];
 
