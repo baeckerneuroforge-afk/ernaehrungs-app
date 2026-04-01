@@ -148,6 +148,7 @@ function HeroSection() {
                     <video
                       ref={videoRef}
                       src="/ernaehrungsapp-demo.mp4"
+                      preload="metadata"
                       autoPlay
                       muted
                       loop
@@ -845,7 +846,7 @@ function FaqSection() {
         "Ja. Im Profil gibst du deine Ernährungsform an und alle Empfehlungen werden darauf abgestimmt.",
     },
     {
-      question: "Ersetzt die App eine echte Ern\u00e4hrungsberatung?",
+      question: "Ersetzt die App eine echte Ernährungsberatung?",
       answer:
         "Die App bietet fundiertes Fachwissen, ersetzt aber keine ärztliche Beratung. Bei ernsthaften Beschwerden empfehlen wir immer den Gang zum Arzt.",
     },
