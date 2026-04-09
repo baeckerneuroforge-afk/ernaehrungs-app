@@ -10,6 +10,7 @@ import {
   AKTIVITAET,
   GESCHLECHT,
 } from "@/types";
+import Link from "next/link";
 import {
   Save,
   CheckCircle,
@@ -21,7 +22,40 @@ import {
   Salad,
   Settings,
   CreditCard,
+  ArrowUpRight,
+  Infinity as InfinityIcon,
+  Crown,
+  Sparkles,
+  TrendingUp,
 } from "lucide-react";
+
+type Plan = "free" | "pro" | "pro_plus" | "admin";
+
+const PLAN_BADGE: Record<
+  Plan,
+  { label: string; class: string; icon: typeof Sparkles }
+> = {
+  free: {
+    label: "Free",
+    class: "bg-surface-muted text-ink-muted border-border",
+    icon: Sparkles,
+  },
+  pro: {
+    label: "Basis",
+    class: "bg-primary-pale text-primary border-primary/30",
+    icon: TrendingUp,
+  },
+  pro_plus: {
+    label: "Premium",
+    class: "bg-amber-50 text-amber-700 border-amber-200",
+    icon: Crown,
+  },
+  admin: {
+    label: "Admin",
+    class: "bg-primary-pale text-primary border-primary/30",
+    icon: InfinityIcon,
+  },
+};
 
 interface ProfilFormProps {
   existingProfile: Record<string, unknown> | null;
@@ -29,6 +63,8 @@ interface ProfilFormProps {
   displayName?: string;
   createdAt?: number | Date | null;
   credits?: { used: number; total: number };
+  plan?: Plan;
+  totalCredits?: number;
 }
 
 export function ProfilForm({
@@ -37,6 +73,8 @@ export function ProfilForm({
   displayName,
   createdAt,
   credits,
+  plan = "free",
+  totalCredits = 0,
 }: ProfilFormProps) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -163,18 +201,42 @@ export function ProfilForm({
             {initials}
           </div>
         )}
-        <h2 className="font-serif text-2xl text-ink mt-4">
-          {displayName || "Willkommen"}
-        </h2>
-        {memberSince ? (
+        <div className="flex items-center gap-2 mt-4 flex-wrap justify-center">
+          <h2 className="font-serif text-2xl text-ink">
+            {displayName || "Willkommen"}
+          </h2>
+          {(() => {
+            const badge = PLAN_BADGE[plan];
+            const Icon = badge.icon;
+            return (
+              <span
+                className={`inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-full border ${badge.class}`}
+              >
+                <Icon className="w-3 h-3" />
+                {badge.label}
+              </span>
+            );
+          })()}
+        </div>
+        {memberSince && (
           <p className="text-xs text-ink-muted mt-1">
             Mitglied seit {memberSince}
           </p>
-        ) : (
-          <span className="mt-2 inline-flex items-center text-[11px] font-medium text-primary bg-primary-pale px-3 py-0.5 rounded-full">
-            Free Plan
-          </span>
         )}
+        <p className="text-xs text-ink-muted mt-2">
+          {plan === "admin" ? (
+            <>Unbegrenzte Credits</>
+          ) : totalCredits >= 0 ? (
+            <>{totalCredits} Credits verfügbar</>
+          ) : null}
+        </p>
+        <Link
+          href="/billing"
+          className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary-hover mt-2 group"
+        >
+          Abo & Billing verwalten
+          <ArrowUpRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+        </Link>
       </div>
 
       {/* Credits */}
@@ -184,12 +246,12 @@ export function ProfilForm({
             <CreditCard className="w-4 h-4 text-primary" />
             <h3 className="font-serif text-lg text-ink">Deine Credits</h3>
           </div>
-          <button
-            type="button"
+          <Link
+            href="/billing"
             className="bg-primary hover:bg-primary-hover text-white text-xs font-medium rounded-full px-4 py-2 transition"
           >
             Credits nachkaufen
-          </button>
+          </Link>
         </div>
         <div className="flex items-baseline gap-2 mb-3">
           <span className="font-serif text-3xl text-ink">

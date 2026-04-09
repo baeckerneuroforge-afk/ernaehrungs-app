@@ -9,9 +9,23 @@ export const CREDIT_COSTS = {
 
 // Credits granted per plan per month
 export const PLAN_CREDITS = {
-  free: 10,
+  free: 15,
   pro: 100,
-  pro_plus: 500,
+  pro_plus: 400,
+} as const;
+
+// Monthly plan prices in EUR (for display only — source of truth is Stripe)
+export const PLAN_PRICES = {
+  free: 0,
+  pro: 15.99,
+  pro_plus: 49.99,
+} as const;
+
+export const PLAN_LABELS = {
+  free: "Free",
+  pro: "Basis",
+  pro_plus: "Premium",
+  admin: "Admin",
 } as const;
 
 export type CreditActionType =

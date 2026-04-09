@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Coins, Infinity as InfinityIcon } from "lucide-react";
 
 interface CreditData {
@@ -19,6 +20,7 @@ export function CreditBadge({
   onClick?: () => void;
   isAdmin?: boolean;
 }) {
+  const router = useRouter();
   const [data, setData] = useState<CreditData | null>(null);
 
   useEffect(() => {
@@ -28,6 +30,11 @@ export function CreditBadge({
       .catch(() => {});
   }, []);
 
+  const handleClick = () => {
+    if (onClick) onClick();
+    else router.push("/billing");
+  };
+
   if (!data) return null;
 
   const unlimited = isAdmin || data.isAdmin || data.total === -1;
@@ -35,7 +42,7 @@ export function CreditBadge({
   if (unlimited) {
     return (
       <button
-        onClick={onClick}
+        onClick={handleClick}
         className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-primary-pale text-primary hover:bg-primary/15 transition"
         title="Admin – unlimitierte Credits"
       >
@@ -49,7 +56,7 @@ export function CreditBadge({
 
   return (
     <button
-      onClick={onClick}
+      onClick={handleClick}
       className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full transition ${
         isLow
           ? "bg-red-50 text-red-600 hover:bg-red-100"

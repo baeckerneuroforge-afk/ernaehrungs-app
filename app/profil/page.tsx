@@ -6,6 +6,7 @@ import { Footer } from "@/components/layout/footer";
 import { ProfilForm } from "@/components/profil/profil-form";
 import { DangerZone } from "@/components/profil/danger-zone";
 import { AlertTriangle } from "lucide-react";
+import { isAdminUser, PLAN_CREDITS } from "@/lib/credits";
 
 export const dynamic = "force-dynamic";
 
@@ -22,14 +23,33 @@ export default async function ProfilPage() {
     .eq("user_id", userId)
     .limit(1);
 
+  const { data: userRow } = await supabase
+    .from("ea_users")
+    .select("subscription_plan, credits_subscription, credits_topup")
+    .eq("clerk_id", userId)
+    .limit(1);
+
   const displayName =
     (profile?.[0]?.name as string) ||
     user?.firstName ||
     user?.username ||
     "Willkommen";
 
-  // Mock credits for now – replace with real source when available
-  const credits = { used: 2, total: 15 };
+  const isAdmin = await isAdminUser(userId);
+  const plan = isAdmin
+    ? "admin"
+    : ((userRow?.[0]?.subscription_plan || "free") as
+        | "free"
+        | "pro"
+        | "pro_plus");
+
+  const creditsSub = userRow?.[0]?.credits_subscription ?? 0;
+  const creditsTopup = userRow?.[0]?.credits_topup ?? 0;
+  const total = isAdmin ? -1 : creditsSub + creditsTopup;
+  const planLimit = isAdmin
+    ? -1
+    : PLAN_CREDITS[plan as keyof typeof PLAN_CREDITS] ?? PLAN_CREDITS.free;
+  const credits = { used: Math.max(planLimit - creditsSub, 0), total: planLimit };
 
   return (
     <div className="min-h-screen flex flex-col bg-surface-bg">
@@ -49,6 +69,8 @@ export default async function ProfilPage() {
           displayName={displayName}
           createdAt={user?.createdAt ?? null}
           credits={credits}
+          plan={plan}
+          totalCredits={total}
         />
 
         <div className="mt-12 mb-3 flex items-center gap-2">
