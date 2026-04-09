@@ -6,10 +6,41 @@
 
 body {
   font-family: 'DM Sans', 'Inter', system-ui, -apple-system, sans-serif;
-  background-color: #FAFAF8;
-  color: #1A1A1A;
+  background-color: #FAFAF5;
+  color: #1C1917;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Lora', Georgia, 'Times New Roman', serif;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* Safe-area padding for fixed bottom navigation on mobile */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+/* Subtle warm paper background pattern (optional — applied via .bg-paper) */
+.bg-paper {
+  background-color: #FAFAF5;
+  background-image:
+    radial-gradient(rgba(168, 201, 155, 0.05) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Hide scrollbar while still scrolling (for chat list etc.) */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(28, 25, 23, 0.08);
+  border-radius: 999px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: rgba(28, 25, 23, 0.16);
 }
 
 html {

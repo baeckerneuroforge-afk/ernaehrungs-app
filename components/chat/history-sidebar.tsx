@@ -47,45 +47,45 @@ export function HistorySidebar({ currentSessionId, onSelectSession, onNewChat, o
       <div className={`
         fixed md:relative z-50 md:z-auto
         top-0 left-0 h-full
-        w-72 flex-shrink-0
-        bg-white border-r border-gray-100
+        w-[280px] flex-shrink-0
+        bg-white border-r border-border
         flex flex-col
-        transition-transform duration-200 ease-in-out
+        transition-transform duration-300 ease-out
         ${open ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
       `}>
 
         {/* Brand header */}
-        <div className="px-4 pt-5 pb-4 border-b border-gray-100">
+        <div className="px-4 pt-5 pb-4 border-b border-border">
           <div className="flex items-center gap-2.5 mb-4">
-            <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center flex-shrink-0">
-              <Leaf className="w-4 h-4 text-white" />
+            <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center flex-shrink-0 shadow-card">
+              <Leaf className="w-[18px] h-[18px] text-white" />
             </div>
-            <span className="font-semibold text-gray-800 text-sm">Ernährungsberatung</span>
-            <button onClick={onClose} className="ml-auto p-1 text-gray-400 hover:text-gray-600 md:hidden">
+            <span className="font-serif font-semibold text-ink text-[15px]">Gespräche</span>
+            <button onClick={onClose} className="ml-auto p-1.5 rounded-full text-ink-faint hover:text-ink hover:bg-surface-muted md:hidden transition">
               <X className="w-4 h-4" />
             </button>
           </div>
           <button
             onClick={() => { onNewChat(); onClose(); }}
-            className="w-full flex items-center justify-center gap-2 text-sm font-medium text-white bg-primary hover:bg-primary-light px-3 py-2.5 rounded-xl transition"
+            className="w-full flex items-center justify-center gap-2 text-sm font-medium text-white bg-primary hover:bg-primary-hover px-4 py-2.5 rounded-full transition-all duration-200 shadow-card"
           >
             <Plus className="w-4 h-4" />
-            Neuer Chat
+            Neues Gespräch
           </button>
         </div>
 
         {/* Sessions list */}
-        <div className="flex-1 overflow-y-auto py-2">
+        <div className="flex-1 overflow-y-auto py-2 scrollbar-thin">
           {loading ? (
             <div className="flex justify-center py-10">
-              <Loader2 className="w-4 h-4 animate-spin text-gray-300" />
+              <Loader2 className="w-4 h-4 animate-spin text-ink-faint" />
             </div>
           ) : sessions.length === 0 ? (
             <div className="text-center py-10 px-4">
-              <div className="w-10 h-10 rounded-2xl bg-gray-50 flex items-center justify-center mx-auto mb-3">
-                <MessageSquare className="w-5 h-5 text-gray-300" />
+              <div className="w-11 h-11 rounded-2xl bg-primary-faint flex items-center justify-center mx-auto mb-3">
+                <MessageSquare className="w-5 h-5 text-primary/60" />
               </div>
-              <p className="text-xs text-gray-400 leading-relaxed">
+              <p className="text-xs text-ink-faint leading-relaxed">
                 Noch keine Gespräche.<br />Starte deinen ersten Chat!
               </p>
             </div>
@@ -97,16 +97,16 @@ export function HistorySidebar({ currentSessionId, onSelectSession, onNewChat, o
                   <button
                     key={session.session_id}
                     onClick={() => { onSelectSession(session.session_id); onClose(); }}
-                    className={`w-full text-left px-3 py-2.5 rounded-xl transition group ${
+                    className={`w-full text-left pl-3 pr-3 py-2.5 rounded-xl transition-all duration-200 border-l-2 ${
                       isActive
-                        ? "bg-primary-bg"
-                        : "hover:bg-gray-50"
+                        ? "bg-primary-pale border-primary"
+                        : "border-transparent hover:bg-surface-muted"
                     }`}
                   >
-                    <p className={`text-sm truncate leading-snug ${isActive ? "text-primary font-medium" : "text-gray-700"}`}>
+                    <p className={`text-sm truncate leading-snug ${isActive ? "text-primary font-medium" : "text-ink"}`}>
                       {session.title ? session.title.slice(0, 42) : "Neues Gespräch"}
                     </p>
-                    <p className="text-[10px] text-gray-400 mt-0.5">
+                    <p className="text-[10px] text-ink-faint mt-0.5">
                       {relativeTime(session.last_message_at)}
                       {session.message_count > 0 && (
                         <span className="ml-1">· {session.message_count} Nachr.</span>

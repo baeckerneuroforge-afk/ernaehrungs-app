@@ -25,7 +25,7 @@ export default async function ChatPage() {
   if (profile[0]?.review_consent === null) redirect("/onboarding");
 
   return (
-    <div className="h-screen flex flex-col bg-surface-bg">
+    <div className="h-[100dvh] flex flex-col bg-surface-bg">
       <Navbar />
       <ChatClient userId={userId} userName={profile[0]?.name || "du"} />
     </div>
