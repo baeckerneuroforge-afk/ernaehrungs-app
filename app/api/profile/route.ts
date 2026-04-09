@@ -1,4 +1,4 @@
-import { auth } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 
 export async function GET() {
@@ -27,6 +27,36 @@ export async function POST(request: Request) {
 
   const body = await request.json();
   const supabase = createSupabaseAdmin();
+
+  // Self-heal ea_users: ensure a row exists for this Clerk user even if the
+  // Clerk webhook never fired. Pull email/name/image from Clerk directly.
+  try {
+    const user = await currentUser();
+    if (user) {
+      const email =
+        user.emailAddresses.find((e) => e.id === user.primaryEmailAddressId)
+          ?.emailAddress ||
+        user.emailAddresses[0]?.emailAddress ||
+        "";
+      const fullName =
+        [user.firstName, user.lastName].filter(Boolean).join(" ") ||
+        (body?.name as string | undefined) ||
+        null;
+
+      await supabase.from("ea_users").upsert(
+        {
+          clerk_id: userId,
+          email,
+          name: fullName,
+          image_url: user.imageUrl || null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "clerk_id" }
+      );
+    }
+  } catch {
+    // Non-fatal — profile save should still proceed
+  }
 
   const profileData = {
     user_id: userId,

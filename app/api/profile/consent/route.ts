@@ -18,10 +18,18 @@ export async function POST(request: Request) {
   // type === "ki" → ea_users.ki_consent
   // type === "review" (or undefined for backwards compat) → ea_profiles.review_consent
   if (type === "ki") {
+    // Upsert so the consent is recorded even if the Clerk webhook never created
+    // the ea_users row (self-healing — prevents silent no-op UPDATEs).
     const { error } = await supabase
       .from("ea_users")
-      .update({ ki_consent: consent })
-      .eq("clerk_id", userId);
+      .upsert(
+        {
+          clerk_id: userId,
+          ki_consent: consent,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "clerk_id" }
+      );
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ success: true });
   }
