@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Leaf, ChevronRight, ChevronLeft, Check, Loader2, ShieldCheck, Eye, EyeOff, ChevronDown, ChevronUp } from "lucide-react";
+import { Leaf, ChevronRight, ChevronLeft, Check, Loader2, ShieldCheck, Eye, EyeOff, ChevronDown, ChevronUp, Sparkles, Ban } from "lucide-react";
 import { GESCHLECHT, ZIELE, ERNAEHRUNGSFORMEN, ALLERGIEN, AKTIVITAET } from "@/types";
 
 interface Props {
@@ -17,6 +17,7 @@ export function OnboardingWizard({ userId: _userId, existingProfile, initialStep
   const [step, setStep] = useState(initialStep);
   const [saving, setSaving] = useState(false);
   const [consentDetailsOpen, setConsentDetailsOpen] = useState(false);
+  const [kiConsentDetailsOpen, setKiConsentDetailsOpen] = useState(false);
 
   // Form state
   const [name, setName] = useState((existingProfile?.name as string) || "");
@@ -66,17 +67,26 @@ export function OnboardingWizard({ userId: _userId, existingProfile, initialStep
     setSaving(false);
   }
 
-  async function handleConsentFinish(consent: boolean) {
+  async function handleKiConsent(consent: boolean) {
     await fetch("/api/profile/consent", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ consent }),
+      body: JSON.stringify({ consent, type: "ki" }),
     });
     setStep(5);
   }
 
-  // Steps 1–4 shown in progress bar (4 = consent), step 5 = done
-  const progressPct = step <= 4 ? (step / 4) * 100 : 100;
+  async function handleReviewConsent(consent: boolean) {
+    await fetch("/api/profile/consent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ consent, type: "review" }),
+    });
+    setStep(6);
+  }
+
+  // Steps 1–5 shown in progress bar (4 = KI consent, 5 = review consent), step 6 = done
+  const progressPct = step <= 5 ? (step / 5) * 100 : 100;
 
   return (
     <div className="min-h-screen bg-surface-bg flex flex-col">
@@ -299,26 +309,106 @@ export function OnboardingWizard({ userId: _userId, existingProfile, initialStep
             </div>
           )}
 
-          {/* Step 4: Consent */}
+          {/* Step 4: KI-Consent (PFLICHT) */}
           {step === 4 && (
+            <div className="space-y-4">
+              <div className="text-center mb-5">
+                <div className="w-14 h-14 rounded-2xl bg-primary-bg flex items-center justify-center mx-auto mb-4">
+                  <Sparkles className="w-7 h-7 text-primary" />
+                </div>
+                <h1 className="text-xl font-bold text-gray-800 mb-2">
+                  KI-gestützte Ernährungsberatung
+                </h1>
+                <p className="text-sm text-gray-500 leading-relaxed">
+                  Um dir persönliche Ernährungsempfehlungen geben zu können, werden deine Gesundheitsdaten (Alter, Gewicht, Ziele, Tagebuch, Allergien) anonymisiert von einer KI analysiert.
+                </p>
+              </div>
+
+              <div className="bg-primary-bg/30 border border-primary-bg rounded-xl px-4 py-3">
+                <p className="text-xs font-semibold text-primary uppercase tracking-wide mb-1.5">Die Verarbeitung erfolgt über</p>
+                <ul className="space-y-1">
+                  <li className="text-xs text-gray-600 leading-relaxed">• <strong>Claude API</strong> (Anthropic, USA) – für die KI-Antworten</li>
+                  <li className="text-xs text-gray-600 leading-relaxed">• <strong>OpenAI Embedding API</strong> (USA) – für die Suche in unserer Wissensbasis</li>
+                </ul>
+                <p className="text-xs text-gray-600 leading-relaxed mt-2">
+                  Es gelten <strong>EU-Standardvertragsklauseln (SCCs)</strong>. Dein Name wird dabei nie übermittelt. Die API-Daten werden nicht für KI-Training verwendet.
+                </p>
+              </div>
+
+              {/* Legal details expandable */}
+              <div className="border border-gray-100 rounded-xl overflow-hidden">
+                <button
+                  onClick={() => setKiConsentDetailsOpen((o) => !o)}
+                  className="w-full flex items-center justify-between px-4 py-3 text-left bg-gray-50 hover:bg-gray-100 transition"
+                >
+                  <span className="text-xs text-gray-500 font-medium">Rechtliche Details</span>
+                  {kiConsentDetailsOpen ? (
+                    <ChevronUp className="w-3.5 h-3.5 text-gray-400" />
+                  ) : (
+                    <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
+                  )}
+                </button>
+                {kiConsentDetailsOpen && (
+                  <div className="px-4 py-3 bg-white space-y-2">
+                    <p className="text-xs text-gray-500 leading-relaxed">
+                      <strong className="text-gray-700">Rechtsgrundlage:</strong> Art. 6 Abs. 1 lit. a DSGVO (Einwilligung) sowie Art. 9 Abs. 2 lit. a DSGVO.
+                    </p>
+                    <p className="text-xs text-gray-500 leading-relaxed">
+                      <strong className="text-gray-700">Verantwortlicher:</strong> André Bäcker, Hephaistos Systems, Alicenstraße 48, 35390 Gießen, info@hephaistos-systems.de
+                    </p>
+                    <p className="text-xs text-gray-500 leading-relaxed">
+                      <strong className="text-gray-700">Widerruf:</strong> Jederzeit in den Profileinstellungen möglich.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2 pt-1">
+                <button
+                  onClick={() => handleKiConsent(true)}
+                  className="w-full flex items-center gap-3 px-4 py-4 rounded-xl border-2 border-primary bg-primary-bg/30 text-left hover:bg-primary-bg/50 transition"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center flex-shrink-0">
+                    <Check className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800">Ja, ich stimme zu</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Chat, Ernährungsplan und Wochenreview nutzen</p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => handleKiConsent(false)}
+                  className="w-full flex items-center gap-3 px-4 py-4 rounded-xl border border-gray-200 bg-white text-left hover:border-gray-300 transition"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0">
+                    <Ban className="w-4 h-4 text-gray-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Ohne KI nutzen</p>
+                    <p className="text-xs text-gray-400 mt-0.5">Nur Tagebuch, Tracking und &bdquo;Janine direkt fragen&ldquo; (Premium)</p>
+                  </div>
+                </button>
+              </div>
+
+              <p className="text-center text-xs text-gray-400">
+                Einwilligung jederzeit widerrufbar unter Einstellungen → Profil.
+              </p>
+            </div>
+          )}
+
+          {/* Step 5: Review-Consent (OPTIONAL) */}
+          {step === 5 && (
             <div className="space-y-4">
               <div className="text-center mb-5">
                 <div className="w-14 h-14 rounded-2xl bg-primary-bg flex items-center justify-center mx-auto mb-4">
                   <ShieldCheck className="w-7 h-7 text-primary" />
                 </div>
                 <h1 className="text-xl font-bold text-gray-800 mb-2">
-                  Datenschutz & Einwilligung
+                  Qualitätssicherung
                 </h1>
                 <p className="text-sm text-gray-500 leading-relaxed">
-                  Darf Janine (unser Ernährungsteam) deine Gespräche lesen, um die Qualität der KI-Antworten zu verbessern?
-                </p>
-              </div>
-
-              {/* AI processing info */}
-              <div className="bg-primary-bg/30 border border-primary-bg rounded-xl px-4 py-3">
-                <p className="text-xs font-semibold text-primary uppercase tracking-wide mb-1.5">So arbeitet die KI</p>
-                <p className="text-xs text-gray-600 leading-relaxed">
-                  Deine Ernährungsdaten (Alter, Gewicht, Ziele, Tagebuch, Allergien) werden <strong>anonymisiert</strong> von einer KI analysiert, um dir persönliche Empfehlungen zu geben. Dein Name wird dabei <strong>nie übermittelt</strong>. Die Daten können nicht auf dich zurückgeführt werden.
+                  Darf Janine (unsere Ernährungswissenschaftlerin) ausgewählte Gespräche einsehen, um die Wissensbasis und Empfehlungen zu verbessern?
                 </p>
               </div>
 
@@ -399,20 +489,20 @@ export function OnboardingWizard({ userId: _userId, existingProfile, initialStep
               {/* Consent buttons */}
               <div className="space-y-2 pt-1">
                 <button
-                  onClick={() => handleConsentFinish(true)}
+                  onClick={() => handleReviewConsent(true)}
                   className="w-full flex items-center gap-3 px-4 py-4 rounded-xl border-2 border-primary bg-primary-bg/30 text-left hover:bg-primary-bg/50 transition"
                 >
                   <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center flex-shrink-0">
                     <Eye className="w-4 h-4 text-white" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-gray-800">Ja, ich willige ein</p>
+                    <p className="text-sm font-semibold text-gray-800">Ja, ich helfe mit</p>
                     <p className="text-xs text-gray-500 mt-0.5">Ausdrückliche Einwilligung gem. Art. 9 Abs. 2 lit. a DSGVO</p>
                   </div>
                 </button>
 
                 <button
-                  onClick={() => handleConsentFinish(false)}
+                  onClick={() => handleReviewConsent(false)}
                   className="w-full flex items-center gap-3 px-4 py-4 rounded-xl border border-gray-200 bg-white text-left hover:border-gray-300 transition"
                 >
                   <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0">
@@ -431,8 +521,8 @@ export function OnboardingWizard({ userId: _userId, existingProfile, initialStep
             </div>
           )}
 
-          {/* Step 5: Done */}
-          {step === 5 && (
+          {/* Step 6: Done */}
+          {step === 6 && (
             <div className="text-center space-y-6">
               <div className="w-20 h-20 rounded-full bg-primary-bg flex items-center justify-center mx-auto">
                 <Check className="w-10 h-10 text-primary" />

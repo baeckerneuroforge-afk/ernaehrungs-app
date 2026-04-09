@@ -8,9 +8,22 @@ export async function POST(request: Request) {
 
   const supabase = createSupabaseAdmin();
 
-  const { consent } = await request.json();
+  const body = await request.json();
+  const { consent, type } = body;
+
   if (typeof consent !== "boolean") {
     return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+  }
+
+  // type === "ki" → ea_users.ki_consent
+  // type === "review" (or undefined for backwards compat) → ea_profiles.review_consent
+  if (type === "ki") {
+    const { error } = await supabase
+      .from("ea_users")
+      .update({ ki_consent: consent })
+      .eq("clerk_id", userId);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: true });
   }
 
   const { error } = await supabase

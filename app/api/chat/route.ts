@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { loadUserBehaviorContext } from "@/lib/utils/user-context";
 import { deductCredits, CREDIT_COSTS } from "@/lib/credits";
+import { hasKiConsent, KI_CONSENT_MISSING_RESPONSE } from "@/lib/consent";
 import { classifyAction } from "@/lib/classify-action";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
@@ -142,6 +143,14 @@ export async function POST(request: Request) {
     }
 
     const supabase = createSupabaseAdmin();
+
+    // ---- KI-Consent check (Art. 9 Abs. 2 lit. a DSGVO) ----
+    if (!(await hasKiConsent(supabase, userId))) {
+      return new Response(JSON.stringify(KI_CONSENT_MISSING_RESPONSE), {
+        status: 403,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
 
     // ---- Classify action + determine credit cost ----
     const action = classifyAction(message);

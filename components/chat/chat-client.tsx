@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Leaf, User, History, ArrowLeft, ThumbsUp, ThumbsDown, X, MessageCircle } from "lucide-react";
+import { Send, Leaf, User, History, ArrowLeft, ThumbsUp, ThumbsDown, X, MessageCircle, Sparkles } from "lucide-react";
 import { ChatMessage } from "./message";
 import { HistorySidebar } from "./history-sidebar";
 import { DirectMessagePanel } from "./direct-message-panel";
@@ -373,7 +373,20 @@ export function ChatClient({ userId, userName }: ChatClientProps) {
                   }`}
                 >
                   {msg.role === "assistant" ? (
-                    <ChatMessage content={msg.content} isStreaming={isStreaming && i === messages.length - 1} />
+                    <>
+                      <ChatMessage content={msg.content} isStreaming={isStreaming && i === messages.length - 1} />
+                      {msg.content && (
+                        <div className="mt-2 flex items-center">
+                          <span
+                            title="Antwort generiert von KI auf Basis von Janines Wissensbasis"
+                            className="inline-flex items-center gap-1 text-[11px] font-medium text-sage px-2 py-0.5 rounded-full bg-sage-faint border border-sage/30"
+                          >
+                            <Sparkles className="w-2.5 h-2.5" />
+                            KI
+                          </span>
+                        </div>
+                      )}
+                    </>
                   ) : (
                     <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                   )}

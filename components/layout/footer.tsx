@@ -9,10 +9,10 @@ export function Footer() {
             Ernährungsberatung by Janine
           </span>
           <div className="flex items-center gap-6">
-            <Link href="#" className="text-sm text-warm-muted hover:text-warm-dark transition">
+            <Link href="/impressum" className="text-sm text-warm-muted hover:text-warm-dark transition">
               Impressum
             </Link>
-            <Link href="#" className="text-sm text-warm-muted hover:text-warm-dark transition">
+            <Link href="/datenschutz" className="text-sm text-warm-muted hover:text-warm-dark transition">
               Datenschutz
             </Link>
             <Link href="/blog" className="text-sm text-warm-muted hover:text-warm-dark transition">

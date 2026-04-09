@@ -1,0 +1,214 @@
+import Link from "next/link";
+import { Navbar } from "@/components/layout/navbar";
+import { Footer } from "@/components/layout/footer";
+
+export const metadata = {
+  title: "Datenschutzerklärung – Ernährungsberatung",
+  description:
+    "Informationen zur Verarbeitung personenbezogener Daten gemäß DSGVO.",
+};
+
+export default function DatenschutzPage() {
+  return (
+    <div className="min-h-screen flex flex-col bg-surface-bg">
+      <Navbar />
+      <main className="flex-1">
+        <article className="max-w-3xl mx-auto px-4 sm:px-6 py-16 sm:py-20">
+          <header className="mb-12">
+            <Link
+              href="/"
+              className="text-sm text-warm-muted hover:text-primary transition inline-flex items-center gap-1 mb-6"
+            >
+              ← Zurück zur Startseite
+            </Link>
+            <h1 className="text-3xl sm:text-4xl font-bold text-warm-dark mb-3">
+              Datenschutzerklärung
+            </h1>
+            <div className="h-1 w-16 bg-sage rounded-full" />
+            <p className="text-sm text-warm-muted mt-4">
+              Stand: April 2026
+            </p>
+          </header>
+
+          <div className="space-y-10 text-warm-text">
+            <Section title="Verantwortliche Stelle">
+              <p>
+                André Bäcker
+                <br />
+                Hephaistos Systems
+                <br />
+                Alicenstraße 48
+                <br />
+                35390 Gießen
+                <br />
+                E-Mail:{" "}
+                <a
+                  href="mailto:info@hephaistos-systems.de"
+                  className="text-primary hover:underline"
+                >
+                  info@hephaistos-systems.de
+                </a>
+              </p>
+            </Section>
+
+            <Section title="Welche Daten wir erheben">
+              <ul className="list-disc pl-5 space-y-2">
+                <li>
+                  <strong>Registrierungsdaten:</strong> E-Mail, Name (über
+                  Clerk, USA, EU-Standardvertragsklauseln)
+                </li>
+                <li>
+                  <strong>Profildaten:</strong> Alter, Geschlecht, Größe,
+                  Gewicht, Allergien, Krankheiten, Ernährungsform
+                </li>
+                <li>
+                  <strong>Nutzungsdaten:</strong> Ernährungstagebuch,
+                  Gewichtsverlauf, Chat-Verläufe, Ernährungspläne, Ziele
+                </li>
+                <li>
+                  <strong>Zahlungsdaten:</strong> über Stripe (USA,
+                  EU-Standardvertragsklauseln) — wir speichern keine
+                  Kreditkartendaten
+                </li>
+                <li>
+                  <strong>Technische Daten:</strong> IP-Adresse, Browser,
+                  Geräteinformationen (über Vercel)
+                </li>
+              </ul>
+            </Section>
+
+            <Section title="Zweck der Verarbeitung">
+              <ul className="list-disc pl-5 space-y-2">
+                <li>
+                  Bereitstellung personalisierter Ernährungsempfehlungen mittels
+                  KI
+                </li>
+                <li>
+                  KI-basierte Analyse von Gesundheitsdaten zur Erstellung von
+                  Ernährungsplänen und Wochenreviews
+                </li>
+                <li>
+                  Qualitätssicherung durch Einsicht ausgewählter Gespräche (nur
+                  mit gesonderter Einwilligung)
+                </li>
+                <li>Zahlungsabwicklung</li>
+              </ul>
+            </Section>
+
+            <Section title="Rechtsgrundlagen">
+              <ul className="list-disc pl-5 space-y-2">
+                <li>
+                  Art. 6 Abs. 1 lit. a DSGVO (Einwilligung) für die
+                  KI-Verarbeitung von Gesundheitsdaten
+                </li>
+                <li>
+                  Art. 6 Abs. 1 lit. b DSGVO (Vertragserfüllung) für die
+                  Bereitstellung des Dienstes
+                </li>
+                <li>
+                  Art. 9 Abs. 2 lit. a DSGVO (ausdrückliche Einwilligung) für
+                  Gesundheitsdaten
+                </li>
+              </ul>
+            </Section>
+
+            <Section title="Drittanbieter und Datenübermittlung in Drittländer">
+              <ul className="list-disc pl-5 space-y-3">
+                <li>
+                  <strong>Anthropic (Claude API, USA):</strong> Anonymisierte
+                  Gesundheitsdaten (ohne Name, E-Mail) werden zur KI-gestützten
+                  Ernährungsberatung übermittelt. EU-Standardvertragsklauseln.
+                  API-Daten werden nicht für KI-Training verwendet.
+                </li>
+                <li>
+                  <strong>OpenAI (Embedding API, USA):</strong> User-Nachrichten
+                  und Profilmerkmale werden für die Vektor-Suche in der
+                  Wissensbasis verarbeitet. EU-Standardvertragsklauseln.
+                </li>
+                <li>
+                  <strong>Clerk (USA):</strong> Authentifizierung. Speichert
+                  E-Mail, Name, Login-History. EU-Standardvertragsklauseln.
+                </li>
+                <li>
+                  <strong>Stripe (USA):</strong> Zahlungsabwicklung. Speichert
+                  Zahlungsdaten. EU-Standardvertragsklauseln.
+                </li>
+                <li>
+                  <strong>Supabase (EU, Frankfurt):</strong> Datenbankhosting.
+                  Alle Nutzerdaten werden in der EU gespeichert.
+                </li>
+                <li>
+                  <strong>Vercel (USA):</strong> Hosting. Speichert
+                  Request-Logs. EU-Standardvertragsklauseln.
+                </li>
+              </ul>
+            </Section>
+
+            <Section title="Speicherdauer">
+              <ul className="list-disc pl-5 space-y-2">
+                <li>
+                  Profil-, Nutzungs- und Chat-Daten: Solange der Account besteht
+                </li>
+                <li>
+                  Bei Kontolöschung: Alle personenbezogenen Daten werden
+                  innerhalb von 30 Tagen gelöscht
+                </li>
+                <li>
+                  Zahlungsdaten bei Stripe: Gemäß gesetzlicher
+                  Aufbewahrungsfristen (6–10 Jahre)
+                </li>
+              </ul>
+            </Section>
+
+            <Section title="Cookies">
+              <p>
+                Wir verwenden ausschließlich technisch notwendige Cookies für
+                die Authentifizierung (Clerk Session-Cookie). Es werden keine
+                Tracking-Cookies, Analyse-Cookies oder Marketing-Cookies
+                eingesetzt.
+              </p>
+            </Section>
+
+            <Section title="Ihre Rechte">
+              <ul className="list-disc pl-5 space-y-2">
+                <li>Auskunft (Art. 15 DSGVO)</li>
+                <li>Berichtigung (Art. 16 DSGVO)</li>
+                <li>
+                  Löschung (Art. 17 DSGVO) — in der App unter Einstellungen
+                  möglich
+                </li>
+                <li>Einschränkung der Verarbeitung (Art. 18 DSGVO)</li>
+                <li>
+                  Datenübertragbarkeit (Art. 20 DSGVO) — Export-Funktion in der
+                  App unter Einstellungen
+                </li>
+                <li>Widerspruch (Art. 21 DSGVO)</li>
+                <li>
+                  Widerruf der Einwilligung jederzeit ohne Angabe von Gründen
+                </li>
+                <li>
+                  Beschwerderecht bei der zuständigen Aufsichtsbehörde:
+                  <br />
+                  Der Hessische Beauftragte für Datenschutz und
+                  Informationsfreiheit
+                  <br />
+                  Postfach 3163, 65021 Wiesbaden
+                </li>
+              </ul>
+            </Section>
+          </div>
+        </article>
+      </main>
+      <Footer />
+    </div>
+  );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section>
+      <h2 className="text-lg font-semibold text-warm-dark mb-3">{title}</h2>
+      <div className="text-sm leading-relaxed text-warm-text">{children}</div>
+    </section>
+  );
+}

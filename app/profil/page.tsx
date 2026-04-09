@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { ProfilForm } from "@/components/profil/profil-form";
+import { DangerZone } from "@/components/profil/danger-zone";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +35,7 @@ export default async function ProfilPage() {
           userId={userId}
           existingProfile={profile?.[0] || null}
         />
+        <DangerZone />
       </main>
       <Footer />
     </div>
