@@ -159,7 +159,7 @@ export function ChatClient({ userId, userName }: ChatClientProps) {
 
   async function handleSend() {
     const text = input.trim();
-    if (!text || isStreaming || historyMode) return;
+    if (!text || isStreaming) return;
 
     setInput("");
     const userMsg: Message = { role: "user", content: text };
@@ -305,7 +305,7 @@ export function ChatClient({ userId, userName }: ChatClientProps) {
         <div className="flex-1 flex flex-col min-w-0">
           {historyMode && (
             <div className="bg-amber-50 border-b border-amber-100 px-4 py-2.5 flex items-center justify-between">
-              <p className="text-xs text-amber-700">Du siehst ein vergangenes Gespräch.</p>
+              <p className="text-xs text-amber-700">Du führst ein früheres Gespräch fort.</p>
               <button
                 onClick={handleNewChat}
                 className="flex items-center gap-1 text-xs text-primary font-medium hover:text-primary-light transition"
@@ -488,56 +488,52 @@ export function ChatClient({ userId, userName }: ChatClientProps) {
 
           {/* Input */}
           <div className="border-t border-gray-100 bg-white px-4 py-3">
-            {historyMode ? (
-              <div className="max-w-3xl mx-auto text-center">
+            <div className="max-w-3xl mx-auto flex gap-2">
+              <textarea
+                ref={inputRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={historyMode ? "Schreibe weiter im bisherigen Gespräch..." : "Stelle eine Ernährungsfrage..."}
+                rows={1}
+                className="flex-1 resize-none px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              />
+              {historyMode && (
                 <button
                   onClick={handleNewChat}
-                  className="inline-flex items-center gap-2 text-sm text-white bg-primary px-4 py-2.5 rounded-xl hover:bg-primary-light transition"
+                  title="Neues Gespräch starten"
+                  className="flex items-center gap-1 text-xs text-gray-500 border border-gray-200 px-3 py-2.5 rounded-xl hover:border-primary/40 hover:text-primary transition flex-shrink-0"
                 >
-                  <ArrowLeft className="w-4 h-4" />
-                  Neues Gespräch starten
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  Neues Gespräch
                 </button>
-              </div>
-            ) : (
-              <>
-                <div className="max-w-3xl mx-auto flex gap-2">
-                  <textarea
-                    ref={inputRef}
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Stelle eine Ernährungsfrage..."
-                    rows={1}
-                    className="flex-1 resize-none px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  />
-                  <button
-                    onClick={handleSend}
-                    disabled={!input.trim() || isStreaming}
-                    className="bg-primary text-white p-2.5 rounded-xl hover:bg-primary-light transition disabled:opacity-40 flex-shrink-0"
-                  >
-                    <Send className="w-4 h-4" />
-                  </button>
-                </div>
+              )}
+              <button
+                onClick={handleSend}
+                disabled={!input.trim() || isStreaming}
+                className="bg-primary text-white p-2.5 rounded-xl hover:bg-primary-light transition disabled:opacity-40 flex-shrink-0"
+              >
+                <Send className="w-4 h-4" />
+              </button>
+            </div>
 
-                {/* Footer with DM button + badge */}
-                <div className="flex items-center justify-center gap-3 mt-2">
-                  <p className="text-xs text-gray-400">Diese Beratung ersetzt keinen Arztbesuch.</p>
-                  <span className="text-gray-200">·</span>
-                  <button
-                    onClick={() => dmOpen ? setDmOpen(false) : handleOpenDm()}
-                    className="relative flex items-center gap-1 text-xs text-primary/70 hover:text-primary transition"
-                  >
-                    <MessageCircle className="w-3 h-3" />
-                    Janine schreiben
-                    {unreadDMs > 0 && (
-                      <span className="absolute -top-2 -right-3 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                        {unreadDMs}
-                      </span>
-                    )}
-                  </button>
-                </div>
-              </>
-            )}
+            {/* Footer with DM button + badge */}
+            <div className="flex items-center justify-center gap-3 mt-2">
+              <p className="text-xs text-gray-400">Diese Beratung ersetzt keinen Arztbesuch.</p>
+              <span className="text-gray-200">·</span>
+              <button
+                onClick={() => dmOpen ? setDmOpen(false) : handleOpenDm()}
+                className="relative flex items-center gap-1 text-xs text-primary/70 hover:text-primary transition"
+              >
+                <MessageCircle className="w-3 h-3" />
+                Janine schreiben
+                {unreadDMs > 0 && (
+                  <span className="absolute -top-2 -right-3 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                    {unreadDMs}
+                  </span>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>
