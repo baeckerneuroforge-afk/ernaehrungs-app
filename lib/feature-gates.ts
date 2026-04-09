@@ -6,18 +6,20 @@ export type Feature =
   | "tracker"
   | "janine_direkt";
 
-export type SubscriptionPlan = "free" | "pro" | "pro_plus";
+export type SubscriptionPlan = "free" | "pro" | "pro_plus" | "admin";
 
 const FEATURE_ACCESS: Record<SubscriptionPlan, Feature[]> = {
   free: ["chat", "tagebuch", "tracker"],
   pro: ["chat", "tagebuch", "tracker", "plan", "review"],
   pro_plus: ["chat", "tagebuch", "tracker", "plan", "review", "janine_direkt"],
+  admin: ["chat", "tagebuch", "tracker", "plan", "review", "janine_direkt"],
 };
 
 export function hasFeatureAccess(
   plan: string | null | undefined,
   feature: Feature
 ): boolean {
+  if (plan === "admin") return true;
   const normalized = (plan || "free") as SubscriptionPlan;
   return (FEATURE_ACCESS[normalized] || FEATURE_ACCESS.free).includes(feature);
 }

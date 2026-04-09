@@ -30,6 +30,19 @@ interface CreditBalance {
 }
 
 /**
+ * Check whether a user has the admin role. Admins bypass the credit system.
+ */
+export async function isAdminUser(userId: string): Promise<boolean> {
+  const supabase = createSupabaseAdmin();
+  const { data } = await supabase
+    .from("ea_user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .limit(1);
+  return data?.[0]?.role === "admin";
+}
+
+/**
  * Get current credit balance for a user.
  */
 export async function getCredits(userId: string): Promise<CreditBalance> {
@@ -56,6 +69,9 @@ export async function deductCredits(
   description?: string
 ): Promise<boolean> {
   const supabase = createSupabaseAdmin();
+
+  // Admins have unlimited credits — skip the deduction entirely.
+  if (await isAdminUser(userId)) return true;
 
   const { data: user } = await supabase
     .from("ea_users")
