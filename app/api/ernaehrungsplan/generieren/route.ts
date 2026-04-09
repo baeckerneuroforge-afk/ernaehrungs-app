@@ -3,6 +3,7 @@ import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { loadUserBehaviorContext } from "@/lib/utils/user-context";
 import { deductCredits, CREDIT_COSTS } from "@/lib/credits";
 import { hasKiConsent, KI_CONSENT_MISSING_RESPONSE } from "@/lib/consent";
+import { touchLastActive } from "@/lib/last-active";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import type { PlanParameters } from "@/types/meal-plan";
@@ -196,6 +197,9 @@ export async function POST(request: Request) {
         headers: { "Content-Type": "application/json" },
       });
     }
+
+    // ---- Activity ping (for inactive-account auto-deletion cron) ----
+    void touchLastActive(supabase, userId);
 
     // Credit check & deduction
     const hasCredits = await deductCredits(

@@ -13,7 +13,9 @@ export type AdminAuditAction =
   | "unpublish_blog"
   | "create_blog"
   | "update_blog"
-  | "delete_blog";
+  | "delete_blog"
+  | "inactive_warning_sent"
+  | "inactive_account_deleted";
 
 interface LogAdminActionParams {
   adminId: string;

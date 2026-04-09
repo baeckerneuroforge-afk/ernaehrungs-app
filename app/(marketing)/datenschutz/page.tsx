@@ -157,6 +157,10 @@ export default function DatenschutzPage() {
                   Zahlungsdaten bei Stripe: Gemäß gesetzlicher
                   Aufbewahrungsfristen (6–10 Jahre)
                 </li>
+                <li>
+                  Accounts die länger als 12 Monate inaktiv sind, werden nach
+                  vorheriger Benachrichtigung automatisch gelöscht.
+                </li>
               </ul>
             </Section>
 

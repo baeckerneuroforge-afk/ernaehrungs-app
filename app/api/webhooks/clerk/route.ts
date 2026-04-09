@@ -51,13 +51,18 @@ export async function POST(request: Request) {
     const email = email_addresses?.[0]?.email_address || "";
     const name = [first_name, last_name].filter(Boolean).join(" ") || null;
 
+    const now = new Date().toISOString();
     await supabase.from("ea_users").upsert(
       {
         clerk_id: id,
         email,
         name,
         image_url: image_url || null,
-        updated_at: new Date().toISOString(),
+        updated_at: now,
+        // Treat any user.created/user.updated event as activity so the
+        // inactive-account cron has a fresh signal even for users who don't
+        // hit the chat APIs (e.g. just login).
+        last_active_at: now,
       },
       { onConflict: "clerk_id" }
     );
