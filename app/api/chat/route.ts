@@ -2,6 +2,8 @@ import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { loadUserBehaviorContext } from "@/lib/utils/user-context";
 import { deductCredits, CREDIT_COSTS } from "@/lib/credits";
+import { hasFeatureAccess } from "@/lib/feature-gates";
+import { getUserPlan } from "@/lib/feature-gates-server";
 import { hasKiConsent, KI_CONSENT_MISSING_RESPONSE } from "@/lib/consent";
 import { touchLastActive } from "@/lib/last-active";
 import { classifyAction } from "@/lib/classify-action";
@@ -200,21 +202,24 @@ export async function POST(request: Request) {
       ? "Wochenreview erstellt"
       : "Chat-Nachricht";
 
+    // ---- PLAN-INTENT FLOW (chat-side gate for free users) ----
+    if (action === "plan_generation") {
+      const userPlan = await getUserPlan(userId);
+      if (!hasFeatureAccess(userPlan, "plan")) {
+        return streamStaticResponse(
+          "Ich würde dir gerne einen personalisierten Ernährungsplan erstellen! Diese Funktion ist ab dem **Basis-Plan** verfügbar. Upgrade unter **Ernährungsplan** in der Navigation, um 7-Tage-Pläne mit Fastenmodell, Mealprep und individuellen Wünschen zu erhalten. 💚"
+        );
+      }
+    }
+
     // ---- REVIEW FLOW (tier check before credit deduction) ----
     if (action === "review") {
-      // Check tier BEFORE deducting credits
-      const { data: userData } = await supabase
-        .from("ea_users")
-        .select("subscription_plan")
-        .eq("clerk_id", userId)
-        .single();
+      const userPlan = await getUserPlan(userId);
 
-      const userPlan = userData?.subscription_plan || "free";
-
-      if (userPlan === "free") {
+      if (!hasFeatureAccess(userPlan, "review")) {
         // No credits deducted for blocked feature
         return streamStaticResponse(
-          "Der Wochenreview ist ab dem Basis-Plan verfügbar. Upgrade um deine Fortschritte jede Woche zusammengefasst zu bekommen. 💚"
+          "Der Wochenreview ist ab dem **Basis-Plan** verfügbar. Upgrade, um deine Fortschritte jede Woche zusammengefasst zu bekommen. 💚"
         );
       }
 

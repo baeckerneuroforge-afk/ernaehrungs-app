@@ -1,5 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
+import { hasFeatureAccess, getUpgradeMessage } from "@/lib/feature-gates";
+import { getUserPlan } from "@/lib/feature-gates-server";
 import { NextResponse } from "next/server";
 
 // GET: user fetches their own messages + replies
@@ -24,6 +26,20 @@ export async function GET() {
 export async function POST(request: Request) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Feature gate: Janine direkt is Premium only
+  const plan = await getUserPlan(userId);
+  if (!hasFeatureAccess(plan, "janine_direkt")) {
+    return NextResponse.json(
+      {
+        error: "feature_locked",
+        feature: "janine_direkt",
+        message: getUpgradeMessage("janine_direkt"),
+        requiredPlan: "pro_plus",
+      },
+      { status: 403 }
+    );
+  }
 
   const supabase = createSupabaseAdmin();
 

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Leaf, User, History, ArrowLeft, ThumbsUp, ThumbsDown, X, MessageCircle, Sparkles } from "lucide-react";
+import Link from "next/link";
+import { Send, Leaf, User, History, ArrowLeft, ThumbsUp, ThumbsDown, X, MessageCircle, Sparkles, Lock } from "lucide-react";
 import { ChatMessage } from "./message";
 import { HistorySidebar } from "./history-sidebar";
 import { DirectMessagePanel } from "./direct-message-panel";
@@ -59,6 +60,18 @@ export function ChatClient({ userId, userName }: ChatClientProps) {
   const [feedbackRating, setFeedbackRating] = useState<1 | -1 | null>(null);
   const [feedbackComment, setFeedbackComment] = useState("");
   const feedbackShownForSession = useRef<string>("");
+
+  // Subscription plan for feature gating (Janine direkt)
+  const [userPlan, setUserPlan] = useState<string>("free");
+  const [showJanineLock, setShowJanineLock] = useState(false);
+  const janineLocked = userPlan !== "pro_plus";
+
+  useEffect(() => {
+    fetch("/api/credits")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => setUserPlan(data?.plan || "free"))
+      .catch(() => setUserPlan("free"));
+  }, []);
 
   // Check initial unread DM count
   useEffect(() => {
@@ -505,18 +518,56 @@ export function ChatClient({ userId, userName }: ChatClientProps) {
               {/* Info bar above input */}
               <div className="flex items-center justify-between mb-2 px-1">
                 <CreditBadge />
-                <button
-                  onClick={() => dmOpen ? setDmOpen(false) : handleOpenDm()}
-                  className="relative flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary-hover transition-all duration-200 px-2.5 py-1 rounded-full hover:bg-primary-pale"
-                >
-                  <MessageCircle className="w-3.5 h-3.5" />
-                  Janine schreiben
-                  {unreadDMs > 0 && (
-                    <span className="w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                      {unreadDMs}
-                    </span>
+                <div className="relative">
+                  <button
+                    onClick={() => {
+                      if (janineLocked) {
+                        setShowJanineLock((v) => !v);
+                        return;
+                      }
+                      if (dmOpen) setDmOpen(false);
+                      else handleOpenDm();
+                    }}
+                    className={`relative flex items-center gap-1.5 text-xs font-medium transition-all duration-200 px-2.5 py-1 rounded-full ${
+                      janineLocked
+                        ? "text-ink-muted hover:text-ink hover:bg-surface-muted"
+                        : "text-primary hover:text-primary-hover hover:bg-primary-pale"
+                    }`}
+                  >
+                    <MessageCircle className="w-3.5 h-3.5" />
+                    Janine schreiben
+                    {janineLocked && <Lock className="w-3 h-3 text-ink-faint" />}
+                    {!janineLocked && unreadDMs > 0 && (
+                      <span className="w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                        {unreadDMs}
+                      </span>
+                    )}
+                  </button>
+                  {showJanineLock && janineLocked && (
+                    <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-2xl border border-border shadow-pop p-4 z-50 animate-fade-in">
+                      <div className="flex items-start gap-2.5 mb-2">
+                        <div className="w-7 h-7 rounded-full bg-primary-pale flex items-center justify-center flex-shrink-0">
+                          <Lock className="w-3.5 h-3.5 text-primary" />
+                        </div>
+                        <p className="text-sm text-ink leading-snug">
+                          Direktnachrichten an Janine sind im <span className="font-medium">Premium-Plan</span> enthalten.
+                        </p>
+                      </div>
+                      <Link
+                        href="/#pricing"
+                        className="block w-full text-center text-xs font-medium bg-primary text-white rounded-full px-3 py-2 hover:bg-primary-hover transition mt-2"
+                      >
+                        Premium ansehen
+                      </Link>
+                      <button
+                        onClick={() => setShowJanineLock(false)}
+                        className="absolute top-2 right-2 text-ink-faint hover:text-ink"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   )}
-                </button>
+                </div>
               </div>
 
               {/* Input field */}

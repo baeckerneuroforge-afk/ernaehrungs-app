@@ -3,6 +3,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { deDE } from "@clerk/localizations";
 import { CookieBanner } from "@/components/cookie-banner";
 import { BottomNav } from "@/components/layout/bottom-nav";
+import { CreditWarning } from "@/components/credit-warning";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -42,6 +43,7 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
       </head>
       <body className="antialiased">
+        <CreditWarning />
         {children}
         <BottomNav />
         <CookieBanner />

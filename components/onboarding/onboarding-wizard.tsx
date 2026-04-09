@@ -523,25 +523,62 @@ export function OnboardingWizard({ userId: _userId, existingProfile, initialStep
 
           {/* Step 6: Done */}
           {step === 6 && (
-            <div className="text-center space-y-6">
-              <div className="w-20 h-20 rounded-full bg-primary-bg flex items-center justify-center mx-auto">
-                <Check className="w-10 h-10 text-primary" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-800 mb-2">
+            <div className="space-y-6">
+              <div className="text-center">
+                <div className="w-20 h-20 rounded-full bg-primary-pale flex items-center justify-center mx-auto mb-4">
+                  <Check className="w-10 h-10 text-primary" />
+                </div>
+                <h1 className="font-serif text-2xl text-ink mb-2">
                   Alles fertig, {name}!
                 </h1>
-                <p className="text-sm text-gray-500">
-                  Dein Profil ist eingerichtet. Du kannst jetzt den Chat nutzen und
-                  bekommst personalisierte Empfehlungen.
+                <p className="text-sm text-ink-muted">
+                  Dein Profil ist eingerichtet. Zeit, loszulegen.
                 </p>
               </div>
+
+              {/* Feature preview */}
+              <div className="bg-white rounded-2xl border border-border p-5 space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-full bg-primary-pale flex items-center justify-center flex-shrink-0">
+                    <span className="text-primary font-semibold text-sm">15</span>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-ink">
+                      Deine 15 kostenlosen Credits warten!
+                    </p>
+                    <p className="text-xs text-ink-muted mt-0.5 leading-relaxed">
+                      Stelle deine ersten Ernährungsfragen im Chat — jede Antwort kostet 1 Credit.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="border-t border-border pt-4">
+                  <p className="text-xs font-medium text-ink-muted uppercase tracking-wide mb-2">
+                    Kostenlos enthalten
+                  </p>
+                  <ul className="text-sm text-ink space-y-1.5">
+                    <li>· Chat mit der KI-Ernährungsberaterin</li>
+                    <li>· Tagebuch für deine Mahlzeiten</li>
+                    <li>· Tracker für Gewicht und Ziele</li>
+                  </ul>
+                </div>
+
+                <div className="border-t border-border pt-4">
+                  <p className="text-xs font-medium text-ink-muted uppercase tracking-wide mb-2">
+                    Möchtest du mehr?
+                  </p>
+                  <p className="text-sm text-ink leading-relaxed">
+                    Personalisierte <span className="font-medium">Ernährungspläne</span> und der <span className="font-medium">Wochenreview</span> gibt es ab dem Basis-Plan. Entscheide dich später, wenn du die App getestet hast.
+                  </p>
+                </div>
+              </div>
+
               <button
                 onClick={() => router.push("/chat")}
-                className="inline-flex items-center gap-2 text-sm text-white bg-primary px-6 py-3 rounded-xl hover:bg-primary-light transition"
+                className="w-full inline-flex items-center justify-center gap-2 text-sm text-white bg-primary hover:bg-primary-hover px-6 py-3 rounded-full shadow-card transition"
               >
                 <Leaf className="w-4 h-4" />
-                Zum Chat
+                Los geht&apos;s — zum Chat
               </button>
             </div>
           )}

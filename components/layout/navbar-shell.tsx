@@ -14,8 +14,10 @@ import {
   BookOpen,
   LineChart,
   User as UserIcon,
+  Lock,
 } from "lucide-react";
 import { CreditBadge } from "@/components/credit-badge";
+import { hasFeatureAccess, type Feature } from "@/lib/feature-gates";
 
 export function NavbarShell({
   user,
@@ -26,7 +28,16 @@ export function NavbarShell({
 }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [userPlan, setUserPlan] = useState<string>("free");
   const pathname = usePathname();
+
+  useEffect(() => {
+    if (!user) return;
+    fetch("/api/credits")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => setUserPlan(data?.plan || "free"))
+      .catch(() => setUserPlan("free"));
+  }, [user]);
 
   useEffect(() => {
     if (!user) {
@@ -49,13 +60,16 @@ export function NavbarShell({
     setMenuOpen(false);
   }, [pathname]);
 
-  const navLinks = [
-    { href: "/chat", label: "Chat", icon: MessageCircle },
-    { href: "/ernaehrungsplan", label: "Plan", icon: CalendarDays },
-    { href: "/tagebuch", label: "Tagebuch", icon: BookOpen },
-    { href: "/tracker", label: "Tracker", icon: LineChart },
+  const navLinks: { href: string; label: string; icon: typeof MessageCircle; feature?: Feature }[] = [
+    { href: "/chat", label: "Chat", icon: MessageCircle, feature: "chat" },
+    { href: "/ernaehrungsplan", label: "Plan", icon: CalendarDays, feature: "plan" },
+    { href: "/tagebuch", label: "Tagebuch", icon: BookOpen, feature: "tagebuch" },
+    { href: "/tracker", label: "Tracker", icon: LineChart, feature: "tracker" },
     { href: "/profil", label: "Profil", icon: UserIcon },
   ];
+
+  const isLocked = (feature?: Feature) =>
+    feature ? !hasFeatureAccess(userPlan, feature) : false;
 
   function isActive(href: string) {
     return pathname?.startsWith(href);
@@ -82,17 +96,19 @@ export function NavbarShell({
                 <>
                   {navLinks.map((link) => {
                     const active = isActive(link.href);
+                    const locked = isLocked(link.feature);
                     return (
                       <Link
                         key={link.href}
                         href={link.href}
-                        className={`px-3.5 py-1.5 rounded-full text-sm transition-all duration-200 ${
+                        className={`px-3.5 py-1.5 rounded-full text-sm transition-all duration-200 inline-flex items-center gap-1.5 ${
                           active
                             ? "bg-primary-pale text-primary font-medium"
                             : "text-ink-muted hover:text-ink hover:bg-surface-muted"
                         }`}
                       >
                         {link.label}
+                        {locked && <Lock className="w-3 h-3 text-ink-faint" />}
                       </Link>
                     );
                   })}
@@ -207,6 +223,7 @@ export function NavbarShell({
               {navLinks.map((link) => {
                 const active = isActive(link.href);
                 const Icon = link.icon;
+                const locked = isLocked(link.feature);
                 return (
                   <Link
                     key={link.href}
@@ -218,7 +235,8 @@ export function NavbarShell({
                     }`}
                   >
                     <Icon className="w-[18px] h-[18px]" />
-                    {link.label}
+                    <span className="flex-1">{link.label}</span>
+                    {locked && <Lock className="w-3.5 h-3.5 text-ink-faint" />}
                   </Link>
                 );
               })}

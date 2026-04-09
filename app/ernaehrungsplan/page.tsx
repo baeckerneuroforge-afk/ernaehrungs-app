@@ -5,6 +5,7 @@ import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { PlanCreator } from "@/components/meal-plan/plan-creator";
 import { WeekGrid } from "@/components/meal-plan/week-grid";
+import { UpgradeCard } from "@/components/upgrade-card";
 import type { WeekPlanData, PlanParameters } from "@/types/meal-plan";
 import {
   UtensilsCrossed,
@@ -13,6 +14,7 @@ import {
   FileText,
   Trash2,
   ArrowLeft,
+  CalendarDays,
 } from "lucide-react";
 
 interface SavedPlan {
@@ -30,6 +32,14 @@ export default function ErnaehrungsplanPage() {
   const [loading, setLoading] = useState(true);
   const [showCreator, setShowCreator] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [userPlan, setUserPlan] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/credits")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => setUserPlan(data?.plan || "free"))
+      .catch(() => setUserPlan("free"));
+  }, []);
 
   // Active plan view
   const [activePlan, setActivePlan] = useState<{
@@ -114,6 +124,37 @@ export default function ErnaehrungsplanPage() {
             </h2>
           </div>
           <WeekGrid data={activePlan.data} params={activePlan.params} />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  // Free users: show upgrade card instead of the creator
+  if (userPlan === "free") {
+    return (
+      <div className="min-h-screen flex flex-col bg-surface-bg">
+        <Navbar />
+        <main className="flex-1 max-w-2xl mx-auto px-4 sm:px-6 py-10 w-full">
+          <div className="mb-6">
+            <h1 className="font-serif text-3xl text-ink">Ernährungsplan</h1>
+            <p className="text-ink-muted text-sm mt-1">
+              Personalisierte 7-Tage-Pläne, abgestimmt auf dein Profil.
+            </p>
+          </div>
+          <UpgradeCard
+            icon={CalendarDays}
+            title="Personalisierte Ernährungspläne"
+            description="Erstelle 7-Tage-Pläne mit Fastenmodell, Mealprep und individuellen Wünschen — abgestimmt auf dein Profil und deine Ziele."
+            features={[
+              "7-Tage-Wochenplan mit Rezepten und Nährwerten",
+              "Intervallfasten, Mealprep und flexible Mahlzeitenzeiten",
+              "Automatische Einkaufsliste und Mealprep-Anleitung",
+            ]}
+            ctaLabel="Ab €15,99/Monat — Basis wählen"
+            ctaHref="/#pricing"
+            requiredPlan="pro"
+          />
         </main>
         <Footer />
       </div>

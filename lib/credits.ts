@@ -3,7 +3,7 @@ import { createSupabaseAdmin } from "@/lib/supabase/server";
 // Credit costs per action
 export const CREDIT_COSTS = {
   chat_usage: 1,
-  plan_generation: 3,
+  plan_generation: 5,
   review: 3,
 } as const;
 

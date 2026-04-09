@@ -2,6 +2,8 @@ import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { loadUserBehaviorContext } from "@/lib/utils/user-context";
 import { deductCredits, CREDIT_COSTS } from "@/lib/credits";
+import { hasFeatureAccess, getUpgradeMessage } from "@/lib/feature-gates";
+import { getUserPlan } from "@/lib/feature-gates-server";
 import { hasKiConsent, KI_CONSENT_MISSING_RESPONSE } from "@/lib/consent";
 import { touchLastActive } from "@/lib/last-active";
 import Anthropic from "@anthropic-ai/sdk";
@@ -200,6 +202,20 @@ export async function POST(request: Request) {
 
     // ---- Activity ping (for inactive-account auto-deletion cron) ----
     void touchLastActive(supabase, userId);
+
+    // ---- Feature gate: plan generation requires pro or pro_plus ----
+    const plan = await getUserPlan(userId);
+    if (!hasFeatureAccess(plan, "plan")) {
+      return new Response(
+        JSON.stringify({
+          error: "feature_locked",
+          feature: "plan",
+          message: getUpgradeMessage("plan"),
+          requiredPlan: "pro",
+        }),
+        { status: 403, headers: { "Content-Type": "application/json" } }
+      );
+    }
 
     // Credit check & deduction
     const hasCredits = await deductCredits(
