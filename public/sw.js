@@ -1,4 +1,4 @@
-const CACHE_NAME = "ea-app-v1";
+const CACHE_NAME = "ea-app-v2";
 
 self.addEventListener("install", () => {
   self.skipWaiting();
@@ -23,21 +23,22 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Network-first for navigation, stale-while-revalidate for assets
+  // Do not intercept navigations — let the browser handle them natively.
+  // Intercepting navigation fetches breaks Clerk's handshake/Set-Cookie flow
+  // and caused a sign-up reload loop.
   if (event.request.mode === "navigate") {
-    event.respondWith(
-      fetch(event.request).catch(() => caches.match(event.request))
-    );
-  } else {
-    event.respondWith(
-      caches.match(event.request).then((cached) => {
-        const fetching = fetch(event.request).then((response) => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          return response;
-        });
-        return cached || fetching;
-      })
-    );
+    return;
   }
+
+  // Stale-while-revalidate for assets
+  event.respondWith(
+    caches.match(event.request).then((cached) => {
+      const fetching = fetch(event.request).then((response) => {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        return response;
+      });
+      return cached || fetching;
+    })
+  );
 });
