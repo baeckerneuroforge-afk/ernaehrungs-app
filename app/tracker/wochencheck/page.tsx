@@ -15,7 +15,7 @@ export default async function WochencheckPage() {
   return (
     <div className="min-h-screen flex flex-col bg-surface-bg">
       <Navbar />
-      <main className="flex-1 max-w-3xl mx-auto px-4 sm:px-6 py-10 w-full">
+      <main className="flex-1 max-w-3xl mx-auto px-4 sm:px-6 py-10 w-full pb-bottom-nav">
         <Link
           href="/tracker"
           className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-primary transition mb-6"

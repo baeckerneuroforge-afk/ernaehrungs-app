@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { SignedIn } from "@clerk/nextjs";
 import {
   MessageCircle,
   CalendarDays,
@@ -25,7 +26,8 @@ export function BottomNav() {
     { href: "/profil", label: "Profil", icon: UserIcon },
   ];
 
-  // Hide on marketing / auth / onboarding pages
+  // Hide on marketing / auth / onboarding / chat pages.
+  // Chat is a full-screen focused experience (100dvh) with its own hamburger nav.
   const hiddenRoutes = [
     "/",
     "/sign-in",
@@ -35,6 +37,7 @@ export function BottomNav() {
     "/datenschutz",
     "/agb",
     "/blog",
+    "/chat",
   ];
   const isHidden =
     pathname === "/" ||
@@ -46,6 +49,7 @@ export function BottomNav() {
   if (isHidden) return null;
 
   return (
+    <SignedIn>
     <nav
       className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white/90 backdrop-blur-md border-t border-border pb-safe"
       aria-label="Hauptnavigation"
@@ -76,5 +80,6 @@ export function BottomNav() {
         })}
       </ul>
     </nav>
+    </SignedIn>
   );
 }

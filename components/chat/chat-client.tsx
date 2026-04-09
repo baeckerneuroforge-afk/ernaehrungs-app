@@ -513,7 +513,7 @@ export function ChatClient({ userId, userName }: ChatClientProps) {
           )}
 
           {/* Input area — iMessage style with Send inside */}
-          <div className="border-t border-border bg-white/80 backdrop-blur-md px-4 pt-3 pb-3 md:pb-4">
+          <div className="border-t border-border bg-white/80 backdrop-blur-md px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0))] md:pb-4">
             <div className="max-w-3xl mx-auto">
               {/* Info bar above input */}
               <div className="flex items-center justify-between mb-2 px-1">

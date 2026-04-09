@@ -4,6 +4,11 @@
 
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Lora:wght@400;500;600;700&display=swap');
 
+html, body {
+  /* Prevent horizontal scroll from decorative blur shapes / transforms on mobile. */
+  overflow-x: hidden;
+}
+
 body {
   font-family: 'DM Sans', 'Inter', system-ui, -apple-system, sans-serif;
   background-color: #FAFAF5;
@@ -21,6 +26,27 @@ h1, h2, h3, h4, h5, h6 {
 /* Safe-area padding for fixed bottom navigation on mobile */
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+/* Reserve space for fixed bottom nav + safe area on mobile.
+   Used on main containers of authenticated pages so content isn't covered
+   by the mobile bottom nav bar. No-op on md+ where BottomNav is hidden. */
+.pb-bottom-nav {
+  padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0));
+}
+@media (min-width: 768px) {
+  .pb-bottom-nav {
+    padding-bottom: 2.5rem;
+  }
+}
+
+/* Hide scrollbar completely (used for horizontal day strips etc.) */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 /* Subtle warm paper background pattern (optional — applied via .bg-paper) */

@@ -110,7 +110,7 @@ export default function ErnaehrungsplanPage() {
     return (
       <div className="min-h-screen flex flex-col bg-surface-bg">
         <Navbar />
-        <main className="flex-1 max-w-6xl mx-auto px-4 sm:px-6 py-6 w-full">
+        <main className="flex-1 max-w-6xl mx-auto px-4 sm:px-6 py-6 w-full pb-bottom-nav">
           <div className="flex items-center justify-between mb-5">
             <button
               onClick={() => setActivePlan(null)}
@@ -135,7 +135,7 @@ export default function ErnaehrungsplanPage() {
     return (
       <div className="min-h-screen flex flex-col bg-surface-bg">
         <Navbar />
-        <main className="flex-1 max-w-2xl mx-auto px-4 sm:px-6 py-10 w-full">
+        <main className="flex-1 max-w-2xl mx-auto px-4 sm:px-6 py-10 w-full pb-bottom-nav">
           <div className="mb-6">
             <h1 className="font-serif text-3xl text-ink">Ernährungsplan</h1>
             <p className="text-ink-muted text-sm mt-1">
@@ -164,8 +164,8 @@ export default function ErnaehrungsplanPage() {
   return (
     <div className="min-h-screen flex flex-col bg-surface-bg">
       <Navbar />
-      <main className="flex-1 max-w-3xl mx-auto px-4 sm:px-6 py-10 w-full">
-        <div className="flex items-center justify-between mb-6">
+      <main className="flex-1 max-w-3xl mx-auto px-4 sm:px-6 py-10 w-full pb-bottom-nav">
+        <div className="flex items-start justify-between gap-3 mb-6">
           <div>
             <h1 className="text-2xl font-semibold text-warm-dark">
               Ernährungsplan

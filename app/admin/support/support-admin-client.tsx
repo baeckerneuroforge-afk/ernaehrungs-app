@@ -186,7 +186,8 @@ export function SupportAdminClient({ initialTickets }: { initialTickets: Ticket[
             <p className="text-sm">Keine Tickets in dieser Ansicht.</p>
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[520px]">
             <thead className="bg-gray-50 text-gray-500">
               <tr>
                 <th className="text-left font-medium px-4 py-3">Datum</th>
@@ -220,6 +221,7 @@ export function SupportAdminClient({ initialTickets }: { initialTickets: Ticket[
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>

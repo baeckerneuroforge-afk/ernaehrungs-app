@@ -78,7 +78,7 @@ export default function GewichtPage() {
   return (
     <div className="min-h-screen flex flex-col bg-surface-bg">
       <Navbar />
-      <main className="flex-1 max-w-3xl mx-auto px-4 sm:px-6 py-10 w-full animate-fade-in pb-32">
+      <main className="flex-1 max-w-3xl mx-auto px-4 sm:px-6 py-10 w-full pb-bottom-nav animate-fade-in">
         <h1 className="font-serif text-3xl text-ink mb-2">Gewichtstracker</h1>
         <p className="text-ink-muted text-sm mb-6">
           Trage regelmäßig dein Gewicht ein um deinen Verlauf zu sehen.

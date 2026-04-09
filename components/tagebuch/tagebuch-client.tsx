@@ -139,7 +139,7 @@ export function TagebuchClient({ initialEntries, today }: Props) {
   const weekDays = buildWeekStrip(datum);
 
   return (
-    <div className="space-y-6 pb-28">
+    <div className="space-y-6">
       {/* Horizontal 7-day calendar */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
@@ -310,10 +310,10 @@ export function TagebuchClient({ initialEntries, today }: Props) {
         </div>
       )}
 
-      {/* FAB */}
+      {/* FAB — lifted above the mobile bottom nav */}
       <button
         onClick={() => setShowForm(true)}
-        className="fixed bottom-6 right-6 z-30 bg-primary hover:bg-primary-hover text-white rounded-full shadow-lg p-4 transition hover:scale-105 active:scale-95"
+        className="fixed right-5 bottom-[calc(5rem+env(safe-area-inset-bottom,0))] md:bottom-6 md:right-6 z-30 bg-primary hover:bg-primary-hover text-white rounded-full shadow-lg p-4 transition hover:scale-105 active:scale-95"
         aria-label="Eintrag hinzufügen"
       >
         <Plus className="w-6 h-6" />
