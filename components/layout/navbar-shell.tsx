@@ -22,9 +22,11 @@ import { hasFeatureAccess, type Feature } from "@/lib/feature-gates";
 export function NavbarShell({
   user,
   signOut,
+  isLoaded = true,
 }: {
   user: { publicMetadata?: Record<string, unknown> } | null;
   signOut: (opts?: { redirectUrl?: string }) => void;
+  isLoaded?: boolean;
 }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -92,7 +94,9 @@ export function NavbarShell({
 
             {/* Desktop Nav — pill style */}
             <div className="hidden md:flex items-center gap-1">
-              {user ? (
+              {!isLoaded ? (
+                <div className="h-6 w-64 rounded-full bg-surface-muted animate-pulse" />
+              ) : user ? (
                 <>
                   {navLinks.map((link) => {
                     const active = isActive(link.href);
@@ -129,7 +133,9 @@ export function NavbarShell({
 
             {/* Right cluster */}
             <div className="flex items-center gap-2">
-              {user ? (
+              {!isLoaded ? (
+                <div className="h-8 w-24 rounded-full bg-surface-muted animate-pulse" />
+              ) : user ? (
                 <>
                   <div className="hidden md:block">
                     <CreditBadge />

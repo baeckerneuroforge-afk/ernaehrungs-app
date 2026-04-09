@@ -4,6 +4,7 @@ import { deDE } from "@clerk/localizations";
 import { CookieBanner } from "@/components/cookie-banner";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { CreditWarning } from "@/components/credit-warning";
+import { PageTransition } from "@/components/layout/page-transition";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -44,7 +45,7 @@ export default function RootLayout({
       </head>
       <body className="antialiased">
         <CreditWarning />
-        {children}
+        <PageTransition>{children}</PageTransition>
         <BottomNav />
         <CookieBanner />
         <script
