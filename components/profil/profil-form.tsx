@@ -24,7 +24,6 @@ import {
 } from "lucide-react";
 
 interface ProfilFormProps {
-  userId: string;
   existingProfile: Record<string, unknown> | null;
   imageUrl?: string | null;
   displayName?: string;
@@ -32,9 +31,7 @@ interface ProfilFormProps {
   credits?: { used: number; total: number };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function ProfilForm({
-  userId: _userId,
   existingProfile,
   imageUrl,
   displayName,

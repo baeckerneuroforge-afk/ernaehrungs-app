@@ -44,7 +44,6 @@ export default async function ProfilPage() {
         </div>
 
         <ProfilForm
-          userId={userId}
           existingProfile={profile?.[0] || null}
           imageUrl={user?.imageUrl ?? null}
           displayName={displayName}
