@@ -10,11 +10,15 @@ import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import type { PlanParameters } from "@/types/meal-plan";
 import { MEAL_LABELS } from "@/types/meal-plan";
+import { calculateTDEE, type TDEEResult } from "@/lib/tdee";
 
 // ---------------------------------------------------------------------------
 // 1. SYSTEM PROMPT – Structured JSON output
 // ---------------------------------------------------------------------------
-function buildMealPlanPrompt(params: PlanParameters): string {
+function buildMealPlanPrompt(
+  params: PlanParameters,
+  tdee: TDEEResult | null
+): string {
   const mealLabels = MEAL_LABELS[params.mealsPerDay] || MEAL_LABELS[3];
 
   const timingBlock = params.flexibleTiming
@@ -51,7 +55,35 @@ function buildMealPlanPrompt(params: PlanParameters): string {
     ? `Mealprep: Ja, für ${params.mealPrepDays || 3} Tage. Füge einen mealPrepPlan mit prepDay und tasks hinzu.`
     : "Mealprep: Nein. Lasse mealPrepPlan weg.";
 
-  return `Du bist eine erfahrene Ernährungswissenschaftlerin und erstellst strukturierte, praxisnahe 7-Tage-Ernährungspläne als JSON.
+  // ---- Kalorien-Block (Backend-berechnet, STRIKT einhalten) ----
+  let calorieBlock = "";
+  if (tdee) {
+    const perMeal = Math.round(tdee.target / params.mealsPerDay);
+    const lowBound = tdee.target - 100;
+    const highBound = tdee.target + 100;
+    calorieBlock = `
+
+## KALORIEN-VORGABE — STRIKT EINHALTEN
+Der Nutzer hat folgende berechnete Werte (Mifflin-St Jeor + PAL):
+- Grundumsatz (BMR): ${tdee.bmr} kcal
+- Gesamtumsatz (TDEE): ${tdee.tdee} kcal (PAL ${tdee.pal})
+- **Ziel-Kalorien pro Tag: ${tdee.target} kcal (${tdee.goalLabel})**
+
+Bei ${params.mealsPerDay} Mahlzeiten pro Tag ergibt das ca. **${perMeal} kcal pro Mahlzeit**.
+
+REGELN:
+1. Die SUMME aller Mahlzeiten eines Tages MUSS zwischen ${lowBound} und ${highBound} kcal liegen. Nicht darunter, nicht darüber.
+2. Die Kalorien pro Mahlzeit müssen sich gleichmäßig verteilen: ca. ${perMeal} kcal pro Mahlzeit (±100 kcal Toleranz).
+3. Bei Intervallfasten (z.B. 16:8 mit 2 Mahlzeiten): Die gesamten ${tdee.target} kcal werden auf die ${params.mealsPerDay} Mahlzeiten verteilt. NICHT die Kalorien pro Mahlzeit reduzieren nur weil weniger Mahlzeiten da sind — im Gegenteil: jede Mahlzeit wird GRÖSSER.
+4. Beispiel: ${tdee.target} kcal Ziel bei 2 Mahlzeiten = ca. ${Math.round(tdee.target / 2)} kcal pro Mahlzeit. Bei 3 Mahlzeiten = ca. ${Math.round(tdee.target / 3)} kcal pro Mahlzeit.
+5. Gib bei JEDER Mahlzeit die geschätzte Kalorienanzahl im Feld "calories" an.
+6. Gib am Ende jedes Tages die Tagessumme im Feld "actualCalories" und das Ziel im Feld "targetCalories" an.
+7. Wenn die Portionsgrößen unrealistisch groß werden (z.B. bei 2 Mahlzeiten à 1300 kcal), erwähne im "mealPrepNote"- oder "shortDescription"-Feld dass der Nutzer optional einen Snack ergänzen kann — aber die Grundstruktur muss die gewählte Mahlzeitenanzahl respektieren.
+8. Setze im Top-Level "dailyTarget": ${tdee.target} und "calculationBasis": "Mifflin-St Jeor + PAL ${tdee.pal}, ${tdee.goalLabel}".
+`;
+  }
+
+  return `Du bist eine erfahrene Ernährungswissenschaftlerin und erstellst strukturierte, praxisnahe 7-Tage-Ernährungspläne als JSON.${calorieBlock}
 
 ## ABSOLUTE REGELN (NIEMALS brechen):
 
@@ -85,13 +117,15 @@ ${params.userMessage ? `- Individuelle Wünsche: ${params.userMessage}` : ""}
   "weekPlan": [
     {
       "day": "Montag",
+      "targetCalories": ${tdee ? tdee.target : 2000},
+      "actualCalories": ${tdee ? tdee.target : 2000},
       "meals": [
         {
           "type": "${mealLabels[0]}",
           "time": "08:00",
           "name": "Rezeptname",
           "shortDescription": "Kurzbeschreibung (max 60 Zeichen)",
-          "calories": 450,
+          "calories": ${tdee ? Math.round(tdee.target / params.mealsPerDay) : 450},
           "fullRecipe": {
             "ingredients": ["200g Haferflocken", "1 Banane", ...],
             "steps": ["Haferflocken in Milch kochen", ...],
@@ -106,7 +140,9 @@ ${params.userMessage ? `- Individuelle Wünsche: ${params.userMessage}` : ""}
   "mealPrepPlan": {
     "prepDay": "Sonntag",
     "tasks": ["Reis für 3 Tage kochen", "Gemüse schneiden und portionieren", ...]
-  }
+  },
+  "dailyTarget": ${tdee ? tdee.target : 2000},
+  "calculationBasis": "${tdee ? `Mifflin-St Jeor + PAL ${tdee.pal}, ${tdee.goalLabel}` : "Standardwerte"}"
 }
 
 ## REGELN FÜR DEN INHALT:
@@ -242,6 +278,7 @@ export async function POST(request: Request) {
     ]);
 
     const p = profileResult.data?.[0];
+    const tdee = p ? calculateTDEE(p) : null;
     const profilParts: string[] = [];
 
     if (p) {
@@ -306,7 +343,7 @@ export async function POST(request: Request) {
     }
 
     // ---- Build system prompt ----
-    let systemPrompt = buildMealPlanPrompt(planParameters);
+    let systemPrompt = buildMealPlanPrompt(planParameters, tdee);
 
     if (profilParts.length) {
       systemPrompt += `\n\nNUTZERPROFIL:\n${profilParts.join("\n")}`;

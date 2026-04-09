@@ -17,6 +17,8 @@ export interface Meal {
 export interface DayPlan {
   day: string;
   meals: Meal[];
+  targetCalories?: number;
+  actualCalories?: number;
 }
 
 export interface MealPrepPlan {
@@ -28,6 +30,8 @@ export interface WeekPlanData {
   weekPlan: DayPlan[];
   shoppingList: string[];
   mealPrepPlan?: MealPrepPlan;
+  dailyTarget?: number;
+  calculationBasis?: string;
 }
 
 export interface PlanParameters {

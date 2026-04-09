@@ -14,6 +14,7 @@ import {
   Sun,
   Moon,
   Utensils,
+  Flame,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -84,6 +85,25 @@ export function WeekGrid({ data, params }: Props) {
         />
       )}
 
+      {/* Daily target banner */}
+      {data.dailyTarget && (
+        <div className="mb-4 flex items-center gap-3 bg-primary-faint border border-primary-pale rounded-2xl px-4 py-3">
+          <span className="w-9 h-9 rounded-full bg-primary-pale flex items-center justify-center flex-shrink-0">
+            <Flame className="w-4 h-4 text-primary" />
+          </span>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-ink">
+              Tägliches Kalorienziel: {data.dailyTarget} kcal
+            </p>
+            {data.calculationBasis && (
+              <p className="text-xs text-ink-muted mt-0.5 truncate">
+                {data.calculationBasis}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Week day cards — grid on md+, stacked on mobile */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {days.map((day, idx) => {
@@ -106,6 +126,29 @@ export function WeekGrid({ data, params }: Props) {
                   </span>
                 )}
               </div>
+
+              {(() => {
+                const target = day.targetCalories ?? data.dailyTarget;
+                const actual =
+                  day.actualCalories ??
+                  day.meals.reduce((sum, m) => sum + (m.calories || 0), 0);
+                if (!actual || !target) return null;
+                const diff = Math.abs(actual - target);
+                const cls =
+                  diff <= 100
+                    ? "text-primary bg-primary-pale"
+                    : diff <= 200
+                    ? "text-yellow-700 bg-yellow-50"
+                    : "text-red-600 bg-red-50";
+                return (
+                  <div
+                    className={`mb-2 inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full ${cls}`}
+                    title={`Ziel: ${target} kcal`}
+                  >
+                    <Flame className="w-3 h-3" />Σ {actual} kcal
+                  </div>
+                );
+              })()}
 
               <div className="space-y-2">
                 {day.meals.map((meal, mIdx) => {
