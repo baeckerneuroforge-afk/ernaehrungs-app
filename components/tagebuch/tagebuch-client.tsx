@@ -1,13 +1,72 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { FoodLog, MAHLZEIT_TYPEN } from "@/types";
-import { Plus, Trash2, Loader2, UtensilsCrossed, Flame } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Loader2,
+  UtensilsCrossed,
+  Sunrise,
+  Sun,
+  Moon,
+  Apple,
+  Calendar,
+  X,
+} from "lucide-react";
 
 interface Props {
   initialEntries: FoodLog[];
   today: string;
 }
+
+type MealTyp = "fruehstueck" | "mittag" | "abend" | "snack";
+
+const MEAL_STYLES: Record<
+  MealTyp,
+  { badge: string; icon: typeof Sunrise; label: string }
+> = {
+  fruehstueck: {
+    badge: "bg-orange-100 text-orange-700",
+    icon: Sunrise,
+    label: "Frühstück",
+  },
+  mittag: {
+    badge: "bg-yellow-100 text-yellow-700",
+    icon: Sun,
+    label: "Mittagessen",
+  },
+  abend: {
+    badge: "bg-indigo-100 text-indigo-700",
+    icon: Moon,
+    label: "Abendessen",
+  },
+  snack: {
+    badge: "bg-surface-muted text-ink-muted",
+    icon: Apple,
+    label: "Snack",
+  },
+};
+
+function formatISODate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function buildWeekStrip(center: string): Date[] {
+  const centerDate = new Date(center + "T00:00:00");
+  const days: Date[] = [];
+  for (let i = -3; i <= 3; i++) {
+    const d = new Date(centerDate);
+    d.setDate(centerDate.getDate() + i);
+    days.push(d);
+  }
+  return days;
+}
+
+const WEEKDAYS_SHORT = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
 
 export function TagebuchClient({ initialEntries, today }: Props) {
   const [datum, setDatum] = useState(today);
@@ -17,9 +76,11 @@ export function TagebuchClient({ initialEntries, today }: Props) {
   const [saving, setSaving] = useState(false);
 
   // Form state
-  const [formTyp, setFormTyp] = useState("fruehstueck");
+  const [formTyp, setFormTyp] = useState<MealTyp>("fruehstueck");
   const [formBeschreibung, setFormBeschreibung] = useState("");
   const [formKcal, setFormKcal] = useState("");
+
+  const dateInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (datum === today && entries === initialEntries) return;
@@ -69,181 +130,293 @@ export function TagebuchClient({ initialEntries, today }: Props) {
     items: entries.filter((e) => e.mahlzeit_typ === typ.value),
   }));
 
-  // Total kcal
-  const entriesWithKcal = entries.filter((e) => e.kalorien_geschaetzt);
-  const totalKcal = entriesWithKcal.reduce(
+  // Totals
+  const totalKcal = entries.reduce(
     (sum, e) => sum + (e.kalorien_geschaetzt || 0),
     0
   );
 
+  const weekDays = buildWeekStrip(datum);
+
   return (
-    <div className="space-y-6">
-      {/* Date picker + summary */}
-      <div className="flex items-center justify-between gap-4">
-        <input
-          type="date"
-          value={datum}
-          onChange={(e) => setDatum(e.target.value)}
-          className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-        />
-        {entriesWithKcal.length > 0 && (
-          <div className="flex items-center gap-2 bg-orange-50 text-orange-600 px-3 py-1.5 rounded-lg">
-            <Flame className="w-4 h-4" />
-            <span className="text-sm font-medium">{totalKcal} kcal</span>
-            <span className="text-xs text-orange-400">heute</span>
-          </div>
-        )}
+    <div className="space-y-6 pb-28">
+      {/* Horizontal 7-day calendar */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="font-serif text-lg text-ink">Kalender</h2>
+          <button
+            onClick={() => dateInputRef.current?.showPicker?.() ?? dateInputRef.current?.click()}
+            className="flex items-center gap-1.5 text-xs text-ink-muted hover:text-primary transition"
+          >
+            <Calendar className="w-3.5 h-3.5" />
+            Datum wählen
+          </button>
+          <input
+            ref={dateInputRef}
+            type="date"
+            value={datum}
+            onChange={(e) => setDatum(e.target.value)}
+            className="sr-only"
+            aria-hidden
+          />
+        </div>
+        <div className="flex gap-2 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-none">
+          {weekDays.map((d) => {
+            const iso = formatISODate(d);
+            const isActive = iso === datum;
+            const isToday = iso === today;
+            return (
+              <button
+                key={iso}
+                onClick={() => setDatum(iso)}
+                className={`flex flex-col items-center gap-1.5 min-w-[52px] py-2 px-2 rounded-2xl transition ${
+                  isActive ? "bg-primary-faint" : "hover:bg-surface-muted"
+                }`}
+              >
+                <span className="text-[10px] uppercase tracking-wide text-ink-faint font-medium">
+                  {WEEKDAYS_SHORT[d.getDay()]}
+                </span>
+                <span
+                  className={`w-9 h-9 flex items-center justify-center rounded-full text-sm font-semibold transition ${
+                    isActive
+                      ? "bg-primary text-white"
+                      : isToday
+                      ? "text-primary"
+                      : "text-ink"
+                  }`}
+                >
+                  {d.getDate()}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Stats bar */}
+      <div className="bg-surface-muted rounded-2xl px-4 py-3 flex items-center justify-between gap-4">
+        <div className="flex-1 text-center">
+          <p className="text-[10px] uppercase tracking-wide text-ink-faint">
+            Kalorien
+          </p>
+          <p className="text-sm font-semibold text-ink mt-0.5">
+            {totalKcal > 0 ? totalKcal : "—"}
+            <span className="text-xs font-normal text-ink-faint ml-1">kcal</span>
+          </p>
+        </div>
+        <div className="w-px h-8 bg-border" />
+        <div className="flex-1 text-center">
+          <p className="text-[10px] uppercase tracking-wide text-ink-faint">
+            Protein
+          </p>
+          <p className="text-sm font-semibold text-ink-muted mt-0.5">—</p>
+        </div>
+        <div className="w-px h-8 bg-border" />
+        <div className="flex-1 text-center">
+          <p className="text-[10px] uppercase tracking-wide text-ink-faint">
+            Carbs
+          </p>
+          <p className="text-sm font-semibold text-ink-muted mt-0.5">—</p>
+        </div>
+        <div className="w-px h-8 bg-border" />
+        <div className="flex-1 text-center">
+          <p className="text-[10px] uppercase tracking-wide text-ink-faint">
+            Fett
+          </p>
+          <p className="text-sm font-semibold text-ink-muted mt-0.5">—</p>
+        </div>
       </div>
 
       {loading ? (
         <div className="flex justify-center py-12">
-          <Loader2 className="w-5 h-5 animate-spin text-gray-300" />
+          <Loader2 className="w-5 h-5 animate-spin text-ink-faint" />
+        </div>
+      ) : entries.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-border p-10 text-center animate-fade-in">
+          <div className="w-14 h-14 rounded-full bg-primary-faint flex items-center justify-center mx-auto mb-4">
+            <UtensilsCrossed className="w-6 h-6 text-primary" />
+          </div>
+          <h3 className="font-serif text-lg text-ink mb-1">
+            Noch keine Einträge
+          </h3>
+          <p className="text-sm text-ink-muted">
+            Trage ein, was du heute gegessen hast.
+          </p>
         </div>
       ) : (
-        <>
-          {/* Meal sections */}
-          {grouped.map((group) => (
-            <div key={group.value}>
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-sm font-medium text-gray-700">
-                  {group.label}
-                </h3>
-                {group.items.length > 0 && (
-                  <span className="text-xs text-gray-400">
-                    {group.items.filter((i) => i.kalorien_geschaetzt).reduce((s, i) => s + (i.kalorien_geschaetzt || 0), 0)} kcal
-                  </span>
-                )}
-              </div>
-
-              {group.items.length === 0 ? (
-                <div className="bg-gray-50 rounded-xl p-4 text-center">
-                  <p className="text-xs text-gray-400">Noch kein Eintrag</p>
+        <div className="space-y-6 animate-fade-in">
+          {grouped.map((group) => {
+            const style = MEAL_STYLES[group.value as MealTyp];
+            const Icon = style.icon;
+            if (group.items.length === 0) return null;
+            const groupKcal = group.items.reduce(
+              (s, i) => s + (i.kalorien_geschaetzt || 0),
+              0
+            );
+            return (
+              <section key={group.value} className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-serif text-lg text-ink flex items-center gap-2">
+                    <span
+                      className={`inline-flex items-center justify-center w-7 h-7 rounded-full ${style.badge}`}
+                    >
+                      <Icon className="w-4 h-4" />
+                    </span>
+                    {group.label}
+                  </h3>
+                  {groupKcal > 0 && (
+                    <span className="text-xs text-ink-faint">
+                      {groupKcal} kcal
+                    </span>
+                  )}
                 </div>
-              ) : (
                 <div className="space-y-2">
                   {group.items.map((entry) => (
                     <div
                       key={entry.id}
-                      className="bg-white rounded-xl border border-gray-100 p-3 flex items-start justify-between gap-3"
+                      className="bg-white rounded-2xl border border-border p-4 flex items-start justify-between gap-3 shadow-card"
                     >
-                      <div className="flex-1">
-                        <p className="text-sm text-gray-700">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <span
+                            className={`inline-flex items-center gap-1 text-[10px] uppercase tracking-wide font-medium px-2 py-0.5 rounded-full ${style.badge}`}
+                          >
+                            <Icon className="w-3 h-3" />
+                            {style.label}
+                          </span>
+                        </div>
+                        <p className="text-sm text-ink leading-relaxed">
                           {entry.beschreibung}
                         </p>
                         {entry.kalorien_geschaetzt && (
-                          <p className="text-xs text-gray-400 mt-1">
+                          <p className="text-xs text-ink-faint mt-1.5">
                             ~{entry.kalorien_geschaetzt} kcal
                           </p>
                         )}
                       </div>
                       <button
                         onClick={() => handleDelete(entry.id)}
-                        className="text-gray-300 hover:text-red-400 transition p-1"
+                        className="text-ink-faint hover:text-red-500 transition p-1 shrink-0"
+                        aria-label="Eintrag löschen"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   ))}
                 </div>
-              )}
+              </section>
+            );
+          })}
+        </div>
+      )}
+
+      {/* FAB */}
+      <button
+        onClick={() => setShowForm(true)}
+        className="fixed bottom-6 right-6 z-30 bg-primary hover:bg-primary-hover text-white rounded-full shadow-lg p-4 transition hover:scale-105 active:scale-95"
+        aria-label="Eintrag hinzufügen"
+      >
+        <Plus className="w-6 h-6" />
+      </button>
+
+      {/* Add entry sheet / modal */}
+      {showForm && (
+        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
+          <div
+            className="absolute inset-0 bg-ink/40 animate-fade-in"
+            onClick={() => !saving && setShowForm(false)}
+          />
+          <div className="relative w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-3xl shadow-card animate-slide-in-up sm:mb-0">
+            <div className="flex items-center justify-between px-5 pt-5 pb-3">
+              <h2 className="font-serif text-xl text-ink">
+                Eintrag hinzufügen
+              </h2>
+              <button
+                onClick={() => !saving && setShowForm(false)}
+                className="text-ink-muted hover:text-ink transition p-1"
+                aria-label="Schließen"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
-          ))}
-
-          {/* Add button */}
-          {!showForm && (
-            <button
-              onClick={() => setShowForm(true)}
-              className="w-full flex items-center justify-center gap-2 text-sm text-primary bg-primary-bg hover:bg-primary-pale py-3 rounded-xl transition"
-            >
-              <Plus className="w-4 h-4" />
-              Eintrag hinzufügen
-            </button>
-          )}
-
-          {/* Add form */}
-          {showForm && (
-            <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-4">
+            <div className="px-5 pb-6 space-y-4">
               <div>
-                <label className="block text-sm text-gray-500 mb-1">
+                <label className="block text-xs font-medium text-ink-muted mb-2">
                   Mahlzeit
                 </label>
                 <div className="flex gap-2 flex-wrap">
-                  {MAHLZEIT_TYPEN.map((t) => (
-                    <button
-                      key={t.value}
-                      onClick={() => setFormTyp(t.value)}
-                      className={`text-xs px-3 py-1.5 rounded-full border transition ${
-                        formTyp === t.value
-                          ? "bg-primary text-white border-primary"
-                          : "bg-white text-gray-600 border-gray-200 hover:border-primary/30"
-                      }`}
-                    >
-                      {t.label}
-                    </button>
-                  ))}
+                  {MAHLZEIT_TYPEN.map((t) => {
+                    const style = MEAL_STYLES[t.value as MealTyp];
+                    const Icon = style.icon;
+                    const active = formTyp === t.value;
+                    return (
+                      <button
+                        key={t.value}
+                        onClick={() => setFormTyp(t.value as MealTyp)}
+                        className={`inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border transition ${
+                          active
+                            ? "bg-primary text-white border-primary"
+                            : "bg-white text-ink-muted border-border hover:border-primary/40"
+                        }`}
+                      >
+                        <Icon className="w-3.5 h-3.5" />
+                        {t.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm text-gray-500 mb-1">
+                <label className="block text-xs font-medium text-ink-muted mb-2">
                   Was hast du gegessen?
                 </label>
                 <textarea
                   value={formBeschreibung}
                   onChange={(e) => setFormBeschreibung(e.target.value)}
-                  rows={2}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none"
+                  rows={3}
+                  className="w-full border border-border rounded-2xl px-4 py-3 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none bg-surface-bg"
                   placeholder="z.B. Haferflocken mit Beeren und Joghurt"
                 />
               </div>
 
               <div>
-                <label className="block text-sm text-gray-500 mb-1">
+                <label className="block text-xs font-medium text-ink-muted mb-2">
                   Kalorien (optional)
                 </label>
                 <input
                   type="number"
                   value={formKcal}
                   onChange={(e) => setFormKcal(e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                  className="w-full border border-border rounded-2xl px-4 py-3 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface-bg"
                   placeholder="ca. 350"
                 />
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex gap-2 pt-2">
                 <button
                   onClick={() => setShowForm(false)}
-                  className="flex-1 text-sm text-gray-500 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition"
+                  disabled={saving}
+                  className="flex-1 text-sm text-ink-muted py-3 rounded-full border border-border hover:bg-surface-muted transition"
                 >
                   Abbrechen
                 </button>
                 <button
                   onClick={handleAdd}
                   disabled={!formBeschreibung.trim() || saving}
-                  className="flex-1 text-sm text-white bg-primary py-2 rounded-lg hover:bg-primary-light transition disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="flex-1 text-sm font-medium text-white bg-primary py-3 rounded-full hover:bg-primary-hover transition disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {saving ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
-                    <UtensilsCrossed className="w-4 h-4" />
+                    <Plus className="w-4 h-4" />
                   )}
                   Speichern
                 </button>
               </div>
             </div>
-          )}
-
-          {/* Empty state for whole day */}
-          {entries.length === 0 && !showForm && (
-            <div className="text-center py-6 text-gray-400">
-              <UtensilsCrossed className="w-10 h-10 mx-auto mb-3 text-gray-300" />
-              <p className="text-sm">Noch keine Einträge für diesen Tag.</p>
-              <p className="text-xs mt-1">
-                Trage ein, was du gegessen hast.
-              </p>
-            </div>
-          )}
-        </>
+          </div>
+        </div>
       )}
     </div>
   );

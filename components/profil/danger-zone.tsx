@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Download, Trash2, Loader2, AlertTriangle } from "lucide-react";
+import { Download, Trash2, Loader2 } from "lucide-react";
 
 export function DangerZone() {
   const [exporting, setExporting] = useState(false);
@@ -53,106 +53,99 @@ export function DangerZone() {
   }
 
   return (
-    <section className="mt-12 border border-red-200 rounded-2xl overflow-hidden bg-red-50/30">
-      <header className="px-5 py-4 bg-red-50 border-b border-red-200 flex items-center gap-2">
-        <AlertTriangle className="w-4 h-4 text-red-600" />
-        <h2 className="text-sm font-semibold text-red-700">Gefahrenbereich</h2>
-      </header>
-
-      <div className="p-5 space-y-6">
-        {/* Export */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div>
-            <h3 className="text-sm font-semibold text-gray-800">
-              Meine Daten herunterladen
-            </h3>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Datenübertragbarkeit gemäß Art. 20 DSGVO – alle deine Daten als
-              JSON.
-            </p>
-          </div>
-          <button
-            onClick={handleExport}
-            disabled={exporting}
-            className="inline-flex items-center gap-2 text-sm px-4 py-2.5 rounded-xl border border-gray-300 bg-white hover:bg-gray-50 transition disabled:opacity-50"
-          >
-            {exporting ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Download className="w-4 h-4" />
-            )}
-            {exporting ? "Exportiere…" : "Meine Daten herunterladen"}
-          </button>
+    <section className="bg-red-50/50 border border-red-200 rounded-2xl p-5 space-y-6">
+      {/* Export */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h3 className="font-serif text-base text-red-700">
+            Meine Daten herunterladen
+          </h3>
+          <p className="text-xs text-ink-muted mt-0.5">
+            Datenübertragbarkeit gemäß Art. 20 DSGVO – alle deine Daten als
+            JSON.
+          </p>
         </div>
+        <button
+          onClick={handleExport}
+          disabled={exporting}
+          className="inline-flex items-center gap-2 text-sm px-4 py-2 rounded-full bg-white border border-red-200 text-red-700 hover:bg-red-50 transition disabled:opacity-50"
+        >
+          {exporting ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Download className="w-4 h-4" />
+          )}
+          {exporting ? "Exportiere…" : "Herunterladen"}
+        </button>
+      </div>
 
-        {/* Delete */}
-        <div className="pt-5 border-t border-red-100">
-          {!deleteOpen ? (
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div>
-                <h3 className="text-sm font-semibold text-red-700">
-                  Account und alle Daten löschen
-                </h3>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Unwiderruflich. Alle Profil-, Chat- und Ernährungsdaten werden
-                  gelöscht.
-                </p>
-              </div>
-              <button
-                onClick={() => setDeleteOpen(true)}
-                className="inline-flex items-center gap-2 text-sm px-4 py-2.5 rounded-xl bg-red-600 text-white hover:bg-red-700 transition"
-              >
-                <Trash2 className="w-4 h-4" />
+      {/* Delete */}
+      <div className="pt-5 border-t border-red-200">
+        {!deleteOpen ? (
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <h3 className="font-serif text-base text-red-700">
                 Account und alle Daten löschen
+              </h3>
+              <p className="text-xs text-ink-muted mt-0.5">
+                Unwiderruflich. Alle Profil-, Chat- und Ernährungsdaten werden
+                gelöscht.
+              </p>
+            </div>
+            <button
+              onClick={() => setDeleteOpen(true)}
+              className="inline-flex items-center gap-2 text-sm px-4 py-2 rounded-full bg-red-600 text-white hover:bg-red-700 transition"
+            >
+              <Trash2 className="w-4 h-4" />
+              Account löschen
+            </button>
+          </div>
+        ) : (
+          <div className="bg-white border border-red-200 rounded-2xl p-4 space-y-3">
+            <p className="text-sm text-red-700 font-medium">
+              Alle Daten werden unwiderruflich gelöscht.
+            </p>
+            <p className="text-xs text-ink-muted">
+              Tippe <strong>LÖSCHEN</strong> um zu bestätigen.
+            </p>
+            <input
+              type="text"
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              className="w-full rounded-xl border border-border bg-surface-muted px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-300 focus:border-red-400"
+              placeholder="LÖSCHEN"
+              autoFocus
+            />
+            {deleteError && (
+              <p className="text-xs text-red-600">{deleteError}</p>
+            )}
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={() => {
+                  setDeleteOpen(false);
+                  setConfirmText("");
+                  setDeleteError(null);
+                }}
+                disabled={deleting}
+                className="flex-1 text-sm px-4 py-2 rounded-full bg-white border border-red-200 text-red-700 hover:bg-red-50 transition disabled:opacity-50"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={confirmText !== "LÖSCHEN" || deleting}
+                className="flex-1 inline-flex items-center justify-center gap-2 text-sm px-4 py-2 rounded-full bg-red-600 text-white hover:bg-red-700 transition disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {deleting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Trash2 className="w-4 h-4" />
+                )}
+                Endgültig löschen
               </button>
             </div>
-          ) : (
-            <div className="bg-white border border-red-200 rounded-xl p-4 space-y-3">
-              <p className="text-sm text-red-700 font-medium">
-                Alle Daten werden unwiderruflich gelöscht.
-              </p>
-              <p className="text-xs text-gray-600">
-                Tippe <strong>LÖSCHEN</strong> um zu bestätigen.
-              </p>
-              <input
-                type="text"
-                value={confirmText}
-                onChange={(e) => setConfirmText(e.target.value)}
-                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-300 focus:border-red-400"
-                placeholder="LÖSCHEN"
-                autoFocus
-              />
-              {deleteError && (
-                <p className="text-xs text-red-600">{deleteError}</p>
-              )}
-              <div className="flex gap-2 pt-1">
-                <button
-                  onClick={() => {
-                    setDeleteOpen(false);
-                    setConfirmText("");
-                    setDeleteError(null);
-                  }}
-                  disabled={deleting}
-                  className="flex-1 text-sm px-4 py-2.5 rounded-xl border border-gray-300 bg-white hover:bg-gray-50 transition disabled:opacity-50"
-                >
-                  Abbrechen
-                </button>
-                <button
-                  onClick={handleDelete}
-                  disabled={confirmText !== "LÖSCHEN" || deleting}
-                  className="flex-1 inline-flex items-center justify-center gap-2 text-sm px-4 py-2.5 rounded-xl bg-red-600 text-white hover:bg-red-700 transition disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  {deleting ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Trash2 className="w-4 h-4" />
-                  )}
-                  Endgültig löschen
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </section>
   );

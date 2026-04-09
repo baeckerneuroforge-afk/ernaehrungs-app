@@ -6,11 +6,14 @@ import { MealDetail } from "./meal-detail";
 import { ShoppingList } from "./shopping-list";
 import { MealprepPlan } from "./mealprep-plan";
 import {
-  ChevronLeft,
-  ChevronRight,
+  ChevronDown,
   ShoppingCart,
   ChefHat,
   MessageCircle,
+  Sunrise,
+  Sun,
+  Moon,
+  Utensils,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -19,22 +22,59 @@ interface Props {
   params: PlanParameters;
 }
 
-const DAYS_SHORT = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
+const DAYS_ORDER = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];
+
+type MealVisual = {
+  icon: React.ComponentType<{ className?: string }>;
+  bg: string;
+  text: string;
+};
+
+function getMealVisual(type: string): MealVisual {
+  const lower = type.toLowerCase();
+  if (lower.includes("frühstück") || lower.includes("fruehstueck") || lower.includes("breakfast")) {
+    return { icon: Sunrise, bg: "bg-orange-100", text: "text-orange-600" };
+  }
+  if (lower.includes("mittag") || lower.includes("lunch")) {
+    return { icon: Sun, bg: "bg-yellow-100", text: "text-yellow-600" };
+  }
+  if (lower.includes("abend") || lower.includes("dinner")) {
+    return { icon: Moon, bg: "bg-indigo-100", text: "text-indigo-600" };
+  }
+  return { icon: Utensils, bg: "bg-primary-pale", text: "text-primary" };
+}
+
+function isToday(dayName: string): boolean {
+  const today = new Date().getDay(); // 0=Sun .. 6=Sat
+  const map: Record<string, number> = {
+    Sonntag: 0,
+    Montag: 1,
+    Dienstag: 2,
+    Mittwoch: 3,
+    Donnerstag: 4,
+    Freitag: 5,
+    Samstag: 6,
+  };
+  return map[dayName] === today;
+}
 
 export function WeekGrid({ data, params }: Props) {
   const [selectedMeal, setSelectedMeal] = useState<{ meal: Meal; day: string } | null>(null);
-  const [activeDay, setActiveDay] = useState(0);
   const [showShopping, setShowShopping] = useState(false);
   const [showMealprep, setShowMealprep] = useState(false);
 
-  const days = data.weekPlan;
-  const mealTypes = days[0]?.meals.map((m) => m.type) || [];
+  // Sort days Mo-So for consistency
+  const days = [...data.weekPlan].sort((a, b) => {
+    const ai = DAYS_ORDER.indexOf(a.day);
+    const bi = DAYS_ORDER.indexOf(b.day);
+    if (ai === -1 || bi === -1) return 0;
+    return ai - bi;
+  });
 
-  // Dynamic chat chips from plan data
   const chatChips = buildChatChips(data);
 
   return (
-    <div>
+    <div className="animate-fade-in">
       {/* Meal Detail Modal */}
       {selectedMeal && (
         <MealDetail
@@ -44,151 +84,122 @@ export function WeekGrid({ data, params }: Props) {
         />
       )}
 
-      {/* Desktop Grid (hidden on mobile) */}
-      <div className="hidden md:block bg-white rounded-2xl border border-warm-border overflow-hidden">
-        {/* Header row */}
-        <div className="grid grid-cols-7 border-b border-warm-border">
-          {days.map((day) => (
+      {/* Week day cards — grid on md+, stacked on mobile */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {days.map((day, idx) => {
+          const today = isToday(day.day);
+          return (
             <div
               key={day.day}
-              className="px-2 py-3 text-center text-xs font-semibold text-warm-dark border-r border-warm-border last:border-r-0"
-            >
-              {day.day}
-            </div>
-          ))}
-        </div>
-
-        {/* Meal rows */}
-        {mealTypes.map((mealType, rowIdx) => (
-          <div
-            key={mealType}
-            className={`grid grid-cols-7 ${rowIdx < mealTypes.length - 1 ? "border-b border-warm-border" : ""}`}
-          >
-            {days.map((day) => {
-              const meal = day.meals.find((m) => m.type === mealType);
-              if (!meal) return <div key={day.day} className="p-2 border-r border-warm-border last:border-r-0" />;
-              return (
-                <button
-                  key={day.day}
-                  onClick={() => setSelectedMeal({ meal, day: day.day })}
-                  className="p-2.5 border-r border-warm-border last:border-r-0 text-left hover:bg-primary-bg/20 transition group"
-                >
-                  <p className="text-[10px] text-warm-light mb-0.5">{meal.time}</p>
-                  <p className="text-xs font-medium text-warm-dark group-hover:text-primary transition leading-tight">
-                    {meal.name}
-                  </p>
-                  <p className="text-[10px] text-warm-muted mt-0.5 line-clamp-1">
-                    {meal.shortDescription}
-                  </p>
-                </button>
-              );
-            })}
-          </div>
-        ))}
-      </div>
-
-      {/* Mobile View */}
-      <div className="md:hidden">
-        {/* Day tabs */}
-        <div className="flex gap-1 mb-3 overflow-x-auto pb-1">
-          {days.map((day, idx) => (
-            <button
-              key={day.day}
-              onClick={() => setActiveDay(idx)}
-              className={`flex-shrink-0 px-3 py-2 rounded-xl text-xs font-medium transition ${
-                activeDay === idx
-                  ? "bg-primary text-white"
-                  : "bg-surface-muted text-warm-muted"
+              style={{ animationDelay: `${idx * 40}ms` }}
+              className={`rounded-2xl border p-4 transition-all duration-200 animate-slide-in-up ${
+                today
+                  ? "bg-primary-pale border-primary shadow-card"
+                  : "bg-white border-border hover:-translate-y-0.5 hover:shadow-md shadow-card"
               }`}
             >
-              {DAYS_SHORT[idx] || day.day.slice(0, 2)}
-            </button>
-          ))}
-        </div>
-
-        {/* Swipe navigation */}
-        <div className="flex items-center justify-between mb-3">
-          <button
-            onClick={() => setActiveDay(Math.max(0, activeDay - 1))}
-            disabled={activeDay === 0}
-            className="p-1.5 text-warm-muted disabled:opacity-30"
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-          <h3 className="font-semibold text-warm-dark">{days[activeDay]?.day}</h3>
-          <button
-            onClick={() => setActiveDay(Math.min(days.length - 1, activeDay + 1))}
-            disabled={activeDay === days.length - 1}
-            className="p-1.5 text-warm-muted disabled:opacity-30"
-          >
-            <ChevronRight className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Day cards */}
-        <div className="space-y-2">
-          {days[activeDay]?.meals.map((meal, idx) => (
-            <button
-              key={idx}
-              onClick={() => setSelectedMeal({ meal, day: days[activeDay].day })}
-              className="w-full bg-white rounded-xl border border-warm-border p-4 text-left hover:border-primary/30 transition"
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <p className="text-[11px] text-warm-light">{meal.time} · {meal.type}</p>
-                  <p className="text-sm font-medium text-warm-dark mt-0.5">{meal.name}</p>
-                  <p className="text-xs text-warm-muted mt-1">{meal.shortDescription}</p>
-                </div>
-                {meal.calories && (
-                  <span className="text-[11px] text-warm-light ml-2 flex-shrink-0">
-                    ~{meal.calories} kcal
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-serif text-lg font-semibold text-ink">{day.day}</h3>
+                {today && (
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-primary bg-white rounded-full px-2 py-0.5">
+                    Heute
                   </span>
                 )}
               </div>
-            </button>
-          ))}
-        </div>
+
+              <div className="space-y-2">
+                {day.meals.map((meal, mIdx) => {
+                  const visual = getMealVisual(meal.type);
+                  const Icon = visual.icon;
+                  return (
+                    <button
+                      key={mIdx}
+                      onClick={() => setSelectedMeal({ meal, day: day.day })}
+                      className="w-full flex items-start gap-3 rounded-xl border border-border bg-white p-2.5 text-left hover:border-primary/40 hover:bg-primary-faint transition-all duration-200 group"
+                    >
+                      <span className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${visual.bg}`}>
+                        <Icon className={`w-4 h-4 ${visual.text}`} />
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[10px] text-ink-faint uppercase tracking-wide">
+                          {meal.type} · {meal.time}
+                        </p>
+                        <p className="text-sm font-medium text-ink group-hover:text-primary transition leading-tight mt-0.5 line-clamp-2">
+                          {meal.name}
+                        </p>
+                        {meal.calories && (
+                          <p className="text-[11px] text-ink-faint mt-0.5">~{meal.calories} kcal</p>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* Expandable sections */}
-      <div className="mt-5 space-y-2">
+      <div className="mt-6 space-y-3">
         {/* Shopping List */}
-        <button
-          onClick={() => setShowShopping(!showShopping)}
-          className="w-full flex items-center justify-between bg-white rounded-xl border border-warm-border px-4 py-3 hover:border-primary/30 transition"
-        >
-          <span className="flex items-center gap-2 text-sm font-medium text-warm-dark">
-            <ShoppingCart className="w-4 h-4 text-primary" />
-            Einkaufsliste
-          </span>
-          <ChevronRight className={`w-4 h-4 text-warm-light transition-transform ${showShopping ? "rotate-90" : ""}`} />
-        </button>
-        {showShopping && (
-          <ShoppingList items={data.shoppingList} />
-        )}
+        <div className="bg-white rounded-2xl border border-border shadow-card overflow-hidden transition-all duration-200">
+          <button
+            onClick={() => setShowShopping(!showShopping)}
+            className="w-full flex items-center justify-between px-5 py-4 hover:bg-primary-faint transition-colors"
+          >
+            <span className="flex items-center gap-3">
+              <span className="w-9 h-9 rounded-full bg-primary-pale flex items-center justify-center">
+                <ShoppingCart className="w-4 h-4 text-primary" />
+              </span>
+              <span className="text-sm font-semibold text-ink">Einkaufsliste</span>
+              <span className="text-xs text-ink-faint">{data.shoppingList.length} Zutaten</span>
+            </span>
+            <ChevronDown
+              className={`w-4 h-4 text-ink-faint transition-transform duration-200 ${
+                showShopping ? "rotate-180" : ""
+              }`}
+            />
+          </button>
+          {showShopping && (
+            <div className="px-5 pb-5 border-t border-border pt-4 animate-fade-in">
+              <ShoppingList items={data.shoppingList} />
+            </div>
+          )}
+        </div>
 
         {/* Mealprep */}
         {params.mealprep && data.mealPrepPlan && (
-          <>
+          <div className="bg-white rounded-2xl border border-border shadow-card overflow-hidden transition-all duration-200">
             <button
               onClick={() => setShowMealprep(!showMealprep)}
-              className="w-full flex items-center justify-between bg-white rounded-xl border border-warm-border px-4 py-3 hover:border-primary/30 transition"
+              className="w-full flex items-center justify-between px-5 py-4 hover:bg-primary-faint transition-colors"
             >
-              <span className="flex items-center gap-2 text-sm font-medium text-warm-dark">
-                <ChefHat className="w-4 h-4 text-primary" />
-                Mealprep-Plan
+              <span className="flex items-center gap-3">
+                <span className="w-9 h-9 rounded-full bg-primary-pale flex items-center justify-center">
+                  <ChefHat className="w-4 h-4 text-primary" />
+                </span>
+                <span className="text-sm font-semibold text-ink">Mealprep-Plan</span>
               </span>
-              <ChevronRight className={`w-4 h-4 text-warm-light transition-transform ${showMealprep ? "rotate-90" : ""}`} />
+              <ChevronDown
+                className={`w-4 h-4 text-ink-faint transition-transform duration-200 ${
+                  showMealprep ? "rotate-180" : ""
+                }`}
+              />
             </button>
-            {showMealprep && <MealprepPlan plan={data.mealPrepPlan} />}
-          </>
+            {showMealprep && (
+              <div className="px-5 pb-5 border-t border-border pt-4 animate-fade-in">
+                <MealprepPlan plan={data.mealPrepPlan} />
+              </div>
+            )}
+          </div>
         )}
       </div>
 
       {/* Chat hint */}
-      <div className="mt-5 bg-surface-muted rounded-xl p-4 text-center">
-        <p className="text-xs text-warm-muted mb-3 flex items-center justify-center gap-1.5">
-          <MessageCircle className="w-3.5 h-3.5" />
+      <div className="mt-6 bg-primary-faint rounded-2xl border border-primary-pale p-5 text-center">
+        <p className="text-sm text-ink-muted mb-3 flex items-center justify-center gap-2">
+          <MessageCircle className="w-4 h-4 text-primary" />
           Brauchst du Inspiration zur Zubereitung? Frag einfach im Chat!
         </p>
         <div className="flex flex-wrap justify-center gap-2">
@@ -196,7 +207,7 @@ export function WeekGrid({ data, params }: Props) {
             <Link
               key={idx}
               href={`/chat?prefill=${encodeURIComponent(chip)}`}
-              className="text-xs bg-white border border-warm-border px-3 py-1.5 rounded-full text-warm-muted hover:border-primary/30 hover:text-primary transition"
+              className="text-xs bg-primary-pale text-primary hover:bg-primary hover:text-white px-3 py-1.5 rounded-full font-medium transition-all duration-200"
             >
               {chip}
             </Link>

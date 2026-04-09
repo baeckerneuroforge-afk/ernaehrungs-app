@@ -5,7 +5,15 @@ import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { WeightChart } from "@/components/tracker/weight-chart";
 import { WeightLog } from "@/types";
-import { Plus, Trash2, Loader2, Scale } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Loader2,
+  Scale,
+  TrendingDown,
+  TrendingUp,
+  X,
+} from "lucide-react";
 
 export default function GewichtPage() {
   const [logs, setLogs] = useState<WeightLog[]>([]);
@@ -15,6 +23,7 @@ export default function GewichtPage() {
   const [notiz, setNotiz] = useState("");
   const [datum, setDatum] = useState(new Date().toISOString().split("T")[0]);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
 
   const loadLogs = useCallback(async () => {
     const res = await fetch("/api/tracker/gewicht");
@@ -45,6 +54,7 @@ export default function GewichtPage() {
       setGewicht("");
       setNotiz("");
       setDatum(new Date().toISOString().split("T")[0]);
+      setModalOpen(false);
       loadLogs();
     }
     setSaving(false);
@@ -63,139 +73,97 @@ export default function GewichtPage() {
     latest && previous
       ? (latest.gewicht_kg - previous.gewicht_kg).toFixed(1)
       : null;
+  const diffNum = diff ? parseFloat(diff) : 0;
 
   return (
     <div className="min-h-screen flex flex-col bg-surface-bg">
       <Navbar />
-      <main className="flex-1 max-w-3xl mx-auto px-4 sm:px-6 py-10 w-full">
-        <h1 className="text-2xl font-bold text-gray-800 mb-2">
-          Gewichtstracker
-        </h1>
-        <p className="text-gray-500 text-sm mb-6">
+      <main className="flex-1 max-w-3xl mx-auto px-4 sm:px-6 py-10 w-full animate-fade-in pb-32">
+        <h1 className="font-serif text-3xl text-ink mb-2">Gewichtstracker</h1>
+        <p className="text-ink-muted text-sm mb-6">
           Trage regelmäßig dein Gewicht ein um deinen Verlauf zu sehen.
         </p>
 
         {/* Stats */}
         {latest && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
-            <div className="bg-white rounded-xl border border-gray-100 p-4">
-              <p className="text-xs text-gray-400 mb-1">Aktuell</p>
-              <p className="text-xl font-bold text-gray-800">
-                {latest.gewicht_kg} kg
+          <div className="grid grid-cols-3 gap-3 mb-6">
+            <div className="bg-white rounded-2xl border border-border p-4">
+              <p className="text-xs text-ink-faint mb-1">Aktuell</p>
+              <p className="text-xl font-serif text-ink">
+                {latest.gewicht_kg}
+                <span className="text-sm text-ink-muted ml-1">kg</span>
               </p>
             </div>
-            {diff && (
-              <div className="bg-white rounded-xl border border-gray-100 p-4">
-                <p className="text-xs text-gray-400 mb-1">Veränderung</p>
+            <div className="bg-white rounded-2xl border border-border p-4">
+              <p className="text-xs text-ink-faint mb-1">Veränderung</p>
+              {diff ? (
                 <p
-                  className={`text-xl font-bold ${
-                    parseFloat(diff) < 0 ? "text-primary" : parseFloat(diff) > 0 ? "text-accent-warm" : "text-gray-800"
+                  className={`text-xl font-serif flex items-center gap-1 ${
+                    diffNum < 0
+                      ? "text-primary"
+                      : diffNum > 0
+                        ? "text-amber-600"
+                        : "text-ink"
                   }`}
                 >
-                  {parseFloat(diff) > 0 ? "+" : ""}
-                  {diff} kg
+                  {diffNum < 0 ? (
+                    <TrendingDown className="w-4 h-4" />
+                  ) : diffNum > 0 ? (
+                    <TrendingUp className="w-4 h-4" />
+                  ) : null}
+                  {diffNum > 0 ? "+" : ""}
+                  {diff}
                 </p>
-              </div>
-            )}
-            <div className="bg-white rounded-xl border border-gray-100 p-4">
-              <p className="text-xs text-gray-400 mb-1">Einträge</p>
-              <p className="text-xl font-bold text-gray-800">{logs.length}</p>
+              ) : (
+                <p className="text-xl font-serif text-ink-faint">–</p>
+              )}
+            </div>
+            <div className="bg-white rounded-2xl border border-border p-4">
+              <p className="text-xs text-ink-faint mb-1">Einträge</p>
+              <p className="text-xl font-serif text-ink">{logs.length}</p>
             </div>
           </div>
         )}
 
         {/* Chart */}
-        {!loading && <WeightChart data={logs} />}
-
-        {/* Add Entry */}
-        <form
-          onSubmit={handleSubmit}
-          className="bg-white rounded-2xl border border-gray-100 p-5 mt-6"
-        >
-          <h3 className="font-semibold text-gray-800 text-sm mb-3">
-            Neuer Eintrag
-          </h3>
-          <div className="grid sm:grid-cols-3 gap-3">
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">
-                Gewicht (kg)
-              </label>
-              <input
-                type="number"
-                step="0.1"
-                min="30"
-                max="300"
-                value={gewicht}
-                onChange={(e) => setGewicht(e.target.value)}
-                placeholder="z.B. 72.5"
-                required
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">Datum</label>
-              <input
-                type="date"
-                value={datum}
-                onChange={(e) => setDatum(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">
-                Notiz (optional)
-              </label>
-              <input
-                type="text"
-                value={notiz}
-                onChange={(e) => setNotiz(e.target.value)}
-                placeholder="z.B. nach dem Sport"
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              />
-            </div>
+        {!loading && logs.length >= 2 && (
+          <div className="mb-6">
+            <WeightChart data={logs} />
           </div>
-          <button
-            type="submit"
-            disabled={saving || !gewicht}
-            className="mt-3 flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary-light transition disabled:opacity-40"
-          >
-            {saving ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Plus className="w-4 h-4" />
-            )}
-            Eintragen
-          </button>
-        </form>
+        )}
 
         {/* History */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-5 mt-6">
-          <h3 className="font-semibold text-gray-800 text-sm mb-3">Verlauf</h3>
+        <div className="bg-white rounded-2xl border border-border p-5">
+          <h3 className="font-serif text-lg text-ink mb-4">Verlauf</h3>
           {loading ? (
             <div className="flex justify-center py-8">
-              <Loader2 className="w-5 h-5 animate-spin text-gray-300" />
+              <Loader2 className="w-5 h-5 animate-spin text-ink-faint" />
             </div>
           ) : logs.length === 0 ? (
-            <div className="text-center py-8 text-gray-400">
-              <Scale className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-              <p className="text-sm">Noch keine Einträge.</p>
+            <div className="text-center py-10">
+              <div className="w-16 h-16 rounded-full bg-primary-pale flex items-center justify-center mx-auto mb-3">
+                <Scale className="w-8 h-8 text-primary" />
+              </div>
+              <p className="text-sm text-ink-muted">
+                Noch keine Einträge. Starte mit deinem ersten Gewicht.
+              </p>
             </div>
           ) : (
             <div className="space-y-2">
               {[...logs].reverse().map((log) => (
                 <div
                   key={log.id}
-                  className="flex items-center justify-between px-3 py-2.5 bg-surface-muted rounded-lg"
+                  className="flex items-center justify-between px-4 py-3 bg-surface-muted rounded-xl hover:bg-primary-faint transition-colors"
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-medium text-gray-700">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="text-sm font-semibold text-ink">
                       {log.gewicht_kg} kg
                     </span>
-                    <span className="text-xs text-gray-400">
+                    <span className="text-xs text-ink-faint">
                       {new Date(log.gemessen_am).toLocaleDateString("de-DE")}
                     </span>
                     {log.notiz && (
-                      <span className="text-xs text-gray-400 italic">
+                      <span className="text-xs text-ink-muted italic truncate">
                         {log.notiz}
                       </span>
                     )}
@@ -203,12 +171,13 @@ export default function GewichtPage() {
                   <button
                     onClick={() => handleDelete(log.id)}
                     disabled={deleting === log.id}
-                    className="text-gray-400 hover:text-red-500 transition p-1"
+                    className="text-ink-faint hover:text-red-500 transition p-1 flex-shrink-0"
+                    aria-label="Löschen"
                   >
                     {deleting === log.id ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-4 h-4" />
                     )}
                   </button>
                 </div>
@@ -217,6 +186,94 @@ export default function GewichtPage() {
           )}
         </div>
       </main>
+
+      {/* FAB */}
+      <button
+        onClick={() => setModalOpen(true)}
+        className="fixed bottom-24 md:bottom-6 right-6 z-40 bg-primary hover:bg-primary-hover text-white rounded-full shadow-lg p-4 transition-all hover:-translate-y-0.5"
+        aria-label="Neuen Eintrag hinzufügen"
+      >
+        <Plus className="w-6 h-6" />
+      </button>
+
+      {/* Modal / Bottom Sheet */}
+      {modalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 animate-fade-in"
+          onClick={() => setModalOpen(false)}
+        >
+          <div
+            className="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl p-6 shadow-card animate-slide-in-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-serif text-xl text-ink">Neuer Eintrag</h3>
+              <button
+                onClick={() => setModalOpen(false)}
+                className="text-ink-faint hover:text-ink transition p-1"
+                aria-label="Schließen"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <div>
+                <label className="text-xs text-ink-muted mb-1 block">
+                  Gewicht (kg)
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="30"
+                  max="300"
+                  value={gewicht}
+                  onChange={(e) => setGewicht(e.target.value)}
+                  placeholder="z.B. 72.5"
+                  required
+                  autoFocus
+                  className="w-full px-3 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-ink-muted mb-1 block">Datum</label>
+                <input
+                  type="date"
+                  value={datum}
+                  onChange={(e) => setDatum(e.target.value)}
+                  className="w-full px-3 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-ink-muted mb-1 block">
+                  Notiz (optional)
+                </label>
+                <input
+                  type="text"
+                  value={notiz}
+                  onChange={(e) => setNotiz(e.target.value)}
+                  placeholder="z.B. nach dem Sport"
+                  className="w-full px-3 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={saving || !gewicht}
+                className="w-full mt-2 flex items-center justify-center gap-2 bg-primary hover:bg-primary-hover text-white px-4 py-3 rounded-full text-sm font-medium transition disabled:opacity-40"
+              >
+                {saving ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Plus className="w-4 h-4" />
+                )}
+                Eintragen
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
       <Footer />
     </div>
   );

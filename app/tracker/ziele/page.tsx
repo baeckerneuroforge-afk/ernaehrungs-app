@@ -108,23 +108,28 @@ export default function ZielePage() {
     return Math.min(100, Math.max(0, Math.round((done / total) * 100)));
   }
 
+  function getCurrent(ziel: Ziel): number | null {
+    if (ziel.typ === "gewicht" && latestWeight) return latestWeight;
+    return ziel.startwert ?? null;
+  }
+
   const activeZiele = ziele.filter((z) => !z.erreicht);
   const doneZiele = ziele.filter((z) => z.erreicht);
 
   return (
     <div className="min-h-screen flex flex-col bg-surface-bg">
       <Navbar />
-      <main className="flex-1 max-w-3xl mx-auto px-4 sm:px-6 py-10 w-full">
+      <main className="flex-1 max-w-3xl mx-auto px-4 sm:px-6 py-10 w-full animate-fade-in">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">Ziele</h1>
-            <p className="text-gray-500 text-sm mt-1">
+            <h1 className="font-serif text-3xl text-ink">Ziele</h1>
+            <p className="text-ink-muted text-sm mt-1">
               Setze dir Ziele und verfolge deinen Fortschritt.
             </p>
           </div>
           <button
             onClick={() => setShowForm(!showForm)}
-            className="flex items-center gap-1.5 bg-primary text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-primary-light transition"
+            className="flex items-center gap-1.5 bg-primary hover:bg-primary-hover text-white px-4 py-2 rounded-full text-sm font-medium transition"
           >
             {showForm ? (
               <X className="w-4 h-4" />
@@ -139,11 +144,11 @@ export default function ZielePage() {
         {showForm && (
           <form
             onSubmit={handleSubmit}
-            className="bg-white rounded-2xl border border-gray-100 p-5 mb-6"
+            className="bg-white rounded-2xl border border-border p-5 mb-6 animate-slide-in-up"
           >
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">Typ</label>
+                <label className="text-xs text-ink-muted mb-1.5 block">Typ</label>
                 <div className="flex gap-2">
                   {[
                     { v: "gewicht" as const, l: "Gewicht" },
@@ -163,10 +168,10 @@ export default function ZielePage() {
                               : ""
                         );
                       }}
-                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
+                      className={`px-4 py-2 rounded-full text-sm font-medium transition ${
                         typ === t.v
                           ? "bg-primary text-white"
-                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                          : "bg-surface-muted text-ink-muted hover:bg-primary-faint"
                       }`}
                     >
                       {t.l}
@@ -176,7 +181,7 @@ export default function ZielePage() {
               </div>
 
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">
+                <label className="text-xs text-ink-muted mb-1.5 block">
                   Beschreibung
                 </label>
                 <input
@@ -191,13 +196,13 @@ export default function ZielePage() {
                         : "z.B. 3x pro Woche Gemüse kochen"
                   }
                   required
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  className="w-full px-3 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
                 />
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div>
-                  <label className="text-xs text-gray-500 mb-1 block">
+                  <label className="text-xs text-ink-muted mb-1.5 block">
                     Startwert
                   </label>
                   <input
@@ -210,11 +215,11 @@ export default function ZielePage() {
                         ? String(latestWeight)
                         : ""
                     }
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    className="w-full px-3 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500 mb-1 block">
+                  <label className="text-xs text-ink-muted mb-1.5 block">
                     Zielwert
                   </label>
                   <input
@@ -222,12 +227,12 @@ export default function ZielePage() {
                     step="0.1"
                     value={zielwert}
                     onChange={(e) => setZielwert(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    className="w-full px-3 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
                   />
                 </div>
                 {typ === "custom" && (
                   <div>
-                    <label className="text-xs text-gray-500 mb-1 block">
+                    <label className="text-xs text-ink-muted mb-1.5 block">
                       Einheit
                     </label>
                     <input
@@ -235,19 +240,19 @@ export default function ZielePage() {
                       value={einheit}
                       onChange={(e) => setEinheit(e.target.value)}
                       placeholder="z.B. Mal"
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      className="w-full px-3 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
                     />
                   </div>
                 )}
                 <div>
-                  <label className="text-xs text-gray-500 mb-1 block">
+                  <label className="text-xs text-ink-muted mb-1.5 block">
                     Zieldatum
                   </label>
                   <input
                     type="date"
                     value={zieldatum}
                     onChange={(e) => setZieldatum(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    className="w-full px-3 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
                   />
                 </div>
               </div>
@@ -256,7 +261,7 @@ export default function ZielePage() {
             <button
               type="submit"
               disabled={saving || !beschreibung}
-              className="mt-4 flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary-light transition disabled:opacity-40"
+              className="mt-5 flex items-center gap-2 bg-primary hover:bg-primary-hover text-white px-5 py-2.5 rounded-full text-sm font-medium transition disabled:opacity-40"
             >
               {saving ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -269,46 +274,48 @@ export default function ZielePage() {
         )}
 
         {/* Active Goals */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-5 mb-6">
-          <h3 className="font-semibold text-gray-800 text-sm mb-4">
-            Aktive Ziele ({activeZiele.length})
+        <div className="mb-6">
+          <h3 className="font-serif text-lg text-ink mb-4">
+            Aktive Ziele{" "}
+            <span className="text-ink-faint text-sm">({activeZiele.length})</span>
           </h3>
           {loading ? (
             <div className="flex justify-center py-8">
-              <Loader2 className="w-5 h-5 animate-spin text-gray-300" />
+              <Loader2 className="w-5 h-5 animate-spin text-ink-faint" />
             </div>
           ) : activeZiele.length === 0 ? (
-            <div className="text-center py-8 text-gray-400">
-              <Target className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-              <p className="text-sm">Noch keine Ziele gesetzt.</p>
+            <div className="bg-white rounded-2xl border border-border p-10 text-center">
+              <div className="w-16 h-16 rounded-full bg-primary-pale flex items-center justify-center mx-auto mb-3">
+                <Target className="w-8 h-8 text-primary" />
+              </div>
+              <p className="text-sm text-ink-muted">
+                Noch keine Ziele gesetzt. Starte mit deinem ersten Ziel.
+              </p>
             </div>
           ) : (
             <div className="space-y-3">
               {activeZiele.map((ziel) => {
                 const progress = getProgress(ziel);
+                const current = getCurrent(ziel);
                 return (
                   <div
                     key={ziel.id}
-                    className="bg-surface-muted rounded-xl p-4"
+                    className="bg-white rounded-2xl border border-border p-5 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200"
                   >
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex items-start gap-2">
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div className="flex items-start gap-3 min-w-0">
                         <button
                           onClick={() => handleToggle(ziel)}
-                          className="mt-0.5 w-5 h-5 rounded-full border-2 border-gray-300 hover:border-primary transition flex-shrink-0"
+                          className="mt-0.5 w-5 h-5 rounded-full border-2 border-border hover:border-primary transition flex-shrink-0"
+                          aria-label="Als erreicht markieren"
                         />
-                        <div>
-                          <p className="text-sm font-medium text-gray-700">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-ink">
                             {ziel.beschreibung}
                           </p>
-                          <div className="flex gap-2 mt-1">
-                            {ziel.zielwert && (
-                              <span className="text-xs text-gray-400">
-                                Ziel: {ziel.zielwert} {ziel.einheit}
-                              </span>
-                            )}
+                          <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">
                             {ziel.zieldatum && (
-                              <span className="text-xs text-gray-400">
+                              <span className="text-xs text-ink-faint">
                                 bis{" "}
                                 {new Date(ziel.zieldatum).toLocaleDateString(
                                   "de-DE"
@@ -321,29 +328,35 @@ export default function ZielePage() {
                       <button
                         onClick={() => handleDelete(ziel.id)}
                         disabled={deleting === ziel.id}
-                        className="text-gray-400 hover:text-red-500 transition p-1"
+                        className="text-ink-faint hover:text-red-500 transition p-1 flex-shrink-0"
+                        aria-label="Löschen"
                       >
                         {deleting === ziel.id ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <Loader2 className="w-4 h-4 animate-spin" />
                         ) : (
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-4 h-4" />
                         )}
                       </button>
                     </div>
                     {progress !== null && (
-                      <div className="mt-2">
-                        <div className="flex justify-between text-xs text-gray-400 mb-1">
-                          <span>
-                            {ziel.startwert} {ziel.einheit}
+                      <div>
+                        <div className="flex justify-between items-baseline text-xs mb-1.5">
+                          <span className="text-ink-muted">
+                            <span className="font-semibold text-ink">
+                              {current} {ziel.einheit}
+                            </span>
+                            <span className="text-ink-faint">
+                              {" "}
+                              / {ziel.zielwert} {ziel.einheit}
+                            </span>
                           </span>
-                          <span>{progress}%</span>
-                          <span>
-                            {ziel.zielwert} {ziel.einheit}
+                          <span className="font-semibold text-primary">
+                            {progress}%
                           </span>
                         </div>
-                        <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div className="h-2 rounded-full bg-surface-muted overflow-hidden">
                           <div
-                            className="h-full bg-primary rounded-full transition-all"
+                            className="h-full bg-primary rounded-full transition-all duration-500"
                             style={{ width: `${progress}%` }}
                           />
                         </div>
@@ -358,27 +371,29 @@ export default function ZielePage() {
 
         {/* Completed Goals */}
         {doneZiele.length > 0 && (
-          <div className="bg-white rounded-2xl border border-gray-100 p-5">
-            <h3 className="font-semibold text-gray-800 text-sm mb-4">
-              Erreicht ({doneZiele.length})
+          <div>
+            <h3 className="font-serif text-lg text-ink mb-4">
+              Erreicht{" "}
+              <span className="text-ink-faint text-sm">({doneZiele.length})</span>
             </h3>
             <div className="space-y-2">
               {doneZiele.map((ziel) => (
                 <div
                   key={ziel.id}
-                  className="flex items-center justify-between bg-primary-bg/30 rounded-xl px-4 py-3"
+                  className="flex items-center justify-between bg-primary-faint border border-primary-pale rounded-2xl px-4 py-3"
                 >
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
                     <CheckCircle className="w-4 h-4 text-primary flex-shrink-0" />
-                    <span className="text-sm text-gray-600 line-through">
+                    <span className="text-sm text-ink-muted line-through truncate">
                       {ziel.beschreibung}
                     </span>
                   </div>
                   <button
                     onClick={() => handleDelete(ziel.id)}
-                    className="text-gray-400 hover:text-red-500 transition p-1"
+                    className="text-ink-faint hover:text-red-500 transition p-1 flex-shrink-0"
+                    aria-label="Löschen"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
               ))}

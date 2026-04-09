@@ -2,11 +2,12 @@
 
 import { useState, useMemo } from "react";
 import {
-  UtensilsCrossed,
-  Loader2,
   ChevronDown,
   Clock,
-  Coins,
+  Utensils,
+  ChefHat,
+  Salad,
+  Sparkles,
 } from "lucide-react";
 import type { PlanParameters, WeekPlanData } from "@/types/meal-plan";
 import { FASTING_OPTIONS, MEAL_LABELS, TIMING_RANGES } from "@/types/meal-plan";
@@ -30,15 +31,119 @@ function getConstrainedRange(
 ): { start: number; end: number } {
   const base = TIMING_RANGES[label] || { start: 8, end: 20 };
   if (fasting === "16:8") {
-    // Eating window typically 12:00–20:00
     return { start: Math.max(base.start, 12), end: Math.min(base.end, 20) };
   }
   if (fasting === "20:4") {
-    // Eating window typically 16:00–20:00
     return { start: Math.max(base.start, 16), end: Math.min(base.end, 20) };
   }
   return base;
 }
+
+/* ------------------------------------------------------------------ */
+/* Reusable primitives                                                 */
+/* ------------------------------------------------------------------ */
+
+function SectionCard({
+  icon: Icon,
+  label,
+  children,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="bg-white rounded-2xl border border-border p-5 shadow-card hover:-translate-y-0.5 hover:shadow-card-hover transition-all duration-200">
+      <div className="flex items-center gap-2 mb-3">
+        <span className="w-8 h-8 rounded-full bg-primary-pale flex items-center justify-center flex-shrink-0">
+          <Icon className="w-4 h-4 text-primary" />
+        </span>
+        <h4 className="text-sm font-semibold text-ink">{label}</h4>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function Select({
+  value,
+  onChange,
+  children,
+  size = "md",
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  children: React.ReactNode;
+  size?: "sm" | "md";
+}) {
+  const padding = size === "sm" ? "px-2.5 py-1.5 pr-7 text-xs" : "px-3 py-2.5 pr-9 text-sm";
+  const iconPos = size === "sm" ? "right-2 w-3 h-3" : "right-3 w-4 h-4";
+  return (
+    <div className="relative">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={`w-full appearance-none ${padding} border border-border rounded-xl bg-white text-ink focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition`}
+      >
+        {children}
+      </select>
+      <ChevronDown className={`absolute ${iconPos} top-1/2 -translate-y-1/2 text-ink-faint pointer-events-none`} />
+    </div>
+  );
+}
+
+function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary/30 ${
+        checked ? "bg-primary" : "bg-border"
+      }`}
+    >
+      <span
+        className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-200 ${
+          checked ? "translate-x-[22px]" : "translate-x-0.5"
+        }`}
+      />
+    </button>
+  );
+}
+
+function LoadingSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="bg-white rounded-2xl border border-border p-6 shadow-card">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-8 h-8 rounded-full bg-primary-pale animate-pulse" />
+          <div className="h-4 w-48 bg-surface-muted rounded animate-pulse" />
+        </div>
+        <div className="space-y-2">
+          <div className="h-3 w-full bg-surface-muted rounded animate-pulse" />
+          <div className="h-3 w-5/6 bg-surface-muted rounded animate-pulse" />
+          <div className="h-3 w-4/6 bg-surface-muted rounded animate-pulse" />
+        </div>
+      </div>
+      <div className="grid sm:grid-cols-2 gap-4">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="bg-white rounded-2xl border border-border p-5 shadow-card">
+            <div className="h-4 w-24 bg-surface-muted rounded animate-pulse mb-3" />
+            <div className="h-8 w-full bg-surface-muted rounded-xl animate-pulse" />
+          </div>
+        ))}
+      </div>
+      <p className="text-center text-sm text-ink-muted animate-pulse">
+        Dein individueller 7-Tage-Plan wird erstellt...
+      </p>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Main component                                                      */
+/* ------------------------------------------------------------------ */
 
 export function PlanCreator({ onPlanGenerated }: Props) {
   const [fasting, setFasting] = useState("none");
@@ -53,11 +158,9 @@ export function PlanCreator({ onPlanGenerated }: Props) {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
 
-  // Constrain meals per day based on fasting
   const minMeals = fasting === "20:4" ? 1 : 2;
   const maxMeals = fasting === "20:4" ? 2 : fasting === "16:8" ? 3 : 5;
 
-  // Auto-adjust if current selection exceeds max or is below min
   if (mealsPerDay > maxMeals) {
     setMealsPerDay(maxMeals);
   }
@@ -67,7 +170,6 @@ export function PlanCreator({ onPlanGenerated }: Props) {
 
   const mealLabels = useMemo(() => MEAL_LABELS[mealsPerDay] || MEAL_LABELS[3], [mealsPerDay]);
 
-  // Build default timing when labels change
   const timingWithDefaults = useMemo(() => {
     const result: Record<string, string> = {};
     mealLabels.forEach((label) => {
@@ -132,7 +234,6 @@ export function PlanCreator({ onPlanGenerated }: Props) {
         }
       }
 
-      // Parse JSON from response
       const jsonMatch = fullContent.match(/\{[\s\S]*\}/);
       if (!jsonMatch) throw new Error("Kein gültiges JSON in der Antwort");
 
@@ -147,43 +248,22 @@ export function PlanCreator({ onPlanGenerated }: Props) {
   }
 
   if (generating) {
-    return (
-      <div className="bg-white rounded-2xl border border-warm-border p-8 text-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
-        <h3 className="font-semibold text-warm-dark mb-1">Dein Plan wird erstellt...</h3>
-        <p className="text-sm text-warm-muted">
-          Wir erstellen einen individuellen 7-Tage-Plan basierend auf deinem Profil und deinen Einstellungen.
-        </p>
-      </div>
-    );
+    return <LoadingSkeleton />;
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-warm-border p-5 sm:p-6">
-      <h3 className="font-semibold text-warm-dark mb-5">Neuen Plan erstellen</h3>
-
-      {/* 2x2 Grid */}
-      <div className="grid sm:grid-cols-2 gap-5 mb-5">
+    <div className="space-y-4 animate-fade-in">
+      <div className="grid sm:grid-cols-2 gap-4">
         {/* 1. Fastenmodell */}
-        <div>
-          <label className="text-xs font-medium text-warm-muted mb-1.5 block">
-            Fastenmodell
-          </label>
-          <div className="relative">
-            <select
-              value={fasting}
-              onChange={(e) => setFasting(e.target.value)}
-              className="w-full appearance-none px-3 py-2.5 pr-9 border border-warm-border rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-            >
-              {FASTING_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-warm-light pointer-events-none" />
-          </div>
+        <SectionCard icon={Clock} label="Fastenmodell">
+          <Select value={fasting} onChange={setFasting}>
+            {FASTING_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </Select>
           {fasting === "periodic" && (
-            <div className="mt-2">
-              <label className="text-[11px] text-warm-muted mb-1 block">
+            <div className="mt-3">
+              <label className="text-[11px] text-ink-muted mb-1.5 block">
                 Wie viele Tage essen / fasten?
               </label>
               <div className="flex items-center gap-2">
@@ -194,11 +274,11 @@ export function PlanCreator({ onPlanGenerated }: Props) {
                     max={7}
                     value={periodicEatDays}
                     onChange={(e) => setPeriodicEatDays(Math.max(1, Math.min(7, Number(e.target.value))))}
-                    className="w-full px-2.5 py-1.5 border border-warm-border rounded-lg text-xs text-center bg-white focus:outline-none focus:ring-1 focus:ring-primary/20"
+                    className="w-full px-2.5 py-1.5 border border-border rounded-lg text-xs text-center bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   />
-                  <p className="text-[10px] text-warm-light text-center mt-0.5">Essen</p>
+                  <p className="text-[10px] text-ink-faint text-center mt-0.5">Essen</p>
                 </div>
-                <span className="text-xs text-warm-light">/</span>
+                <span className="text-xs text-ink-faint">/</span>
                 <div className="flex-1">
                   <input
                     type="number"
@@ -206,35 +286,33 @@ export function PlanCreator({ onPlanGenerated }: Props) {
                     max={7}
                     value={periodicFastDays}
                     onChange={(e) => setPeriodicFastDays(Math.max(1, Math.min(7, Number(e.target.value))))}
-                    className="w-full px-2.5 py-1.5 border border-warm-border rounded-lg text-xs text-center bg-white focus:outline-none focus:ring-1 focus:ring-primary/20"
+                    className="w-full px-2.5 py-1.5 border border-border rounded-lg text-xs text-center bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   />
-                  <p className="text-[10px] text-warm-light text-center mt-0.5">Fasten</p>
+                  <p className="text-[10px] text-ink-faint text-center mt-0.5">Fasten</p>
                 </div>
               </div>
             </div>
           )}
-        </div>
+        </SectionCard>
 
         {/* 2. Mahlzeiten pro Tag */}
-        <div>
-          <label className="text-xs font-medium text-warm-muted mb-1.5 block">
-            Mahlzeiten pro Tag
-          </label>
+        <SectionCard icon={Utensils} label="Mahlzeiten pro Tag">
           <div className="flex gap-1.5">
             {[1, 2, 3, 4, 5].map((n) => {
               const disabled = n > maxMeals || n < minMeals;
+              const active = mealsPerDay === n;
               return (
                 <button
                   key={n}
                   type="button"
                   disabled={disabled}
                   onClick={() => setMealsPerDay(n)}
-                  className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition ${
-                    mealsPerDay === n
-                      ? "bg-primary text-white"
+                  className={`flex-1 py-2.5 rounded-full text-sm font-medium transition-all duration-200 ${
+                    active
+                      ? "bg-primary text-white shadow-card"
                       : disabled
-                      ? "bg-surface-muted text-warm-light cursor-not-allowed"
-                      : "bg-surface-muted text-warm-muted hover:bg-primary-bg hover:text-primary"
+                      ? "bg-surface-muted text-ink-faint cursor-not-allowed opacity-60"
+                      : "bg-primary-pale text-primary hover:bg-primary hover:text-white"
                   }`}
                 >
                   {n}
@@ -243,27 +321,19 @@ export function PlanCreator({ onPlanGenerated }: Props) {
             })}
           </div>
           {(maxMeals < 5 || minMeals > 1) && (
-            <p className="text-[11px] text-warm-light mt-1">
-              Bei {fasting}: {minMeals}–{maxMeals} Mahlzeiten
+            <p className="text-[11px] text-ink-faint mt-2">
+              Bei {fasting}: {minMeals}–{maxMeals} Mahlzeiten möglich
             </p>
           )}
-        </div>
+        </SectionCard>
 
         {/* 3. Timing */}
-        <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <label className="text-xs font-medium text-warm-muted flex items-center gap-1">
-              <Clock className="w-3 h-3" />
-              Mahlzeitentiming
-            </label>
-            <label className="flex items-center gap-1.5 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={flexibleTiming}
-                onChange={(e) => setFlexibleTiming(e.target.checked)}
-                className="w-3.5 h-3.5 rounded border-warm-border text-primary focus:ring-primary/20"
-              />
-              <span className="text-[11px] text-warm-muted">Flexibel</span>
+        <SectionCard icon={Salad} label="Mahlzeitentiming">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-ink-muted">Uhrzeiten festlegen</span>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <span className="text-[11px] text-ink-muted">Flexibel</span>
+              <Toggle checked={flexibleTiming} onChange={setFlexibleTiming} />
             </label>
           </div>
           {!flexibleTiming ? (
@@ -273,62 +343,38 @@ export function PlanCreator({ onPlanGenerated }: Props) {
                 const slots = generateTimeSlots(range.start, range.end);
                 return (
                   <div key={label} className="flex items-center gap-2">
-                    <span className="text-xs text-warm-muted w-24 truncate">{label}</span>
-                    <div className="relative flex-1">
-                      <select
+                    <span className="text-xs text-ink-muted w-24 truncate">{label}</span>
+                    <div className="flex-1">
+                      <Select
+                        size="sm"
                         value={timingWithDefaults[label] || slots[0]}
-                        onChange={(e) =>
-                          setTiming((prev) => ({ ...prev, [label]: e.target.value }))
-                        }
-                        className="w-full appearance-none px-2.5 py-1.5 pr-7 border border-warm-border rounded-lg text-xs bg-white focus:outline-none focus:ring-1 focus:ring-primary/20"
+                        onChange={(v) => setTiming((prev) => ({ ...prev, [label]: v }))}
                       >
                         {slots.map((s) => (
                           <option key={s} value={s}>{s}</option>
                         ))}
-                      </select>
-                      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-warm-light pointer-events-none" />
+                      </Select>
                     </div>
                   </div>
                 );
               })}
             </div>
           ) : (
-            <p className="text-xs text-warm-light py-2">
+            <p className="text-xs text-ink-faint py-2">
               KI wählt passende Zeiten basierend auf deinem Profil.
             </p>
           )}
-        </div>
+        </SectionCard>
 
         {/* 4. Mealprep */}
-        <div>
-          <label className="text-xs font-medium text-warm-muted mb-1.5 block">
-            Mealprep
-          </label>
-          <button
-            type="button"
-            onClick={() => setMealprep(!mealprep)}
-            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl border transition text-sm ${
-              mealprep
-                ? "border-primary bg-primary-bg/30 text-primary"
-                : "border-warm-border text-warm-muted hover:border-primary/30"
-            }`}
-          >
-            <span>Mealprep-freundlich</span>
-            <div
-              className={`w-9 h-5 rounded-full transition-colors relative ${
-                mealprep ? "bg-primary" : "bg-warm-border"
-              }`}
-            >
-              <div
-                className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
-                  mealprep ? "translate-x-4" : "translate-x-0.5"
-                }`}
-              />
-            </div>
-          </button>
+        <SectionCard icon={ChefHat} label="Mealprep">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-ink-muted">Mealprep-freundlich</span>
+            <Toggle checked={mealprep} onChange={setMealprep} />
+          </div>
           {mealprep && (
-            <div className="mt-2">
-              <label className="text-[11px] text-warm-muted mb-1 block">
+            <div className="mt-3 pt-3 border-t border-border">
+              <label className="text-[11px] text-ink-muted mb-1.5 block">
                 Für wie viele Tage vorkochen?
               </label>
               <div className="flex gap-1.5">
@@ -337,10 +383,10 @@ export function PlanCreator({ onPlanGenerated }: Props) {
                     key={n}
                     type="button"
                     onClick={() => setMealPrepDays(n)}
-                    className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition ${
+                    className={`flex-1 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
                       mealPrepDays === n
-                        ? "bg-primary text-white"
-                        : "bg-surface-muted text-warm-muted hover:bg-primary-bg"
+                        ? "bg-primary text-white shadow-card"
+                        : "bg-primary-pale text-primary hover:bg-primary hover:text-white"
                     }`}
                   >
                     {n} Tage
@@ -349,38 +395,44 @@ export function PlanCreator({ onPlanGenerated }: Props) {
               </div>
             </div>
           )}
-        </div>
+        </SectionCard>
       </div>
 
       {/* Chat input */}
-      <div className="mb-4">
-        <label className="text-xs font-medium text-warm-muted mb-1.5 block">
-          Individuelle Wünsche (optional)
-        </label>
+      <div className="bg-white rounded-2xl border border-border p-5 shadow-card">
+        <div className="flex items-center gap-2 mb-3">
+          <span className="w-8 h-8 rounded-full bg-primary-pale flex items-center justify-center flex-shrink-0">
+            <Sparkles className="w-4 h-4 text-primary" />
+          </span>
+          <h4 className="text-sm font-semibold text-ink">Individuelle Wünsche</h4>
+          <span className="text-[11px] text-ink-faint">(optional)</span>
+        </div>
         <input
           type="text"
           value={userMessage}
           onChange={(e) => setUserMessage(e.target.value)}
           placeholder="z.B. 'Kein Brokkoli', 'Mittwoch bin ich unterwegs', 'Mehr asiatische Gerichte'..."
-          className="w-full px-3 py-2.5 border border-warm-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+          className="w-full px-3 py-2.5 border border-border rounded-xl text-sm bg-white text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition"
         />
       </div>
 
       {error && (
-        <p className="text-sm text-red-500 mb-3">{error}</p>
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
+          {error}
+        </div>
       )}
 
       {/* Generate button */}
-      <button
-        onClick={handleGenerate}
-        className="w-full sm:w-auto flex items-center justify-center gap-2 bg-primary text-white px-6 py-3 rounded-xl font-medium hover:bg-primary-light transition"
-      >
-        <UtensilsCrossed className="w-4 h-4" />
-        Ernährungsplan erstellen
-        <span className="flex items-center gap-0.5 text-xs opacity-80 ml-1">
-          <Coins className="w-3 h-3" />3
-        </span>
-      </button>
+      <div className="flex justify-end">
+        <button
+          onClick={handleGenerate}
+          className="inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary-hover text-white rounded-full px-6 py-3 font-medium shadow-card hover:shadow-card-hover transition-all duration-200"
+        >
+          <Sparkles className="w-4 h-4" />
+          Ernährungsplan erstellen
+          <span className="text-xs opacity-80">· 5 Credits</span>
+        </button>
+      </div>
     </div>
   );
 }
