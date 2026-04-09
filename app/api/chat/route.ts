@@ -247,40 +247,69 @@ export async function POST(request: Request) {
       profileContext = parts.join("\n");
     }
 
-    // ---- RAG: Vektor-Suche ----
+    // ---- RAG: Vektor-Suche mit Follow-up-Kontext ----
+    // Folgefragen wie "womit fange ich an?" enthalten keine Keywords.
+    // Strategie: erst aktuelle Nachricht, bei <3 Treffern mit letzten User-
+    // Nachrichten kombiniert nochmal suchen. Beste Treffer gewinnen.
     let knowledgeContext = "";
     let ragConfidence: "high" | "low" | "none" = "none";
 
-    try {
-      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    type RagDoc = { title: string; content: string; similarity: number };
+    type RagResult = { docs: RagDoc[]; avgSimilarity: number };
+
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+    const runRagSearch = async (queryText: string): Promise<RagResult> => {
       const embeddingResponse = await openai.embeddings.create({
         model: "text-embedding-3-small",
-        input: message,
+        input: queryText,
       });
       const queryEmbedding = embeddingResponse.data[0].embedding;
 
-      const { data: docs } = await supabase.rpc("ea_match_documents", {
+      const { data } = await supabase.rpc("ea_match_documents", {
         query_embedding: JSON.stringify(queryEmbedding),
         match_threshold: 0.35,
         match_count: 5,
       });
+      const docs = (data ?? []) as RagDoc[];
+      const avgSimilarity =
+        docs.length > 0
+          ? docs.reduce((sum, d) => sum + d.similarity, 0) / docs.length
+          : 0;
+      return { docs, avgSimilarity };
+    };
 
-      if (docs?.length) {
-        const avgSimilarity =
-          docs.reduce(
-            (sum: number, d: { similarity: number }) => sum + d.similarity,
-            0
-          ) / docs.length;
+    try {
+      let best = await runRagSearch(message);
 
-        if (avgSimilarity >= 0.5) {
-          ragConfidence = "high";
-        } else if (avgSimilarity >= 0.35) {
-          ragConfidence = "low";
+      // Nicht genug Treffer → Folgefrage-Modus: mit User-Kontext neu suchen
+      if (best.docs.length < 3) {
+        const previousUserMessages = (history as { role: string; content: string }[])
+          .filter((h) => h.role === "user")
+          .slice(-2)
+          .map((h) => h.content);
+
+        if (previousUserMessages.length > 0) {
+          const combinedQuery = [...previousUserMessages, message].join(" \n ");
+          const contextual = await runRagSearch(combinedQuery);
+
+          // Beste Variante gewinnt: zuerst nach Anzahl Treffer, dann Ø-Relevanz
+          const contextualBetter =
+            contextual.docs.length > best.docs.length ||
+            (contextual.docs.length === best.docs.length &&
+              contextual.avgSimilarity > best.avgSimilarity);
+
+          if (contextualBetter) best = contextual;
         }
+      }
 
-        knowledgeContext = docs
+      if (best.docs.length > 0) {
+        if (best.avgSimilarity >= 0.5) ragConfidence = "high";
+        else if (best.avgSimilarity >= 0.35) ragConfidence = "low";
+
+        knowledgeContext = best.docs
           .map(
-            (d: { title: string; content: string; similarity: number }) =>
+            (d) =>
               `[${d.title}] (Relevanz: ${Math.round(d.similarity * 100)}%)\n${d.content}`
           )
           .join("\n\n---\n\n");
@@ -290,7 +319,14 @@ export async function POST(request: Request) {
     }
 
     // ---- Fallback: Keine Wissensbasis-Treffer ----
-    if (ragConfidence === "none") {
+    // Nur hart ablehnen wenn es KEINE Vorgeschichte gibt. Bei Folgefragen
+    // darf die KI sich auf die bereits im Chat-Verlauf zitierten Fakten
+    // stützen — history enthält die vorherigen (grounded) Assistant-Antworten.
+    const hasConversationHistory =
+      Array.isArray(history) &&
+      history.some((h: { role: string }) => h.role === "assistant");
+
+    if (ragConfidence === "none" && !hasConversationHistory) {
       return streamStaticResponse(NO_KNOWLEDGE_RESPONSE);
     }
 
@@ -306,10 +342,16 @@ export async function POST(request: Request) {
       fullSystemPrompt += `\n\nHINWEIS ZUM VERHALTENKONTEXT: Nutze das Ernährungstagebuch, den Gewichtsverlauf und die aktiven Ziele, um deine Antworten persönlicher und relevanter zu machen. Erkenne Muster (z.B. wenig Protein, zu viele Snacks, fehlende Mahlzeiten) und gib proaktiv Hinweise, wenn sie zum Ziel des Nutzers passen. Sprich den Nutzer auf seine echten Daten an statt nur allgemein zu antworten.`;
     }
 
-    fullSystemPrompt += `\n\nWISSENSBASIS:\n${knowledgeContext}`;
+    if (knowledgeContext) {
+      fullSystemPrompt += `\n\nWISSENSBASIS:\n${knowledgeContext}`;
+    }
 
     if (ragConfidence === "low") {
       fullSystemPrompt += `\n\n⚠️ ACHTUNG: Die Relevanz der gefundenen Dokumente ist NIEDRIG. Sei besonders vorsichtig. Wenn die Dokumente die Frage nicht direkt beantworten, sage ehrlich, dass du dazu keine ausreichenden Informationen hast. Erfinde NICHTS.`;
+    }
+
+    if (ragConfidence === "none" && hasConversationHistory) {
+      fullSystemPrompt += `\n\nHINWEIS (Folgefrage): Für diese Frage wurden keine neuen Dokumente in der Wissensbasis gefunden. Die Nachricht ist eine Folgefrage auf das bisherige Gespräch. Antworte basierend auf den Fakten, die du in vorherigen Turns bereits aus der Wissensbasis zitiert hast. Erfinde KEINE neuen Fakten, Zahlen oder Empfehlungen. Wenn die Folgefrage inhaltlich über das bisher Besprochene hinausgeht, sage ehrlich, dass du dazu mehr Kontext brauchst oder an die Ernährungsberaterin verweisen möchtest.`;
     }
 
     // ---- Messages bauen ----
