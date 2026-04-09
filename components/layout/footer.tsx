@@ -18,6 +18,9 @@ export function Footer() {
             <Link href="/agb" className="text-sm text-warm-muted hover:text-warm-dark transition">
               AGB
             </Link>
+            <Link href="/support" className="text-sm text-warm-muted hover:text-warm-dark transition">
+              Support
+            </Link>
             <Link href="/blog" className="text-sm text-warm-muted hover:text-warm-dark transition">
               Blog
             </Link>

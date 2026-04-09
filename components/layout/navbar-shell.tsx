@@ -15,6 +15,7 @@ import {
   LineChart,
   User as UserIcon,
   Lock,
+  HelpCircle,
 } from "lucide-react";
 import { CreditBadge } from "@/components/credit-badge";
 import { hasFeatureAccess, type Feature } from "@/lib/feature-gates";
@@ -140,6 +141,14 @@ export function NavbarShell({
                   <div className="hidden md:block">
                     <CreditBadge />
                   </div>
+                  <Link
+                    href="/support"
+                    className="hidden md:flex items-center justify-center w-8 h-8 rounded-full text-ink-muted hover:text-primary hover:bg-primary-pale transition-all duration-200"
+                    aria-label="Hilfe & Support"
+                    title="Hilfe & Support"
+                  >
+                    <HelpCircle className="w-[18px] h-[18px]" />
+                  </Link>
                   {isAdmin && (
                     <Link
                       href="/admin/dashboard"
@@ -246,6 +255,13 @@ export function NavbarShell({
                   </Link>
                 );
               })}
+              <Link
+                href="/support"
+                className="flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] text-ink-muted hover:text-primary hover:bg-primary-pale transition-all duration-200"
+              >
+                <HelpCircle className="w-[18px] h-[18px]" />
+                Hilfe & Support
+              </Link>
               {isAdmin && (
                 <Link
                   href="/admin/dashboard"

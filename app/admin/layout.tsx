@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { BarChart3, MessageSquare, BookOpen, FileText, Star, Inbox, ArrowLeft, ScrollText } from "lucide-react";
+import { BarChart3, MessageSquare, BookOpen, FileText, Star, Inbox, ArrowLeft, ScrollText, LifeBuoy } from "lucide-react";
 
 export default async function AdminLayout({
   children,
@@ -30,6 +30,14 @@ export default async function AdminLayout({
 
   const pendingMessages = unreadCount ?? 0;
 
+  // Fetch open support tickets count
+  const { count: openTickets } = await admin
+    .from("ea_support_tickets")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "open");
+
+  const pendingSupport = openTickets ?? 0;
+
   const navItems = [
     { href: "/admin/dashboard", label: "Dashboard", icon: BarChart3, badge: 0 },
     { href: "/admin/fragen", label: "Fragen", icon: MessageSquare, badge: 0 },
@@ -37,6 +45,7 @@ export default async function AdminLayout({
     { href: "/admin/blog", label: "Blog", icon: FileText, badge: 0 },
     { href: "/admin/qualitaet", label: "Qualität", icon: Star, badge: 0 },
     { href: "/admin/nachrichten", label: "Nachrichten", icon: Inbox, badge: pendingMessages },
+    { href: "/admin/support", label: "Support", icon: LifeBuoy, badge: pendingSupport },
     { href: "/admin/audit", label: "Audit-Log", icon: ScrollText, badge: 0 },
   ];
 

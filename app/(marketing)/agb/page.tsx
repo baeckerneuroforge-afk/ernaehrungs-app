@@ -113,10 +113,10 @@ export default function AgbPage() {
                   Die Kündigung erfolgt über die Profileinstellungen in der App
                   oder per E-Mail an{" "}
                   <a
-                    href="mailto:info@hephaistos-systems.de"
+                    href="mailto:kontakt@nutriva-ai.de"
                     className="text-primary hover:underline"
                   >
-                    info@hephaistos-systems.de
+                    kontakt@nutriva-ai.de
                   </a>
                   .
                 </li>
@@ -136,10 +136,10 @@ export default function AgbPage() {
                 uns (André Bäcker, Hephaistos Systems, Alicenstraße 48, 35390
                 Gießen,{" "}
                 <a
-                  href="mailto:info@hephaistos-systems.de"
+                  href="mailto:kontakt@nutriva-ai.de"
                   className="text-primary hover:underline"
                 >
-                  info@hephaistos-systems.de
+                  kontakt@nutriva-ai.de
                 </a>
                 ) mittels einer eindeutigen Erklärung über Ihren Entschluss,
                 diesen Vertrag zu widerrufen, informieren.

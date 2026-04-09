@@ -45,10 +45,10 @@ export default function ImpressumPage() {
                 <br />
                 E-Mail:{" "}
                 <a
-                  href="mailto:info@hephaistos-systems.de"
+                  href="mailto:kontakt@nutriva-ai.de"
                   className="text-primary hover:underline"
                 >
-                  info@hephaistos-systems.de
+                  kontakt@nutriva-ai.de
                 </a>
               </p>
             </Section>

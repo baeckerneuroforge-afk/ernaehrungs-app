@@ -456,7 +456,7 @@ export function ProfilForm({
                   ],
                   [
                     "Verantwortlicher",
-                    "Andre Baecker, Hephaistos Systems, Alicenstrasse 48, 35390 Giessen · info@hephaistos-systems.de",
+                    "Andre Baecker, Hephaistos Systems, Alicenstrasse 48, 35390 Giessen · kontakt@nutriva-ai.de",
                   ],
                 ].map(([label, text]) => (
                   <p
