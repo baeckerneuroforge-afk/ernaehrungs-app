@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { BarChart3, MessageSquare, BookOpen, FileText, Star, Inbox, ArrowLeft } from "lucide-react";
+import { BarChart3, MessageSquare, BookOpen, FileText, Star, Inbox, ArrowLeft, ScrollText } from "lucide-react";
 
 export default async function AdminLayout({
   children,
@@ -37,6 +37,7 @@ export default async function AdminLayout({
     { href: "/admin/blog", label: "Blog", icon: FileText, badge: 0 },
     { href: "/admin/qualitaet", label: "Qualität", icon: Star, badge: 0 },
     { href: "/admin/nachrichten", label: "Nachrichten", icon: Inbox, badge: pendingMessages },
+    { href: "/admin/audit", label: "Audit-Log", icon: ScrollText, badge: 0 },
   ];
 
   return (

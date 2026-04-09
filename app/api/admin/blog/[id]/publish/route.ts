@@ -3,6 +3,7 @@ import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { chunkText } from "@/lib/utils/chunking";
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
+import { logAdminAction } from "@/lib/admin-audit";
 
 async function checkAdmin() {
   const { userId } = await auth();
@@ -86,6 +87,15 @@ export async function POST(
       .eq("id", params.id);
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    await logAdminAction({
+      adminId: adminUserId,
+      action: "publish_blog",
+      resourceType: "blog_post",
+      resourceId: params.id,
+      metadata: { slug: post.slug, add_to_wissensbasis: !!add_to_wissensbasis },
+    });
+
     return NextResponse.json({ success: true, status: "published" });
 
   } else if (action === "unpublish") {
@@ -99,6 +109,15 @@ export async function POST(
       .eq("id", params.id);
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    await logAdminAction({
+      adminId: adminUserId,
+      action: "unpublish_blog",
+      resourceType: "blog_post",
+      resourceId: params.id,
+      metadata: { slug: post.slug },
+    });
+
     return NextResponse.json({ success: true, status: "draft" });
   }
 

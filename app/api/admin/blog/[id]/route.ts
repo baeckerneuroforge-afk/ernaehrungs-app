@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { logAdminAction } from "@/lib/admin-audit";
 
 async function checkAdmin() {
   const { userId } = await auth();
@@ -64,6 +65,14 @@ export async function PUT(
     .limit(1);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  await logAdminAction({
+    adminId: adminUserId,
+    action: "update_blog",
+    resourceType: "blog_post",
+    resourceId: params.id,
+  });
+
   return NextResponse.json({ post: data?.[0] });
 }
 
@@ -97,5 +106,14 @@ export async function DELETE(
     .eq("id", params.id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  await logAdminAction({
+    adminId: adminUserId,
+    action: "delete_blog",
+    resourceType: "blog_post",
+    resourceId: params.id,
+    metadata: { slug: post?.[0]?.slug },
+  });
+
   return NextResponse.json({ success: true });
 }

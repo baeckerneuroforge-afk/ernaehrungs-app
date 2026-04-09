@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { logAdminAction } from "@/lib/admin-audit";
 
 export async function GET() {
   // Auth + admin role check
@@ -18,6 +19,12 @@ export async function GET() {
   if (roleData?.[0]?.role !== "admin") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+
+  await logAdminAction({
+    adminId: userId,
+    action: "view_chat_history",
+    resourceType: "conversation",
+  });
 
   const admin = createSupabaseAdmin();
 

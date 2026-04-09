@@ -3,6 +3,7 @@ import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { chunkText } from "@/lib/utils/chunking";
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
+import { logAdminAction } from "@/lib/admin-audit";
 
 export async function POST(request: Request) {
   const { userId } = await auth();
@@ -28,6 +29,13 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
+
+  await logAdminAction({
+    adminId: userId,
+    action: "upload_qa",
+    resourceType: "document",
+    metadata: { title: question_text.slice(0, 80) },
+  });
 
   const fullText = `Frage: ${question_text}\n\nAntwort: ${answer_text}`;
   const title = question_text.slice(0, 80);

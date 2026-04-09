@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { logAdminAction } from "@/lib/admin-audit";
 
 const GERMAN_STOPWORDS = new Set([
   "ich", "du", "er", "sie", "es", "wir", "ihr", "die", "der", "das",
@@ -45,6 +46,12 @@ export async function GET() {
   if (roleData?.[0]?.role !== "admin") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+
+  await logAdminAction({
+    adminId: userId,
+    action: "view_topic_analytics",
+    resourceType: "conversation",
+  });
 
   // Fetch all user messages
   const { data: messages } = await supabase

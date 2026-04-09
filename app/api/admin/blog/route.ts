@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { slugify } from "@/lib/utils/slugify";
 import { NextResponse } from "next/server";
+import { logAdminAction } from "@/lib/admin-audit";
 
 async function checkAdmin() {
   const { userId } = await auth();
@@ -20,6 +21,12 @@ async function checkAdmin() {
 export async function GET() {
   const adminUserId = await checkAdmin();
   if (!adminUserId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  await logAdminAction({
+    adminId: adminUserId,
+    action: "view_blog_list",
+    resourceType: "blog_post",
+  });
 
   const supabase = createSupabaseAdmin();
 
@@ -75,5 +82,14 @@ export async function POST(request: Request) {
     .limit(1);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  await logAdminAction({
+    adminId: adminUserId,
+    action: "create_blog",
+    resourceType: "blog_post",
+    resourceId: data?.[0]?.id,
+    metadata: { title: title.trim(), slug },
+  });
+
   return NextResponse.json({ post: data?.[0] });
 }

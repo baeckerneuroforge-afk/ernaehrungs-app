@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { logAdminAction } from "@/lib/admin-audit";
 
 export async function GET(request: Request) {
   const { userId } = await auth();
@@ -17,6 +18,12 @@ export async function GET(request: Request) {
   if (roleData?.[0]?.role !== "admin") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+
+  await logAdminAction({
+    adminId: userId,
+    action: "view_user_questions",
+    resourceType: "conversation",
+  });
 
   const url = new URL(request.url);
   const page = parseInt(url.searchParams.get("page") || "1");

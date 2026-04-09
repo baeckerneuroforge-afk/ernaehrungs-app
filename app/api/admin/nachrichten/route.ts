@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { logAdminAction } from "@/lib/admin-audit";
 
 async function checkAdmin() {
   const { userId } = await auth();
@@ -18,6 +19,12 @@ async function checkAdmin() {
 export async function GET() {
   const adminUserId = await checkAdmin();
   if (!adminUserId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  await logAdminAction({
+    adminId: adminUserId,
+    action: "view_messages",
+    resourceType: "message",
+  });
 
   const admin = createSupabaseAdmin();
 
@@ -56,6 +63,13 @@ export async function PATCH(request: Request) {
   if (!id || !reply?.trim()) {
     return NextResponse.json({ error: "ID und Antwort erforderlich" }, { status: 400 });
   }
+
+  await logAdminAction({
+    adminId: adminUserId,
+    action: "reply_message",
+    resourceType: "message",
+    resourceId: id,
+  });
 
   const admin = createSupabaseAdmin();
   const { error } = await admin

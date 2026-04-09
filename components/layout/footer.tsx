@@ -15,6 +15,9 @@ export function Footer() {
             <Link href="/datenschutz" className="text-sm text-warm-muted hover:text-warm-dark transition">
               Datenschutz
             </Link>
+            <Link href="/agb" className="text-sm text-warm-muted hover:text-warm-dark transition">
+              AGB
+            </Link>
             <Link href="/blog" className="text-sm text-warm-muted hover:text-warm-dark transition">
               Blog
             </Link>

@@ -1,12 +1,29 @@
+import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { chunkText } from "@/lib/utils/chunking";
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
 import pdfParse from "pdf-parse";
 import mammoth from "mammoth";
+import { logAdminAction } from "@/lib/admin-audit";
+
+async function requireAdmin(): Promise<string | null> {
+  const { userId } = await auth();
+  if (!userId) return null;
+  const supabase = createSupabaseAdmin();
+  const { data } = await supabase
+    .from("ea_user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .limit(1);
+  return data?.[0]?.role === "admin" ? userId : null;
+}
 
 // GET: List all documents (grouped by source)
 export async function GET() {
+  const adminId = await requireAdmin();
+  if (!adminId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
   const supabase = createSupabaseAdmin();
 
   const { data, error } = await supabase
@@ -34,6 +51,9 @@ export async function GET() {
 
 // POST: Upload and ingest a document
 export async function POST(request: Request) {
+  const adminId = await requireAdmin();
+  if (!adminId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
   try {
     const formData = await request.formData();
     const file = formData.get("file") as File;
@@ -96,6 +116,13 @@ export async function POST(request: Request) {
       if (!error) inserted++;
     }
 
+    await logAdminAction({
+      adminId,
+      action: "upload_document",
+      resourceType: "document",
+      metadata: { fileName, chunks: chunks.length, inserted },
+    });
+
     return NextResponse.json({
       success: true,
       fileName,
@@ -110,6 +137,9 @@ export async function POST(request: Request) {
 
 // DELETE: Remove a document source
 export async function DELETE(request: Request) {
+  const adminId = await requireAdmin();
+  if (!adminId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
   const { source } = await request.json();
 
   const supabase = createSupabaseAdmin();
@@ -122,6 +152,13 @@ export async function DELETE(request: Request) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  await logAdminAction({
+    adminId,
+    action: "delete_document",
+    resourceType: "document",
+    resourceId: source,
+  });
 
   return NextResponse.json({ success: true });
 }
