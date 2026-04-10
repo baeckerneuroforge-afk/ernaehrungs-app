@@ -96,41 +96,88 @@ const WEEKDAYS_SHORT = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
 /**
  * Komprimiert ein Bild browser-seitig per Canvas auf max. 1600px
  * längste Kante, JPEG Q0.85. Typische Resultate: 300-800 KB.
- * Läuft auf Vercel NICHT, sharp würde dort Cold-Start-Probleme machen.
- * Scheitert die Komprimierung (z.B. HEIC, obskurer Browser), geben wir
- * die Original-Datei zurück — der Server akzeptiert bis 10 MB.
+ *
+ * Das ist wichtig wegen Vercel's 4.5 MB Request-Body-Limit: ein
+ * unkomprimiertes iPhone-Foto ist 5-8 MB und würde direkt am
+ * Gateway abgewiesen (HTML 500, kein Function-Log).
+ *
+ * Zwei-Stufen-Strategie:
+ *   1) createImageBitmap (schneller, iOS 16+, Chrome, Firefox)
+ *   2) HTMLImageElement via FileReader (universeller Fallback für
+ *      altes Safari und HEIC-JPEG-Kombinationen die Bitmap schmerzt)
+ *
+ * Wirft einen Error wenn beide Stufen scheitern UND die Datei > 3 MB
+ * ist — dann kommt eh nichts Sinnvolles beim Server an.
  */
+type Drawable =
+  | HTMLImageElement
+  | ImageBitmap;
+
 async function compressImage(file: File): Promise<File> {
-  try {
-    const bitmap = await createImageBitmap(file).catch(() => null);
-    if (!bitmap) return file;
+  const MAX = 1600;
+  const QUALITY = 0.85;
 
-    const MAX = 1600;
-    const ratio = Math.min(1, MAX / Math.max(bitmap.width, bitmap.height));
-    const w = Math.round(bitmap.width * ratio);
-    const h = Math.round(bitmap.height * ratio);
-
+  const drawAndEncode = async (
+    source: Drawable,
+    srcW: number,
+    srcH: number
+  ): Promise<Blob | null> => {
+    const ratio = Math.min(1, MAX / Math.max(srcW, srcH));
+    const w = Math.round(srcW * ratio);
+    const h = Math.round(srcH * ratio);
     const canvas = document.createElement("canvas");
     canvas.width = w;
     canvas.height = h;
     const ctx = canvas.getContext("2d");
-    if (!ctx) return file;
-    ctx.drawImage(bitmap, 0, 0, w, h);
-    bitmap.close?.();
-
-    const blob: Blob | null = await new Promise((resolve) =>
-      canvas.toBlob(resolve, "image/jpeg", 0.85)
+    if (!ctx) return null;
+    ctx.drawImage(source, 0, 0, w, h);
+    return new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", QUALITY)
     );
-    if (!blob) return file;
+  };
 
-    // Wenn das Ergebnis größer als das Original ist (winzige Bilder),
-    // behalten wir das Original.
-    if (blob.size >= file.size) return file;
+  // --- Stufe 1: createImageBitmap (schnell, moderne Browser)
+  try {
+    const bitmap = await createImageBitmap(file);
+    const blob = await drawAndEncode(bitmap, bitmap.width, bitmap.height);
+    bitmap.close?.();
+    if (blob && blob.size > 0) {
+      return new File([blob], "photo.jpg", { type: "image/jpeg" });
+    }
+  } catch (err) {
+    console.warn("[foto-client] compress stage 1 failed:", (err as Error)?.message);
+  }
 
-    return new File([blob], "photo.jpg", { type: "image/jpeg" });
-  } catch {
+  // --- Stufe 2: HTMLImageElement via data URL (Fallback für altes Safari)
+  try {
+    const dataUrl: string = await new Promise((resolve, reject) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(fr.result as string);
+      fr.onerror = () => reject(fr.error);
+      fr.readAsDataURL(file);
+    });
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error("image load failed"));
+      el.src = dataUrl;
+    });
+    const blob = await drawAndEncode(img, img.naturalWidth, img.naturalHeight);
+    if (blob && blob.size > 0) {
+      return new File([blob], "photo.jpg", { type: "image/jpeg" });
+    }
+  } catch (err) {
+    console.warn("[foto-client] compress stage 2 failed:", (err as Error)?.message);
+  }
+
+  // --- Fallback: Original akzeptieren, aber NUR wenn < 3 MB.
+  // Darüber hinaus würde Vercel's 4.5 MB Gateway-Cap zuschlagen.
+  if (file.size < 3 * 1024 * 1024) {
     return file;
   }
+  throw new Error(
+    "Bild konnte nicht komprimiert werden und ist zu groß. Bitte ein anderes Foto wählen oder die Kamera-App für den Upload nutzen."
+  );
 }
 
 export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
@@ -209,11 +256,28 @@ export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
         size: file.size,
         type: file.type,
       });
-      const compressed = await compressImage(file);
+      let compressed: File;
+      try {
+        compressed = await compressImage(file);
+      } catch (err) {
+        console.error("[foto-client] compression threw:", err);
+        setAnalysisError(
+          (err as Error)?.message ||
+            "Bild konnte nicht vorbereitet werden."
+        );
+        return;
+      }
       console.log("[foto-client] compressed", {
         size: compressed.size,
         type: compressed.type,
       });
+      // Harte Client-Grenze: Vercel gateway wirft > 4.5 MB weg.
+      if (compressed.size > 4 * 1024 * 1024) {
+        setAnalysisError(
+          `Bild ist nach Komprimierung immer noch zu groß (${Math.round(compressed.size / 1024 / 1024)} MB). Bitte ein anderes Foto wählen.`
+        );
+        return;
+      }
 
       const fd = new FormData();
       fd.append("image", compressed);

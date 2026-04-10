@@ -8,7 +8,18 @@ import { deductCredits, CREDIT_COSTS } from "@/lib/credits";
 import { hasKiConsent } from "@/lib/consent";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 
+console.log("[foto-analyze] MODULE LOADED");
+
+// Node runtime für Buffer, randomUUID, und um Edge-Runtime-Limits
+// (wie z.B. das harte 4 MB Request-Body-Limit) zu vermeiden.
 export const runtime = "nodejs";
+// Claude Vision braucht gerne 5-15s. Hobby-Default ist 10s → Timeout.
+// Wir setzen 60s (max auf Hobby-Plan ist 10, auf Pro 60).
+export const maxDuration = 60;
+// Vercel Serverless hat ein default 4.5 MB Body-Cap auf Route-Handlers.
+// Wir erwarten ohnehin <1 MB dank Client-Komprimierung; das Cap ist
+// trotzdem explizit gemacht.
+export const dynamic = "force-dynamic";
 
 const ANALYSIS_PROMPT = `Analysiere dieses Foto einer Mahlzeit. Schätze:
 
