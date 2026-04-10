@@ -1026,7 +1026,7 @@ function PricingSection() {
             badge={{ label: "Beliebt", color: "bg-primary text-white" }}
             featured
             features={[
-              { text: "100 Credits pro Monat", highlight: true },
+              { text: "100 Credits · Haiku KI-Modell", highlight: true },
               { text: "Persönliche Ernährungspläne", highlight: true },
               { text: "Ernährungstagebuch", highlight: true },
               { text: "Gewichts- & Ziel-Tracker" },
@@ -1056,7 +1056,21 @@ function PricingSection() {
             }}
             accent="amber"
             features={[
-              { text: "400 Credits pro Monat", highlight: true, accent: "amber" },
+              {
+                text: "400 Credits · Sonnet KI-Modell (Premium-Qualität)",
+                highlight: true,
+                accent: "amber",
+              },
+              {
+                text: "Foto-Tracking: Essen einfach fotografieren",
+                highlight: true,
+                accent: "amber",
+              },
+              {
+                text: "Monatlicher Fortschrittsreport",
+                highlight: true,
+                accent: "amber",
+              },
               { text: "Alles aus Basis" },
               {
                 text: "Wöchentliche Reviews von Janine",

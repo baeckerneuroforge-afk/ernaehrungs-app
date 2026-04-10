@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { TagebuchClient } from "@/components/tagebuch/tagebuch-client";
+import { getUserPlan } from "@/lib/feature-gates-server";
+import { hasFeatureAccess } from "@/lib/feature-gates";
 
 export const dynamic = "force-dynamic";
 
@@ -15,12 +17,17 @@ export default async function TagebuchPage() {
 
   const today = new Date().toISOString().split("T")[0];
 
-  const { data } = await supabase
-    .from("ea_food_log")
-    .select("*")
-    .eq("user_id", userId)
-    .eq("datum", today)
-    .order("created_at", { ascending: true });
+  const [{ data }, plan] = await Promise.all([
+    supabase
+      .from("ea_food_log")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("datum", today)
+      .order("created_at", { ascending: true }),
+    getUserPlan(userId),
+  ]);
+
+  const canUsePhoto = hasFeatureAccess(plan, "foto_tracking");
 
   return (
     <div className="min-h-screen flex flex-col bg-surface-bg">
@@ -32,7 +39,11 @@ export default async function TagebuchPage() {
         <p className="text-gray-500 text-sm mb-8">
           Halte fest, was du isst – für einen besseren Überblick.
         </p>
-        <TagebuchClient initialEntries={data || []} today={today} />
+        <TagebuchClient
+          initialEntries={data || []}
+          today={today}
+          canUsePhoto={canUsePhoto}
+        />
       </main>
       <Footer />
     </div>

@@ -17,6 +17,7 @@ import {
   User as UserIcon,
   Lock,
   HelpCircle,
+  FileText,
 } from "lucide-react";
 import { CreditBadge } from "@/components/credit-badge";
 import { hasFeatureAccess, type Feature } from "@/lib/feature-gates";
@@ -82,6 +83,7 @@ export function NavbarShell() {
     { href: "/ernaehrungsplan", label: "Plan", icon: CalendarDays, feature: "plan", tour: "plan" },
     { href: "/tagebuch", label: "Tagebuch", icon: BookOpen, feature: "tagebuch", tour: "tagebuch" },
     { href: "/tracker", label: "Tracker", icon: LineChart, feature: "tracker", tour: "tracker" },
+    { href: "/reports", label: "Reports", icon: FileText, feature: "monthly_report" },
     { href: "/profil", label: "Profil", icon: UserIcon },
   ];
 

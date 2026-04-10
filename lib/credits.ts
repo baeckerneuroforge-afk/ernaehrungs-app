@@ -2,9 +2,11 @@ import { createSupabaseAdmin } from "@/lib/supabase/server";
 
 // Credit costs per action
 export const CREDIT_COSTS = {
-  chat_usage: 1,
+  chat_usage: 1, // Haiku (Free/Basis)
+  chat_usage_premium: 2, // Sonnet (Premium/Admin) — bessere Qualität
   plan_generation: 5,
   review: 3,
+  foto_analysis: 2, // Sonnet Vision
 } as const;
 
 // Credits granted per plan per month
@@ -32,8 +34,10 @@ export type CreditActionType =
   | "subscription_grant"
   | "topup_purchase"
   | "chat_usage"
+  | "chat_usage_premium"
   | "plan_generation"
   | "review"
+  | "foto_analysis"
   | "manual_adjustment"
   | "expiry_reset";
 

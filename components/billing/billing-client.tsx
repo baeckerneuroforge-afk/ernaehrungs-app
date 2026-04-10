@@ -329,6 +329,7 @@ export function BillingClient({
               credits={100}
               features={[
                 "Alles aus Free",
+                "Haiku KI-Modell (1 Credit/Chat)",
                 "Ernährungsplan",
                 "Wochenreview (Basic)",
               ]}
@@ -351,6 +352,9 @@ export function BillingClient({
               credits={400}
               features={[
                 "Alles aus Basis",
+                "Sonnet KI-Modell (Premium-Qualität)",
+                "Foto-Tracking: Essen fotografieren",
+                "Monatlicher Fortschrittsreport",
                 "Voller Wochenreview",
                 "Janine direkt",
               ]}

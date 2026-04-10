@@ -19,6 +19,7 @@ interface Message {
 interface ChatClientProps {
   userId: string;
   userName: string;
+  initialPlan?: string;
 }
 
 type FeedbackState = "idle" | "prompt" | "comment" | "done";
@@ -37,7 +38,7 @@ function markAllSeen(userId: string, ids: string[]) {
   localStorage.setItem(DM_SEEN_KEY(userId), JSON.stringify(ids));
 }
 
-export function ChatClient({ userId, userName }: ChatClientProps) {
+export function ChatClient({ userId, userName, initialPlan }: ChatClientProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
@@ -61,10 +62,11 @@ export function ChatClient({ userId, userName }: ChatClientProps) {
   const [feedbackComment, setFeedbackComment] = useState("");
   const feedbackShownForSession = useRef<string>("");
 
-  // Subscription plan for feature gating (Janine direkt)
-  const [userPlan, setUserPlan] = useState<string>("free");
+  // Subscription plan for feature gating (Janine direkt, Sonnet badge)
+  const [userPlan, setUserPlan] = useState<string>(initialPlan || "free");
   const [showJanineLock, setShowJanineLock] = useState(false);
   const janineLocked = userPlan !== "pro_plus";
+  const isPremiumChat = userPlan === "pro_plus" || userPlan === "admin";
 
   useEffect(() => {
     fetch("/api/credits")
@@ -605,6 +607,25 @@ export function ChatClient({ userId, userName }: ChatClientProps) {
                     <Send className="w-4 h-4" />
                   </button>
                 </div>
+              </div>
+              {/* Model badge */}
+              <div className="flex items-center justify-end mt-1.5 px-1">
+                {isPremiumChat ? (
+                  <span
+                    className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-100 to-amber-50 text-amber-700 border border-amber-200"
+                    title="Premium-Qualität: Claude Sonnet · 2 Credits pro Nachricht"
+                  >
+                    <Sparkles className="w-2.5 h-2.5" />
+                    Sonnet
+                  </span>
+                ) : (
+                  <span
+                    className="inline-flex items-center text-[10px] font-medium uppercase tracking-wide px-2 py-0.5 rounded-full bg-surface-muted text-ink-faint"
+                    title="Haiku · 1 Credit pro Nachricht"
+                  >
+                    Haiku
+                  </span>
+                )}
               </div>
             </div>
           </div>

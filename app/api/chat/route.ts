@@ -142,13 +142,24 @@ Gerne helfe ich dir bei anderen Ernährungsthemen – frag mich nach einem **Ern
 💚 *Hinweis: Diese Informationen ersetzen keine ärztliche Beratung.*`;
 
 // ---------------------------------------------------------------------------
-// 5. Model routing based on action type
+// 5. Model routing based on action type + user plan
 // ---------------------------------------------------------------------------
-function getModelForAction(action: string): string {
+const MODEL_SONNET = "claude-sonnet-4-5-20250929";
+const MODEL_HAIKU = "claude-haiku-4-5-20251001";
+
+function getModelForAction(action: string, plan: string | null | undefined): string {
   if (action === "plan_generation" || action === "review") {
-    return "claude-sonnet-4-5-20250929"; // Better model for complex tasks
+    return MODEL_SONNET; // Complex tasks: always Sonnet
   }
-  return "claude-haiku-4-5-20251001"; // Fast + cheap for regular chat
+  // Chat: Premium/Admin bekommen Sonnet, Free/Basis bekommen Haiku.
+  if (plan === "pro_plus" || plan === "admin") {
+    return MODEL_SONNET;
+  }
+  return MODEL_HAIKU;
+}
+
+function isPremiumPlan(plan: string | null | undefined): boolean {
+  return plan === "pro_plus" || plan === "admin";
 }
 
 // ---------------------------------------------------------------------------
@@ -192,20 +203,34 @@ export async function POST(request: Request) {
     // ---- Activity ping (for inactive-account auto-deletion cron) ----
     void touchLastActive(supabase, userId);
 
-    // ---- Classify action + determine credit cost ----
+    // ---- Classify action ----
     const action = classifyAction(message);
-    const creditCost = CREDIT_COSTS[action === "chat" ? "chat_usage" : action];
-    const creditType = action === "chat" ? "chat_usage" : action;
-    const creditDesc = action === "plan_generation"
-      ? "Ernährungsplan generiert"
-      : action === "review"
-      ? "Wochenreview erstellt"
-      : "Chat-Nachricht";
+
+    // ---- Load user plan (drives model routing + credit cost for chat) ----
+    const userPlanEarly = await getUserPlan(userId);
+    const premium = isPremiumPlan(userPlanEarly);
+
+    // ---- Credit cost + type depend on action AND plan for chat ----
+    let creditCost: number;
+    let creditType: "chat_usage" | "chat_usage_premium" | "plan_generation" | "review";
+    let creditDesc: string;
+    if (action === "chat") {
+      creditCost = premium ? CREDIT_COSTS.chat_usage_premium : CREDIT_COSTS.chat_usage;
+      creditType = premium ? "chat_usage_premium" : "chat_usage";
+      creditDesc = premium ? "Chat-Nachricht (Sonnet)" : "Chat-Nachricht";
+    } else if (action === "plan_generation") {
+      creditCost = CREDIT_COSTS.plan_generation;
+      creditType = "plan_generation";
+      creditDesc = "Ernährungsplan generiert";
+    } else {
+      creditCost = CREDIT_COSTS.review;
+      creditType = "review";
+      creditDesc = "Wochenreview erstellt";
+    }
 
     // ---- PLAN-INTENT FLOW (chat-side gate for free users) ----
     if (action === "plan_generation") {
-      const userPlan = await getUserPlan(userId);
-      if (!hasFeatureAccess(userPlan, "plan")) {
+      if (!hasFeatureAccess(userPlanEarly, "plan")) {
         return streamStaticResponse(
           "Ich würde dir gerne einen personalisierten Ernährungsplan erstellen! Diese Funktion ist ab dem **Basis-Plan** verfügbar. Upgrade unter **Ernährungsplan** in der Navigation, um 7-Tage-Pläne mit Fastenmodell, Mealprep und individuellen Wünschen zu erhalten. 💚"
         );
@@ -214,7 +239,7 @@ export async function POST(request: Request) {
 
     // ---- REVIEW FLOW (tier check before credit deduction) ----
     if (action === "review") {
-      const userPlan = await getUserPlan(userId);
+      const userPlan = userPlanEarly;
 
       if (!hasFeatureAccess(userPlan, "review")) {
         // No credits deducted for blocked feature
@@ -458,8 +483,8 @@ export async function POST(request: Request) {
       { role: "user" as const, content: message },
     ];
 
-    // ---- Dynamic model routing ----
-    const model = getModelForAction(action);
+    // ---- Dynamic model routing (plan-aware for chat) ----
+    const model = getModelForAction(action, userPlanEarly);
 
     // ---- Stream Response ----
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -839,7 +864,7 @@ ${block3Section}
   });
 
   const stream = anthropic.messages.stream({
-    model: getModelForAction("review"),
+    model: getModelForAction("review", null),
     max_tokens: maxTokens,
     system: reviewSystemPrompt,
     messages: [

@@ -44,7 +44,11 @@ export default async function ChatPage() {
   return (
     <div className="h-[100dvh] flex flex-col bg-surface-bg">
       <Navbar />
-      <ChatClient userId={userId} userName={profile[0]?.name || "du"} />
+      <ChatClient
+        userId={userId}
+        userName={profile[0]?.name || "du"}
+        initialPlan={plan}
+      />
       {!tourDone && <Walkthrough userPlan={plan} />}
     </div>
   );

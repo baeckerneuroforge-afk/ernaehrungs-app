@@ -13,12 +13,36 @@ import {
   Apple,
   Calendar,
   X,
+  Camera,
+  Lock,
+  Sparkles,
 } from "lucide-react";
 
 interface Props {
   initialEntries: FoodLog[];
   today: string;
+  canUsePhoto: boolean;
 }
+
+type Confidence = "sicher" | "mittel" | "unsicher";
+type PhotoAnalysis = {
+  dish: string;
+  calories: number | null;
+  protein: number | null;
+  carbs: number | null;
+  fat: number | null;
+  portion: string;
+  confidence: Confidence;
+};
+
+const CONFIDENCE_STYLE: Record<
+  Confidence,
+  { label: string; className: string }
+> = {
+  sicher: { label: "Sicher", className: "bg-emerald-100 text-emerald-700" },
+  mittel: { label: "Mittel", className: "bg-yellow-100 text-yellow-700" },
+  unsicher: { label: "Unsicher", className: "bg-orange-100 text-orange-700" },
+};
 
 type MealTyp = "fruehstueck" | "mittag" | "abend" | "snack";
 
@@ -68,7 +92,7 @@ function buildWeekStrip(center: string): Date[] {
 
 const WEEKDAYS_SHORT = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
 
-export function TagebuchClient({ initialEntries, today }: Props) {
+export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
   const [datum, setDatum] = useState(today);
   const [entries, setEntries] = useState<FoodLog[]>(initialEntries);
   const [loading, setLoading] = useState(false);
@@ -81,6 +105,19 @@ export function TagebuchClient({ initialEntries, today }: Props) {
   const [formKcal, setFormKcal] = useState("");
   const [formUhrzeit, setFormUhrzeit] = useState("");
 
+  // Photo analysis state
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [analysis, setAnalysis] = useState<PhotoAnalysis | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
+  function resetForm() {
+    setFormBeschreibung("");
+    setFormKcal("");
+    setAnalysis(null);
+    setAnalysisError(null);
+  }
+
   function openForm() {
     const now = new Date();
     const hh = String(now.getHours()).padStart(2, "0");
@@ -92,7 +129,60 @@ export function TagebuchClient({ initialEntries, today }: Props) {
     else if (h < 15) setFormTyp("mittag");
     else if (h < 20) setFormTyp("abend");
     else setFormTyp("snack");
+    resetForm();
     setShowForm(true);
+  }
+
+  function closeForm() {
+    setShowForm(false);
+    resetForm();
+  }
+
+  async function handlePhotoSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    // Reset input so the same file can be picked again later
+    if (photoInputRef.current) photoInputRef.current.value = "";
+    if (!file) return;
+
+    setAnalyzing(true);
+    setAnalysisError(null);
+    setAnalysis(null);
+
+    try {
+      const fd = new FormData();
+      fd.append("image", file);
+      const res = await fetch("/api/food-log/analyze", {
+        method: "POST",
+        body: fd,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setAnalysisError(
+          err?.message || "Foto-Analyse fehlgeschlagen. Bitte erneut versuchen."
+        );
+        return;
+      }
+      const json = (await res.json()) as { analysis: PhotoAnalysis };
+      const a = json.analysis;
+      setAnalysis(a);
+      // Auto-fill form fields with the KI suggestion — user can still edit
+      const bits = [a.dish, a.portion].filter(Boolean).join(" · ");
+      const macros = [
+        a.protein != null ? `${a.protein} g Protein` : null,
+        a.carbs != null ? `${a.carbs} g Carbs` : null,
+        a.fat != null ? `${a.fat} g Fett` : null,
+      ]
+        .filter(Boolean)
+        .join(", ");
+      setFormBeschreibung(
+        macros ? `${bits}\n(${macros})` : bits || "Mahlzeit"
+      );
+      if (a.calories != null) setFormKcal(String(a.calories));
+    } catch {
+      setAnalysisError("Foto-Analyse fehlgeschlagen. Bitte erneut versuchen.");
+    } finally {
+      setAnalyzing(false);
+    }
   }
 
   const dateInputRef = useRef<HTMLInputElement>(null);
@@ -126,9 +216,7 @@ export function TagebuchClient({ initialEntries, today }: Props) {
     if (res.ok) {
       const entry = await res.json();
       setEntries((prev) => [...prev, entry]);
-      setFormBeschreibung("");
-      setFormKcal("");
-      setShowForm(false);
+      closeForm();
     }
     setSaving(false);
   }
@@ -356,7 +444,7 @@ export function TagebuchClient({ initialEntries, today }: Props) {
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
           <div
             className="absolute inset-0 bg-ink/40 animate-fade-in"
-            onClick={() => !saving && setShowForm(false)}
+            onClick={() => !saving && closeForm()}
           />
           <div className="relative w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-3xl shadow-card animate-slide-in-up sm:mb-0">
             <div className="flex items-center justify-between px-5 pt-5 pb-3">
@@ -364,7 +452,7 @@ export function TagebuchClient({ initialEntries, today }: Props) {
                 Eintrag hinzufügen
               </h2>
               <button
-                onClick={() => !saving && setShowForm(false)}
+                onClick={() => !saving && closeForm()}
                 className="text-ink-muted hover:text-ink transition p-1"
                 aria-label="Schließen"
               >
@@ -372,6 +460,65 @@ export function TagebuchClient({ initialEntries, today }: Props) {
               </button>
             </div>
             <div className="px-5 pb-6 space-y-4">
+              {/* Foto-Tracking (Premium) */}
+              <div>
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="sr-only"
+                  onChange={handlePhotoSelected}
+                  aria-hidden
+                />
+                {canUsePhoto ? (
+                  <button
+                    type="button"
+                    onClick={() => photoInputRef.current?.click()}
+                    disabled={analyzing || saving}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl border border-dashed border-primary/40 bg-primary-faint/40 text-sm font-medium text-primary hover:bg-primary-faint transition disabled:opacity-60"
+                  >
+                    {analyzing ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Analysiere dein Essen…
+                      </>
+                    ) : (
+                      <>
+                        <Camera className="w-4 h-4" />
+                        Foto aufnehmen & analysieren
+                      </>
+                    )}
+                  </button>
+                ) : (
+                  <div
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl border border-dashed border-border bg-surface-muted text-sm text-ink-faint cursor-not-allowed"
+                    title="Foto-Tracking ist im Premium-Plan verfügbar"
+                  >
+                    <Lock className="w-4 h-4" />
+                    Foto-Tracking (Premium)
+                  </div>
+                )}
+
+                {analysisError && (
+                  <p className="mt-2 text-xs text-red-600">{analysisError}</p>
+                )}
+
+                {analysis && (
+                  <div className="mt-3 rounded-2xl border border-border bg-white px-3 py-2 flex items-center gap-2 text-xs">
+                    <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
+                    <span className="text-ink-muted truncate">
+                      KI-Schätzung: {analysis.dish || "Mahlzeit erkannt"}
+                    </span>
+                    <span
+                      className={`ml-auto inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wide ${CONFIDENCE_STYLE[analysis.confidence].className}`}
+                    >
+                      {CONFIDENCE_STYLE[analysis.confidence].label}
+                    </span>
+                  </div>
+                )}
+              </div>
+
               <div>
                 <label className="block text-xs font-medium text-ink-muted mb-2">
                   Mahlzeit
@@ -440,7 +587,7 @@ export function TagebuchClient({ initialEntries, today }: Props) {
 
               <div className="flex gap-2 pt-2">
                 <button
-                  onClick={() => setShowForm(false)}
+                  onClick={closeForm}
                   disabled={saving}
                   className="flex-1 text-sm text-ink-muted py-3 rounded-full border border-border hover:bg-surface-muted transition"
                 >
