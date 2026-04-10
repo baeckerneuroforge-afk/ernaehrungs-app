@@ -251,21 +251,71 @@ export async function POST(request: Request) {
       );
     }
 
-    // ---- Load profile + behavior context ----
+    // ---- Load profile + behavior context + aktiver Plan ----
     let profileContext = "";
     let behaviorContext = "";
+    let mealPlanContext = "";
 
-    const [profileResult, behavior] = await Promise.all([
+    const [profileResult, behavior, planResult] = await Promise.all([
       supabase
         .from("ea_profiles")
         .select("*")
         .eq("user_id", userId)
         .limit(1),
       loadUserBehaviorContext(supabase, userId),
+      supabase
+        .from("ea_meal_plans")
+        .select("plan_data, parameters, created_at, titel")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
     ]);
 
     const profile = profileResult.data;
     behaviorContext = behavior;
+
+    // ---- Aktiver Ernährungsplan (kompakte Zusammenfassung) ----
+    if (planResult.data) {
+      const plan = planResult.data as {
+        plan_data: {
+          dailyTarget?: number;
+          calculationBasis?: string;
+          weekPlan?: Array<{ day: string; meals?: Array<{ type: string; name: string }> }>;
+        } | null;
+        parameters: {
+          mealsPerDay?: number;
+          fasting?: string;
+          mealprep?: boolean;
+        } | null;
+        created_at: string;
+        titel: string | null;
+      };
+      const createdDate = new Date(plan.created_at).toLocaleDateString("de-DE");
+      const lines: string[] = [
+        `Titel: ${plan.titel || "Aktueller 7-Tage-Plan"} (erstellt am ${createdDate})`,
+      ];
+      if (plan.parameters?.mealsPerDay)
+        lines.push(`Mahlzeiten pro Tag: ${plan.parameters.mealsPerDay}`);
+      if (plan.parameters?.fasting && plan.parameters.fasting !== "none")
+        lines.push(`Fastenmodell: ${plan.parameters.fasting}`);
+      if (plan.plan_data?.dailyTarget)
+        lines.push(`Tägliches Kalorienziel: ${plan.plan_data.dailyTarget} kcal`);
+      if (plan.plan_data?.calculationBasis)
+        lines.push(`Berechnungsbasis: ${plan.plan_data.calculationBasis}`);
+
+      // Erste 2 Tage als Beispiel (hält Token-Budget niedrig)
+      if (plan.plan_data?.weekPlan?.length) {
+        const preview = plan.plan_data.weekPlan.slice(0, 2).map((d) => {
+          const mealNames = (d.meals || [])
+            .map((m) => `${m.type}: ${m.name}`)
+            .join(" · ");
+          return `  ${d.day}: ${mealNames}`;
+        });
+        lines.push(`Auszug:\n${preview.join("\n")}`);
+      }
+      mealPlanContext = `AKTIVER ERNÄHRUNGSPLAN:\n${lines.join("\n")}`;
+    }
 
     if (profile?.[0]) {
       const p = profile[0];
@@ -376,9 +426,15 @@ export async function POST(request: Request) {
       fullSystemPrompt += `\n\nNUTZERPROFIL:\n${profileContext}`;
     }
 
+    if (mealPlanContext) {
+      fullSystemPrompt += `\n\n${mealPlanContext}`;
+    } else {
+      fullSystemPrompt += `\n\nAKTIVER ERNÄHRUNGSPLAN: Keiner vorhanden. Wenn der Nutzer nach Rezepten/Plänen fragt, empfiehl ihm, unter "Plan" einen 7-Tage-Ernährungsplan zu erstellen.`;
+    }
+
     if (behaviorContext) {
       fullSystemPrompt += `\n\n${behaviorContext}`;
-      fullSystemPrompt += `\n\nHINWEIS ZUM VERHALTENKONTEXT: Nutze das Ernährungstagebuch, den Gewichtsverlauf und die aktiven Ziele, um deine Antworten persönlicher und relevanter zu machen. Erkenne Muster (z.B. wenig Protein, zu viele Snacks, fehlende Mahlzeiten) und gib proaktiv Hinweise, wenn sie zum Ziel des Nutzers passen. Sprich den Nutzer auf seine echten Daten an statt nur allgemein zu antworten.`;
+      fullSystemPrompt += `\n\nHINWEIS ZUM VERHALTENKONTEXT: Nutze Ernährungstagebuch, Gewichtsverlauf, aktive Ziele UND den aktiven Ernährungsplan, um Antworten persönlich und relevant zu machen. Wenn der Nutzer fragt "Wie läuft es bei mir?", beziehe dich auf seinen Gewichtsverlauf und sein Tagebuch. Wenn er fragt "Was soll ich essen?", beziehe dich auf seinen aktuellen Ernährungsplan. Erkenne Muster und gib proaktiv Hinweise. Wenn Daten fehlen, empfiehl das passende Tool (Tagebuch, Tracker, Plan).`;
     }
 
     if (knowledgeContext) {

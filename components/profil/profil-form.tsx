@@ -27,7 +27,19 @@ import {
   Crown,
   Sparkles,
   TrendingUp,
+  Target,
+  AlertTriangle,
+  ShieldAlert,
 } from "lucide-react";
+import { calculateTDEE, TIMEFRAME_LABEL } from "@/lib/tdee";
+
+const TIMEFRAME_OPTIONS = [
+  { value: "3_months", label: "3 Monate" },
+  { value: "6_months", label: "6 Monate" },
+  { value: "9_months", label: "9 Monate" },
+  { value: "12_months", label: "12 Monate" },
+  { value: "no_rush", label: "Kein Zeitdruck" },
+];
 
 type Plan = "free" | "pro" | "pro_plus" | "admin";
 
@@ -96,7 +108,23 @@ export function ProfilForm({
     ernaehrungsform: (existingProfile?.ernaehrungsform as string) || "",
     krankheiten: (existingProfile?.krankheiten as string) || "",
     aktivitaet: (existingProfile?.aktivitaet as string) || "",
+    target_weight: (existingProfile?.target_weight as number) || "",
+    target_timeframe:
+      (existingProfile?.target_timeframe as string) || "no_rush",
   });
+
+  // Live-Vorschau des Defizits
+  const tdeePreview = calculateTDEE({
+    gewicht_kg: form.gewicht_kg ? Number(form.gewicht_kg) : null,
+    groesse_cm: form.groesse_cm ? Number(form.groesse_cm) : null,
+    alter_jahre: form.alter_jahre ? Number(form.alter_jahre) : null,
+    geschlecht: form.geschlecht || null,
+    aktivitaet: form.aktivitaet || null,
+    ziel: form.ziel || null,
+    target_weight: form.target_weight ? Number(form.target_weight) : null,
+    target_timeframe: form.target_timeframe || null,
+  });
+  const deficit = tdeePreview?.customDeficit;
 
   function updateField(field: string, value: unknown) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -131,6 +159,8 @@ export function ProfilForm({
         ernaehrungsform: form.ernaehrungsform || null,
         krankheiten: form.krankheiten || null,
         aktivitaet: form.aktivitaet || null,
+        target_weight: form.target_weight ? Number(form.target_weight) : null,
+        target_timeframe: form.target_timeframe || "no_rush",
       }),
     });
 
@@ -450,6 +480,117 @@ export function ProfilForm({
         </div>
       </FormSection>
 
+      {/* Dein Ziel */}
+      <FormSection
+        title="Dein Ziel"
+        icon={<Target className="w-4 h-4 text-primary" />}
+      >
+        <p className="text-xs text-ink-muted mb-4 leading-relaxed">
+          Setz dir ein konkretes Wunschgewicht und einen Zeitraum — wir
+          berechnen dann automatisch ein passendes, sicheres Kalorien­defizit.
+          Lass es leer, wenn du kein konkretes Ziel hast.
+        </p>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-ink mb-1.5">
+              Wunschgewicht (kg)
+            </label>
+            <input
+              type="number"
+              step="0.1"
+              value={form.target_weight}
+              onChange={(e) => updateField("target_weight", e.target.value)}
+              className={inputClass}
+              placeholder="z.B. 65.0"
+              min={30}
+              max={300}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-ink mb-1.5">
+              Zeitraum
+            </label>
+            <select
+              value={form.target_timeframe}
+              onChange={(e) => updateField("target_timeframe", e.target.value)}
+              className={inputClass}
+            >
+              {TIMEFRAME_OPTIONS.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Live-Vorschau Defizit */}
+        {deficit && tdeePreview && (
+          <div className="mt-5 rounded-2xl border border-border bg-surface-muted/60 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium text-ink">
+                  Dein berechnetes Defizit
+                </span>
+              </div>
+              <SafetyBadge level={deficit.safetyLevel} />
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <Stat
+                label="Defizit / Tag"
+                value={`-${deficit.dailyDeficit}`}
+                unit="kcal"
+              />
+              <Stat
+                label="Abnahme / Woche"
+                value={deficit.weeklyLoss.toFixed(2)}
+                unit="kg"
+              />
+              <Stat
+                label="Ziel / Tag"
+                value={`${deficit.targetCalories}`}
+                unit="kcal"
+              />
+            </div>
+            <p className="text-[11px] text-ink-faint mt-3 text-center">
+              Basis: TDEE {tdeePreview.tdee} kcal · Ziel {deficit.totalLoss} kg
+              in {TIMEFRAME_LABEL[form.target_timeframe]}
+            </p>
+            {deficit.warning && (
+              <div
+                className={`mt-3 rounded-xl px-3 py-2.5 text-xs leading-relaxed flex gap-2 items-start ${
+                  deficit.safetyLevel === "dangerous" ||
+                  deficit.safetyLevel === "underweight"
+                    ? "bg-red-50 text-red-700 border border-red-100"
+                    : "bg-amber-50 text-amber-700 border border-amber-100"
+                }`}
+              >
+                {deficit.safetyLevel === "dangerous" ||
+                deficit.safetyLevel === "underweight" ? (
+                  <ShieldAlert className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                ) : (
+                  <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                )}
+                <div className="flex-1">
+                  <p>{deficit.warning}</p>
+                  {(deficit.safetyLevel === "dangerous" ||
+                    deficit.safetyLevel === "underweight") && (
+                    <button
+                      type="button"
+                      onClick={() => updateField("target_timeframe", "12_months")}
+                      className="mt-1.5 text-[11px] font-medium underline hover:no-underline"
+                    >
+                      Zeitraum auf 12 Monate anpassen
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </FormSection>
+
       {/* Einstellungen */}
       <FormSection
         title="Einstellungen"
@@ -603,6 +744,49 @@ function FormSection({
       </div>
       {children}
     </div>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  unit,
+}: {
+  label: string;
+  value: string;
+  unit: string;
+}) {
+  return (
+    <div className="bg-white rounded-xl border border-border px-2 py-2.5">
+      <div className="text-[10px] text-ink-faint uppercase tracking-wide">
+        {label}
+      </div>
+      <div className="mt-0.5">
+        <span className="font-serif text-lg text-ink">{value}</span>
+        <span className="text-[10px] text-ink-muted ml-0.5">{unit}</span>
+      </div>
+    </div>
+  );
+}
+
+function SafetyBadge({
+  level,
+}: {
+  level: "safe" | "aggressive" | "dangerous" | "underweight";
+}) {
+  const map = {
+    safe: { label: "Sicher", class: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+    aggressive: { label: "Ambitioniert", class: "bg-amber-50 text-amber-700 border-amber-200" },
+    dangerous: { label: "Risiko", class: "bg-red-50 text-red-700 border-red-200" },
+    underweight: { label: "Untergewicht", class: "bg-red-50 text-red-700 border-red-200" },
+  } as const;
+  const b = map[level];
+  return (
+    <span
+      className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full border ${b.class}`}
+    >
+      {b.label}
+    </span>
   );
 }
 
