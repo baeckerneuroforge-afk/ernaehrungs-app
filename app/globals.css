@@ -88,6 +88,38 @@ html.dark .scrollbar-thin::-webkit-scrollbar-thumb:hover {
   background: rgba(250, 250, 245, 0.22);
 }
 
+/* Landing-page specific warm/sage/accent tokens */
+html.dark .text-warm-dark { color: #FAFAF5 !important; }
+html.dark .bg-sage-pale { background-color: #1a3328 !important; }
+html.dark .bg-sage-faint { background-color: #142820 !important; }
+html.dark .bg-accent-warmPale { background-color: #3a2d1a !important; }
+html.dark .bg-accent-warmPale\/40 { background-color: rgba(58, 45, 26, 0.4) !important; }
+html.dark .text-accent-warm { color: #E0A370 !important; }
+html.dark .border-sage-light { border-color: #2a4a3a !important; }
+html.dark .border-sage-light\/30 { border-color: rgba(42, 74, 58, 0.3) !important; }
+html.dark .border-sage-light\/60 { border-color: rgba(42, 74, 58, 0.6) !important; }
+html.dark .border-accent-warmLight\/40 { border-color: rgba(120, 85, 40, 0.4) !important; }
+html.dark .border-accent-warmLight\/60 { border-color: rgba(120, 85, 40, 0.6) !important; }
+html.dark .bg-surface-muted\/40 { background-color: rgba(68, 64, 60, 0.4) !important; }
+html.dark .bg-surface-muted\/60 { background-color: rgba(68, 64, 60, 0.6) !important; }
+html.dark .bg-white\/70 { background-color: rgba(41, 37, 36, 0.7) !important; }
+
+/* Tailwind gradient stop tokens — override for dark mode */
+html.dark .from-sage-faint { --tw-gradient-from: #142820 var(--tw-gradient-from-position) !important; --tw-gradient-to: rgb(20 40 32 / 0) var(--tw-gradient-to-position) !important; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important; }
+html.dark .from-sage-faint\/50 { --tw-gradient-from: rgba(20, 40, 32, 0.6) var(--tw-gradient-from-position) !important; --tw-gradient-to: rgb(20 40 32 / 0) var(--tw-gradient-to-position) !important; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important; }
+html.dark .from-primary-faint { --tw-gradient-from: #142820 var(--tw-gradient-from-position) !important; --tw-gradient-to: rgb(20 40 32 / 0) var(--tw-gradient-to-position) !important; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important; }
+html.dark .via-sage-faint { --tw-gradient-to: rgb(20 40 32 / 0) var(--tw-gradient-to-position) !important; --tw-gradient-stops: var(--tw-gradient-from), #142820 var(--tw-gradient-via-position), var(--tw-gradient-to) !important; }
+html.dark .via-primary-faint { --tw-gradient-to: rgb(20 40 32 / 0) var(--tw-gradient-to-position) !important; --tw-gradient-stops: var(--tw-gradient-from), #142820 var(--tw-gradient-via-position), var(--tw-gradient-to) !important; }
+html.dark .via-surface-bg { --tw-gradient-to: rgb(28 25 23 / 0) var(--tw-gradient-to-position) !important; --tw-gradient-stops: var(--tw-gradient-from), #1C1917 var(--tw-gradient-via-position), var(--tw-gradient-to) !important; }
+html.dark .to-sage-faint { --tw-gradient-to: #142820 var(--tw-gradient-to-position) !important; }
+html.dark .to-primary-faint { --tw-gradient-to: #142820 var(--tw-gradient-to-position) !important; }
+html.dark .to-primary-faint\/30 { --tw-gradient-to: rgba(20, 40, 32, 0.5) var(--tw-gradient-to-position) !important; }
+html.dark .to-accent-warmPale\/40 { --tw-gradient-to: rgba(58, 45, 26, 0.4) var(--tw-gradient-to-position) !important; }
+html.dark .to-surface-bg { --tw-gradient-to: #1C1917 var(--tw-gradient-to-position) !important; }
+
+/* Reduce hero/janine organic blob opacity in dark mode */
+html.dark .dark-blob-dim { opacity: 0.35 !important; }
+
 /* Paper background in dark */
 html.dark .bg-paper {
   background-color: #1C1917;

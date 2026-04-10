@@ -97,11 +97,11 @@ function HeroSection() {
   }, [videoFailed]);
 
   return (
-    <section className="relative min-h-[90vh] flex items-center overflow-hidden">
+    <section className="relative min-h-[90vh] flex items-center overflow-hidden dark:bg-[#1C1917]">
       {/* Organic background blobs */}
       <div
         aria-hidden
-        className="absolute top-[-15%] right-[-10%] w-[720px] h-[720px] rounded-full pointer-events-none"
+        className="dark-blob-dim absolute top-[-15%] right-[-10%] w-[720px] h-[720px] rounded-full pointer-events-none"
         style={{
           background:
             "radial-gradient(closest-side, rgba(226,240,219,0.9), rgba(226,240,219,0) 70%)",
@@ -109,7 +109,7 @@ function HeroSection() {
       />
       <div
         aria-hidden
-        className="absolute bottom-[-25%] left-[-15%] w-[560px] h-[560px] rounded-full pointer-events-none"
+        className="dark-blob-dim absolute bottom-[-25%] left-[-15%] w-[560px] h-[560px] rounded-full pointer-events-none"
         style={{
           background:
             "radial-gradient(closest-side, rgba(245,237,228,0.8), rgba(245,237,228,0) 70%)",
@@ -118,7 +118,7 @@ function HeroSection() {
       {/* Subtle dot grid */}
       <div
         aria-hidden
-        className="absolute inset-0 opacity-[0.35] pointer-events-none"
+        className="absolute inset-0 opacity-[0.35] dark:opacity-[0.15] pointer-events-none"
         style={{
           backgroundImage:
             "radial-gradient(rgba(45,106,79,0.08) 1px, transparent 1px)",
@@ -188,7 +188,7 @@ function HeroSection() {
               className="relative w-[280px] sm:w-[310px] motion-safe:transition-transform duration-500"
               style={{ transform: "rotate(-2deg)" }}
             >
-              <div className="bg-[#1A1A1A] rounded-[44px] p-[6px] shadow-[0_40px_80px_-20px_rgba(28,25,23,0.35)]">
+              <div className="bg-[#1A1A1A] dark:bg-[#0a0a0a] rounded-[44px] p-[6px] shadow-[0_40px_80px_-20px_rgba(28,25,23,0.35)] dark:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.8)]">
                 <div className="bg-[#F0F7EC] rounded-[40px] overflow-hidden relative">
                   <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[120px] h-[28px] bg-[#1A1A1A] rounded-b-2xl z-10" />
                   {!videoFailed ? (
@@ -278,8 +278,8 @@ function TrustBar() {
   const items = [
     {
       icon: <GraduationCap className="w-5 h-5" />,
-      title: "Studierte Expertin",
-      body: "Kuratiert von einer Ernährungswissenschaftlerin",
+      title: "Studierte Ernährungswissenschaftlerin",
+      body: "Kuratiert von Janine — mit Studium und Praxis",
     },
     {
       icon: <FlaskConical className="w-5 h-5" />,
@@ -294,7 +294,7 @@ function TrustBar() {
   ];
 
   return (
-    <div className="relative bg-white border-y border-border/60 shadow-[0_4px_20px_-10px_rgba(28,25,23,0.06)]">
+    <div className="relative bg-white dark:bg-[#292524] border-y border-border/60 dark:border-[#44403C] shadow-[0_4px_20px_-10px_rgba(28,25,23,0.06)]">
       <div
         ref={ref}
         className="reveal-stagger max-w-5xl mx-auto px-4 sm:px-6 py-8 grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8"
@@ -373,12 +373,10 @@ function HowItWorksSection() {
           return (
             <div
               key={s.num}
-              className={`relative grid md:grid-cols-2 gap-8 md:gap-14 items-center ${
-                reversed ? "md:[&>*:first-child]:order-2" : ""
-              }`}
+              className="relative grid md:grid-cols-2 gap-8 md:gap-14 items-center"
             >
-              {/* Text */}
-              <div className={`${reversed ? "md:text-right md:pl-6" : "md:pr-6"} relative`}>
+              {/* Text — on mobile always below mockup */}
+              <div className={`order-2 ${reversed ? "md:order-2 md:text-right md:pl-6" : "md:order-1 md:pr-6"} relative`}>
                 <span
                   aria-hidden
                   className="font-serif text-[7rem] sm:text-[9rem] leading-none font-semibold text-primary-pale absolute -top-8 -z-10 select-none"
@@ -398,11 +396,11 @@ function HowItWorksSection() {
               </div>
 
               {/* Mockup */}
-              <div className="flex justify-center">
+              <div className={`order-1 ${reversed ? "md:order-1" : "md:order-2"} flex justify-center`}>
                 <div className="relative">
                   <div
                     aria-hidden
-                    className="absolute inset-0 bg-primary-pale rounded-3xl blur-2xl opacity-60 -z-10"
+                    className="absolute inset-0 bg-primary-pale rounded-3xl blur-2xl opacity-60 dark:opacity-30 -z-10"
                   />
                   {s.mockup}
                 </div>
@@ -660,7 +658,7 @@ function FeatureCard({
   return (
     <div className="group bg-white rounded-3xl border border-border p-7 hover:shadow-2xl hover:shadow-primary/[0.08] hover:-translate-y-1 hover:border-primary/30 transition-all duration-300 flex flex-col">
       {/* Preview */}
-      <div className="bg-gradient-to-br from-primary-faint to-sage-faint rounded-2xl p-4 mb-6 h-36 flex items-center justify-center overflow-hidden">
+      <div className="bg-gradient-to-br from-primary-faint to-sage-faint dark:from-[#142820] dark:to-[#1a3328] rounded-2xl p-4 mb-6 h-36 flex items-center justify-center overflow-hidden">
         {preview}
       </div>
       <div className="w-11 h-11 rounded-2xl bg-primary-pale text-primary group-hover:bg-primary group-hover:text-white flex items-center justify-center mb-4 transition-colors duration-300">
@@ -784,7 +782,7 @@ function ClosedLoopSection() {
     <section className="relative py-28 overflow-hidden">
       <div
         aria-hidden
-        className="absolute inset-0 pointer-events-none"
+        className="dark-blob-dim absolute inset-0 pointer-events-none"
         style={{
           background:
             "radial-gradient(ellipse at center, rgba(226,240,219,0.8) 0%, rgba(226,240,219,0) 65%)",
@@ -828,13 +826,24 @@ function ClosedLoopSection() {
                 </p>
               </div>
 
-              {/* Arrow to next step */}
+              {/* Arrow to next step (desktop horizontal) */}
               {i < steps.length - 1 && (
                 <div
                   aria-hidden
                   className="hidden md:flex absolute top-1/2 -right-3 -translate-y-1/2 z-10 w-6 h-6 rounded-full bg-white border border-border items-center justify-center shadow-sm"
                 >
                   <ArrowRight className="w-3 h-3 text-primary" />
+                </div>
+              )}
+              {/* Arrow to next step (mobile vertical) */}
+              {i < steps.length - 1 && (
+                <div
+                  aria-hidden
+                  className="md:hidden flex justify-center mt-3 -mb-1"
+                >
+                  <div className="w-6 h-6 rounded-full bg-white border border-border flex items-center justify-center shadow-sm">
+                    <ArrowRight className="w-3 h-3 text-primary rotate-90" />
+                  </div>
                 </div>
               )}
             </div>
@@ -965,12 +974,11 @@ function ExampleQuestionsSection() {
    ═══════════════════════════════════════════════════════════════ */
 function PricingSection() {
   const ref = useScrollReveal();
-  const [yearly, setYearly] = useState(false);
 
   return (
     <section id="preise" className="relative py-28">
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
-        <div className="text-center mb-6">
+        <div className="text-center mb-14">
           <p className="text-xs font-semibold text-primary tracking-[0.2em] uppercase mb-3">
             Preise
           </p>
@@ -982,53 +990,33 @@ function PricingSection() {
           </p>
         </div>
 
-        {/* Toggle */}
-        <div className="flex items-center justify-center gap-3 mb-14">
-          <button
-            onClick={() => setYearly(false)}
-            className={`text-sm transition px-4 py-2 rounded-full ${
-              !yearly ? "text-warm-dark font-semibold bg-white shadow-sm" : "text-warm-muted"
-            }`}
-          >
-            Monatlich
-          </button>
-          <button
-            onClick={() => setYearly(true)}
-            className={`text-sm transition px-4 py-2 rounded-full inline-flex items-center gap-2 ${
-              yearly ? "text-warm-dark font-semibold bg-white shadow-sm" : "text-warm-muted"
-            }`}
-          >
-            Jährlich
-            <span className="text-[10px] font-bold bg-primary text-white rounded-full px-2 py-0.5">
-              Spare 20%
-            </span>
-          </button>
-        </div>
-
         <div
           ref={ref}
           className="reveal-stagger grid md:grid-cols-3 gap-6 max-w-5xl mx-auto items-center"
         >
-          {/* Free */}
+          {/* Free — on mobile shown second, on desktop first (left) */}
+          <div className="order-2 md:order-1">
           <PricingCard
             name="Kostenlos"
             tagline="Zum Ausprobieren"
             price="0"
             suffix=""
             features={[
-              { text: "15 Credits pro Monat" },
-              { text: "Basisprofil" },
-              { text: "Allgemeine Empfehlungen" },
+              { text: "15 KI-Beratungen / Monat" },
+              { text: "Persönliches Ernährungsprofil" },
+              { text: "Ernährungstagebuch & Gewichtstracker" },
             ]}
             ctaLabel="Kostenlos starten"
             ctaVariant="outline"
           />
+          </div>
 
-          {/* Basis — highlighted, scale-105 */}
+          {/* Basis — prominent, shown first on mobile, center on desktop */}
+          <div className="order-1 md:order-2">
           <PricingCard
             name="Basis"
             tagline="Für bewusste Ernährung"
-            price={yearly ? "12,79" : "15,99"}
+            price="15,99"
             suffix="/ Monat"
             badge={{ label: "Beliebt", color: "bg-primary text-white" }}
             featured
@@ -1043,12 +1031,14 @@ function PricingSection() {
             ctaLabel="Basis wählen"
             ctaVariant="primary"
           />
+          </div>
 
           {/* Premium — amber accent */}
+          <div className="order-3">
           <PricingCard
             name="Premium"
             tagline="Mit persönlicher Betreuung"
-            price={yearly ? "39,99" : "49,99"}
+            price="49,99"
             suffix="/ Monat"
             badge={{
               label: (
@@ -1078,6 +1068,7 @@ function PricingSection() {
             ctaLabel="Premium wählen"
             ctaVariant="amber"
           />
+          </div>
         </div>
 
         <p className="text-center text-xs text-warm-light mt-10">
@@ -1251,11 +1242,11 @@ function JanineSection() {
     <section className="relative overflow-hidden">
       <div
         aria-hidden
-        className="absolute inset-0 bg-gradient-to-br from-primary-faint via-sage-faint to-accent-warmPale/40"
+        className="absolute inset-0 bg-gradient-to-br from-primary-faint via-sage-faint to-accent-warmPale/40 dark:bg-none dark:bg-[#142820]"
       />
       <div
         aria-hidden
-        className="absolute top-0 right-0 w-[500px] h-[500px] rounded-full pointer-events-none"
+        className="dark-blob-dim absolute top-0 right-0 w-[500px] h-[500px] rounded-full pointer-events-none"
         style={{
           background:
             "radial-gradient(closest-side, rgba(255,255,255,0.7), rgba(255,255,255,0) 70%)",
@@ -1274,10 +1265,14 @@ function JanineSection() {
                 aria-hidden
                 className="absolute -inset-4 bg-gradient-to-br from-primary/20 to-accent-warm/20 rounded-full blur-2xl"
               />
-              <div className="relative w-[240px] h-[240px] sm:w-[280px] sm:h-[280px] rounded-full bg-gradient-to-br from-sage-pale to-accent-warmPale flex items-center justify-center border-4 border-white shadow-2xl overflow-hidden">
-                <span className="text-[10rem] font-serif font-semibold text-primary/25 leading-none">
-                  J
-                </span>
+              {/* TODO: Durch echtes Foto von Janine ersetzen */}
+              <div className="relative w-[240px] h-[240px] sm:w-[280px] sm:h-[280px] rounded-full bg-gradient-to-br from-sage-pale to-accent-warmPale flex items-center justify-center border-4 border-white dark:border-[#44403C] shadow-2xl overflow-hidden">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/janine-avatar.svg"
+                  alt="Illustration von Janine"
+                  className="w-full h-full object-cover"
+                />
               </div>
               <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-white rounded-full px-5 py-2 shadow-lg border border-border whitespace-nowrap">
                 <p className="text-[11px] font-semibold text-warm-dark">Janine</p>
