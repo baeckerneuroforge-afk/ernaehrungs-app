@@ -89,7 +89,45 @@ Bei diesen Themen antwortest du AUSSCHLIESSLICH mit einem freundlichen Verweis a
 - Über Themen außerhalb von Ernährung sprechen (Politik, Sport-Training, Technik, etc.)
 - Eigene Meinungen äußern
 - Internet-Quellen oder Studien zitieren, die nicht in der Wissensbasis stehen
-- "Ich denke", "Ich glaube", "Möglicherweise" verwenden – entweder die Wissensbasis sagt es, oder du sagst dass du keine Information hast`;
+- "Ich denke", "Ich glaube", "Möglicherweise" verwenden – entweder die Wissensbasis sagt es, oder du sagst dass du keine Information hast
+
+## RESTAURANT-GUIDE (nur bei Bild-Nachrichten)
+
+Wenn der Nutzer ein Foto einer Speisekarte, eines Menüs oder einer Restaurant-Karte schickt:
+
+1. Erkenne dass es eine Speisekarte ist (nicht ein Teller mit Essen).
+2. Analysiere die Gerichte auf der Karte.
+3. Empfehle die 2-3 besten Optionen basierend auf:
+   - Dem Ernährungsziel des Nutzers (abnehmen/zunehmen/halten)
+   - Seinen Allergien und Unverträglichkeiten
+   - Seinem verbleibenden Kalorienbudget für den Tag (aus dem Tagebuch)
+   - Seiner Ernährungsform (vegan, vegetarisch, etc.)
+
+4. Für jede Empfehlung:
+   - Name des Gerichts
+   - Geschätzte Kalorien
+   - Warum dieses Gericht gut passt
+   - Optional: was man weglassen/ändern könnte ("ohne Sauce bestellen spart ~150 kcal")
+
+5. Sage auch welche Gerichte eher NICHT passen und warum (kurz, nicht belehrend).
+
+6. Wenn du noch Kalorien-Budget für den Tag hast (aus dem Tagebuch-Kontext), sage: "Du hast noch ca. X kcal für heute. Das Lachsfilet (~650 kcal) passt perfekt rein."
+
+7. Wenn keine Tagebuch-Daten für heute vorliegen, nutze das Tagesbudget aus dem Profil.
+
+8. Ton: wie ein Freund der mitbestellt — locker, nicht belehrend. "Super Wahl wäre das Lachsfilet — gutes Protein und passt perfekt in dein Budget."
+
+## BILD-ERKENNUNG ALLGEMEIN
+
+Wenn der Nutzer ein Bild schickt, unterscheide automatisch:
+- Speisekarte/Menü → Restaurant-Guide Modus (Empfehlungen)
+- Essen auf einem Teller → Foto-Analyse Modus (Kalorien schätzen, anbieten ins Tagebuch einzutragen)
+- Zutatenliste/Verpackung → Nährwert-Analyse (Inhaltsstoffe bewerten, Alternativen vorschlagen)
+- Sonstiges → Normal antworten, Bild beschreiben wenn relevant
+
+## RESTAURANT-HINWEIS (nur bei Premium-Usern)
+
+Wenn der Nutzer über Essen auswärts, Restaurants, Kantine oder Mensa spricht UND ein Premium-User ist, weise aktiv auf die Bild-Funktion hin: "Übrigens: Schick mir ein Foto der Speisekarte und ich sage dir was am besten passt! Nutze das 📷-Icon neben dem Eingabefeld."`;
 
 // ---------------------------------------------------------------------------
 // 2. ESKALATIONS-KEYWORDS – Pre-Check vor dem LLM
@@ -165,9 +203,26 @@ function isPremiumPlan(plan: string | null | undefined): boolean {
 // ---------------------------------------------------------------------------
 // 6. ROUTE HANDLER
 // ---------------------------------------------------------------------------
+type ChatImagePayload = {
+  base64: string;
+  mediaType: "image/jpeg" | "image/png" | "image/webp";
+};
+
 export async function POST(request: Request) {
   try {
-    const { message, history = [] } = await request.json();
+    const body = await request.json();
+    const { history = [] } = body as {
+      history?: { role: string; content: string }[];
+    };
+    const rawImage = body?.image as ChatImagePayload | undefined;
+    const hasImage = !!(rawImage?.base64 && rawImage?.mediaType);
+    // Bei Bild-Nachrichten darf die Text-Message leer sein → Default
+    const message: string =
+      typeof body?.message === "string" && body.message.trim()
+        ? body.message
+        : hasImage
+        ? "Analysiere dieses Bild"
+        : "";
 
     if (!message) {
       return new Response(JSON.stringify({ error: "message required" }), {
@@ -181,7 +236,9 @@ export async function POST(request: Request) {
     }
 
     // ---- Pre-Check: Off-Topic (no credits consumed) ----
-    if (OFF_TOPIC_PATTERNS.some((p) => p.test(message))) {
+    // Skip bei Bild-Nachrichten: "was soll ich bestellen?" usw. könnte
+    // false positives triggern, und das Bild ist der eigentliche Content.
+    if (!hasImage && OFF_TOPIC_PATTERNS.some((p) => p.test(message))) {
       return streamStaticResponse(OFF_TOPIC_RESPONSE);
     }
 
@@ -204,17 +261,40 @@ export async function POST(request: Request) {
     void touchLastActive(supabase, userId);
 
     // ---- Classify action ----
-    const action = classifyAction(message);
+    // Bei Bild-Nachrichten überschreiben wir die Klassifikation auf "chat"
+    // — Plan-Generation / Review mit Bild ist nicht unterstützt.
+    const action = hasImage ? "chat" : classifyAction(message);
 
     // ---- Load user plan (drives model routing + credit cost for chat) ----
     const userPlanEarly = await getUserPlan(userId);
     const premium = isPremiumPlan(userPlanEarly);
 
+    // ---- Feature-Gate: Bild-Upload nur für Premium ----
+    if (hasImage && !hasFeatureAccess(userPlanEarly, "chat_image")) {
+      return new Response(
+        JSON.stringify({
+          error: "feature_locked",
+          message:
+            "Bild-Upload im Chat ist im Premium-Plan verfügbar. Fotografiere Speisekarten oder Essen und lass dich beraten.",
+        }),
+        { status: 403, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
     // ---- Credit cost + type depend on action AND plan for chat ----
     let creditCost: number;
-    let creditType: "chat_usage" | "chat_usage_premium" | "plan_generation" | "review";
+    let creditType:
+      | "chat_usage"
+      | "chat_usage_premium"
+      | "chat_image"
+      | "plan_generation"
+      | "review";
     let creditDesc: string;
-    if (action === "chat") {
+    if (hasImage) {
+      creditCost = CREDIT_COSTS.chat_image;
+      creditType = "chat_image";
+      creditDesc = "Chat mit Bild (Sonnet Vision)";
+    } else if (action === "chat") {
       creditCost = premium ? CREDIT_COSTS.chat_usage_premium : CREDIT_COSTS.chat_usage;
       creditType = premium ? "chat_usage_premium" : "chat_usage";
       creditDesc = premium ? "Chat-Nachricht (Sonnet)" : "Chat-Nachricht";
@@ -440,7 +520,9 @@ export async function POST(request: Request) {
       Array.isArray(history) &&
       history.some((h: { role: string }) => h.role === "assistant");
 
-    if (ragConfidence === "none" && !hasConversationHistory) {
+    // Bei Bild-Nachrichten nicht hart ablehnen — das Bild ist der primäre
+    // Input, und der Restaurant-Guide Modus arbeitet auf dem Bild selbst.
+    if (ragConfidence === "none" && !hasConversationHistory && !hasImage) {
       return streamStaticResponse(NO_KNOWLEDGE_RESPONSE);
     }
 
@@ -475,16 +557,58 @@ export async function POST(request: Request) {
     }
 
     // ---- Messages bauen ----
-    const messages = [
-      ...history.slice(-8).map((h: { role: string; content: string }) => ({
+    type AnthropicMessage = {
+      role: "user" | "assistant";
+      content:
+        | string
+        | Array<
+            | { type: "text"; text: string }
+            | {
+                type: "image";
+                source: {
+                  type: "base64";
+                  media_type: "image/jpeg" | "image/png" | "image/webp";
+                  data: string;
+                };
+              }
+          >;
+    };
+
+    const historyMessages: AnthropicMessage[] = history
+      .slice(-8)
+      .map((h) => ({
         role: h.role as "user" | "assistant",
         content: h.content,
-      })),
-      { role: "user" as const, content: message },
+      }));
+
+    const currentUserMessage: AnthropicMessage = hasImage
+      ? {
+          role: "user",
+          content: [
+            {
+              type: "image",
+              source: {
+                type: "base64",
+                media_type: rawImage!.mediaType,
+                data: rawImage!.base64,
+              },
+            },
+            { type: "text", text: message },
+          ],
+        }
+      : { role: "user", content: message };
+
+    const messages: AnthropicMessage[] = [
+      ...historyMessages,
+      currentUserMessage,
     ];
 
     // ---- Dynamic model routing (plan-aware for chat) ----
-    const model = getModelForAction(action, userPlanEarly);
+    // Bild-Nachrichten IMMER auf Sonnet (Vision) — auch der Feature-Gate
+    // stellt das sicher, aber defense in depth.
+    const model = hasImage
+      ? MODEL_SONNET
+      : getModelForAction(action, userPlanEarly);
 
     // ---- Stream Response ----
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });

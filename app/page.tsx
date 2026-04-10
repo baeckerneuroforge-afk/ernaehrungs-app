@@ -1067,6 +1067,11 @@ function PricingSection() {
                 accent: "amber",
               },
               {
+                text: "Restaurant-Guide: Speisekarte fotografieren & beraten lassen",
+                highlight: true,
+                accent: "amber",
+              },
+              {
                 text: "Monatlicher Fortschrittsreport",
                 highlight: true,
                 accent: "amber",

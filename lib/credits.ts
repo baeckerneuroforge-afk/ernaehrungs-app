@@ -4,6 +4,7 @@ import { createSupabaseAdmin } from "@/lib/supabase/server";
 export const CREDIT_COSTS = {
   chat_usage: 1, // Haiku (Free/Basis)
   chat_usage_premium: 2, // Sonnet (Premium/Admin) — bessere Qualität
+  chat_image: 2, // Chat mit Bild (Sonnet Vision) — Premium only
   plan_generation: 5,
   review: 3,
   foto_analysis: 2, // Sonnet Vision
@@ -35,6 +36,7 @@ export type CreditActionType =
   | "topup_purchase"
   | "chat_usage"
   | "chat_usage_premium"
+  | "chat_image"
   | "plan_generation"
   | "review"
   | "foto_analysis"

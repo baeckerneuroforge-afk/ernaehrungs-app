@@ -6,6 +6,7 @@ export type Feature =
   | "tracker"
   | "janine_direkt"
   | "foto_tracking"
+  | "chat_image"
   | "monthly_report";
 
 export type SubscriptionPlan = "free" | "pro" | "pro_plus" | "admin";
@@ -21,6 +22,7 @@ const FEATURE_ACCESS: Record<SubscriptionPlan, Feature[]> = {
     "review",
     "janine_direkt",
     "foto_tracking",
+    "chat_image",
     "monthly_report",
   ],
   admin: [
@@ -31,6 +33,7 @@ const FEATURE_ACCESS: Record<SubscriptionPlan, Feature[]> = {
     "review",
     "janine_direkt",
     "foto_tracking",
+    "chat_image",
     "monthly_report",
   ],
 };
@@ -48,6 +51,7 @@ export function requiredPlanFor(feature: Feature): SubscriptionPlan {
   if (
     feature === "janine_direkt" ||
     feature === "foto_tracking" ||
+    feature === "chat_image" ||
     feature === "monthly_report"
   )
     return "pro_plus";
@@ -64,6 +68,7 @@ export function getUpgradeMessage(feature: Feature): string {
     review: "Der Wochenreview ist ab dem Basis-Plan verfügbar. Upgrade um deine Fortschritte analysieren zu lassen.",
     janine_direkt: "Direktnachrichten an Janine sind im Premium-Plan verfügbar.",
     foto_tracking: "Foto-Tracking ist im Premium-Plan verfügbar. Fotografiere deine Mahlzeit und lass die KI Kalorien und Makros schätzen.",
+    chat_image: "Bild-Upload im Chat ist im Premium-Plan verfügbar. Fotografiere Speisekarten oder Essen und lass dich beraten.",
     monthly_report: "Monatliche Fortschrittsreports sind im Premium-Plan verfügbar.",
   };
   return messages[feature];

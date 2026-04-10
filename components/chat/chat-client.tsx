@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Send, Leaf, User, History, ArrowLeft, ThumbsUp, ThumbsDown, X, MessageCircle, Sparkles, Lock } from "lucide-react";
+import { Send, Leaf, User, History, ArrowLeft, ThumbsUp, ThumbsDown, X, MessageCircle, Sparkles, Lock, ImagePlus } from "lucide-react";
 import { ChatMessage } from "./message";
 import { HistorySidebar } from "./history-sidebar";
 import { DirectMessagePanel } from "./direct-message-panel";
@@ -14,6 +14,7 @@ import { createClient } from "@/lib/supabase/client";
 interface Message {
   role: "user" | "assistant";
   content: string;
+  imageDataUrl?: string;
 }
 
 interface ChatClientProps {
@@ -25,6 +26,40 @@ interface ChatClientProps {
 type FeedbackState = "idle" | "prompt" | "comment" | "done";
 
 const DM_SEEN_KEY = (userId: string) => `dm_seen_${userId}`;
+const IMAGE_TOOLTIP_KEY = "chat_image_tooltip_shown";
+
+/**
+ * Compress an image file client-side to JPEG at max 1600px on the long edge.
+ * Returns a data URL ready for base64 send and preview.
+ */
+async function compressImage(file: File): Promise<{ dataUrl: string; base64: string; mediaType: "image/jpeg" }> {
+  const bitmap = await createImageBitmap(file);
+  const maxSide = 1600;
+  const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+  const w = Math.round(bitmap.width * scale);
+  const h = Math.round(bitmap.height * scale);
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas 2D context unavailable");
+  ctx.drawImage(bitmap, 0, 0, w, h);
+  const blob: Blob = await new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error("toBlob failed"))),
+      "image/jpeg",
+      0.85
+    );
+  });
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+  const base64 = dataUrl.split(",")[1] || "";
+  return { dataUrl, base64, mediaType: "image/jpeg" };
+}
 
 function getSeenIds(userId: string): string[] {
   try {
@@ -65,8 +100,16 @@ export function ChatClient({ userId, userName, initialPlan }: ChatClientProps) {
   // Subscription plan for feature gating (Janine direkt, Sonnet badge)
   const [userPlan, setUserPlan] = useState<string>(initialPlan || "free");
   const [showJanineLock, setShowJanineLock] = useState(false);
-  const janineLocked = userPlan !== "pro_plus";
+  const janineLocked = userPlan !== "pro_plus" && userPlan !== "admin";
   const isPremiumChat = userPlan === "pro_plus" || userPlan === "admin";
+
+  // Chat image upload (premium feature)
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const [pendingImage, setPendingImage] = useState<{ dataUrl: string; base64: string; mediaType: "image/jpeg" } | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const [showImageLock, setShowImageLock] = useState(false);
+  const [showImageTooltip, setShowImageTooltip] = useState(false);
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/credits")
@@ -74,6 +117,24 @@ export function ChatClient({ userId, userName, initialPlan }: ChatClientProps) {
       .then((data) => setUserPlan(data?.plan || "free"))
       .catch(() => setUserPlan("free"));
   }, []);
+
+  // First-visit tooltip for premium users — show once then remember.
+  useEffect(() => {
+    if (!isPremiumChat) return;
+    try {
+      if (localStorage.getItem(IMAGE_TOOLTIP_KEY)) return;
+    } catch {
+      return;
+    }
+    const t = setTimeout(() => {
+      setShowImageTooltip(true);
+      try {
+        localStorage.setItem(IMAGE_TOOLTIP_KEY, "1");
+      } catch {}
+      setTimeout(() => setShowImageTooltip(false), 5000);
+    }, 800);
+    return () => clearTimeout(t);
+  }, [isPremiumChat]);
 
   // Check initial unread DM count
   useEffect(() => {
@@ -173,12 +234,48 @@ export function ChatClient({ userId, userName, initialPlan }: ChatClientProps) {
     sessionIdRef.current = sessionId;
   }
 
+  function handleImageButtonClick() {
+    if (!isPremiumChat) {
+      setShowImageLock((v) => !v);
+      return;
+    }
+    setShowImageTooltip(false);
+    imageInputRef.current?.click();
+  }
+
+  async function handleImageSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting same file
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setImageError("Bitte wähle ein Bild aus.");
+      return;
+    }
+    setImageError(null);
+    try {
+      const compressed = await compressImage(file);
+      setPendingImage(compressed);
+      inputRef.current?.focus();
+    } catch (err) {
+      console.error("Image compress failed:", err);
+      setImageError("Bild konnte nicht verarbeitet werden.");
+    }
+  }
+
   async function handleSend() {
     const text = input.trim();
-    if (!text || isStreaming) return;
+    const hasImage = !!pendingImage;
+    if ((!text && !hasImage) || isStreaming) return;
+
+    const displayText = text || (hasImage ? "" : "");
+    const imageDataUrl = pendingImage?.dataUrl;
+    const imagePayload = pendingImage
+      ? { base64: pendingImage.base64, mediaType: pendingImage.mediaType }
+      : null;
 
     setInput("");
-    const userMsg: Message = { role: "user", content: text };
+    setPendingImage(null);
+    const userMsg: Message = { role: "user", content: displayText, imageDataUrl };
     setMessages((prev) => [...prev, userMsg]);
     setIsStreaming(true);
     setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
@@ -187,8 +284,21 @@ export function ChatClient({ userId, userName, initialPlan }: ChatClientProps) {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, history: messages, userId }),
+        body: JSON.stringify({ message: text, history: messages, userId, image: imagePayload }),
       });
+
+      if (response.status === 403) {
+        setMessages((prev) => {
+          const updated = [...prev];
+          updated[updated.length - 1] = {
+            role: "assistant",
+            content: "Bild-Upload im Chat ist im **Premium-Plan** verfügbar. Upgrade, um Speisekarten und Essen fotografieren zu lassen. 💚",
+          };
+          return updated;
+        });
+        setIsStreaming(false);
+        return;
+      }
 
       if (response.status === 402) {
         // Insufficient credits — show top-up modal
@@ -301,6 +411,31 @@ export function ChatClient({ userId, userName, initialPlan }: ChatClientProps) {
       {/* Credit Top-Up Modal */}
       <CreditTopupModal open={topupOpen} onClose={() => setTopupOpen(false)} />
 
+      {/* Image lightbox */}
+      {lightboxImage && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
+          onClick={() => setLightboxImage(null)}
+          role="dialog"
+          aria-label="Bildvorschau"
+        >
+          <button
+            onClick={() => setLightboxImage(null)}
+            className="absolute top-4 right-4 w-10 h-10 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center transition"
+            aria-label="Schließen"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={lightboxImage}
+            alt="Bildvorschau"
+            className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
+
       {/* DM Toast notification */}
       {showDmToast && (
         <DmToast
@@ -370,6 +505,15 @@ export function ChatClient({ userId, userName, initialPlan }: ChatClientProps) {
                       <span className="text-[13px] text-ink-muted group-hover:text-primary leading-snug font-medium">{s.text}</span>
                     </button>
                   ))}
+                  {isPremiumChat && (
+                    <button
+                      onClick={() => imageInputRef.current?.click()}
+                      className="sm:col-span-2 flex items-center gap-3 bg-gradient-to-r from-amber-50 to-white border border-amber-200 text-left px-4 py-3 rounded-2xl hover:border-amber-300 hover:-translate-y-0.5 hover:shadow-card-hover transition-all duration-200 group"
+                    >
+                      <span className="text-xl">📸</span>
+                      <span className="text-[13px] text-amber-800 leading-snug font-medium">Speisekarte fotografieren — ich berate dich</span>
+                    </button>
+                  )}
                 </div>
               </div>
             )}
@@ -389,19 +533,36 @@ export function ChatClient({ userId, userName, initialPlan }: ChatClientProps) {
                       </div>
                     )}
                     <div className={`flex flex-col ${msg.role === "user" ? "items-end max-w-[85%] md:max-w-[75%]" : "items-start max-w-[90%] md:max-w-[80%]"}`}>
-                      <div
-                        className={`px-4 py-2.5 ${
-                          msg.role === "user"
-                            ? "bg-primary text-white rounded-2xl rounded-br-sm shadow-card"
-                            : "bg-white border border-border rounded-2xl rounded-bl-sm shadow-card"
-                        }`}
-                      >
-                        {msg.role === "assistant" ? (
-                          <ChatMessage content={msg.content} isStreaming={isStreaming && i === messages.length - 1} />
-                        ) : (
-                          <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
-                        )}
-                      </div>
+                      {msg.role === "user" && msg.imageDataUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setLightboxImage(msg.imageDataUrl!)}
+                          className="mb-1.5 rounded-2xl overflow-hidden shadow-card border border-border hover:opacity-90 transition"
+                          aria-label="Bild vergrößern"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={msg.imageDataUrl}
+                            alt="Hochgeladenes Bild"
+                            className="block max-w-[220px] max-h-[220px] object-cover"
+                          />
+                        </button>
+                      )}
+                      {(msg.role === "assistant" || msg.content) && (
+                        <div
+                          className={`px-4 py-2.5 ${
+                            msg.role === "user"
+                              ? "bg-primary text-white rounded-2xl rounded-br-sm shadow-card"
+                              : "bg-white border border-border rounded-2xl rounded-bl-sm shadow-card"
+                          }`}
+                        >
+                          {msg.role === "assistant" ? (
+                            <ChatMessage content={msg.content} isStreaming={isStreaming && i === messages.length - 1} />
+                          ) : (
+                            <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                          )}
+                        </div>
+                      )}
                       {msg.role === "assistant" && msg.content && (
                         <div className="mt-1 flex items-center gap-2 px-1">
                           <span
@@ -577,6 +738,42 @@ export function ChatClient({ userId, userName, initialPlan }: ChatClientProps) {
                 </div>
               </div>
 
+              {/* Hidden file input for image upload */}
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageSelected}
+                className="hidden"
+              />
+
+              {/* Image preview above input */}
+              {pendingImage && (
+                <div className="mb-2 flex items-start gap-2 animate-fade-in">
+                  <div className="relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={pendingImage.dataUrl}
+                      alt="Vorschau"
+                      className="w-20 h-20 object-cover rounded-xl border border-border shadow-card"
+                    />
+                    <button
+                      onClick={() => setPendingImage(null)}
+                      className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-white border border-border rounded-full flex items-center justify-center shadow-card hover:bg-surface-muted"
+                      aria-label="Bild entfernen"
+                    >
+                      <X className="w-3 h-3 text-ink" />
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-ink-faint mt-1">
+                    Bild hinzugefügt. Schreibe optional eine Frage dazu.
+                  </p>
+                </div>
+              )}
+              {imageError && (
+                <p className="mb-1.5 text-[11px] text-red-500">{imageError}</p>
+              )}
+
               {/* Input field */}
               <div className="relative flex items-end gap-2">
                 {historyMode && (
@@ -588,19 +785,71 @@ export function ChatClient({ userId, userName, initialPlan }: ChatClientProps) {
                     <ArrowLeft className="w-3.5 h-3.5" />
                   </button>
                 )}
+                {/* Image upload button */}
+                <div className="relative flex-shrink-0">
+                  <button
+                    onClick={handleImageButtonClick}
+                    title={isPremiumChat ? "Bild hochladen" : "Bild-Upload ist im Premium-Plan verfügbar"}
+                    aria-label="Bild hochladen"
+                    className={`w-12 h-12 rounded-2xl border flex items-center justify-center transition-all duration-200 ${
+                      isPremiumChat
+                        ? "border-border bg-white text-primary hover:border-primary/40 hover:bg-primary-pale"
+                        : "border-border bg-surface-muted text-ink-faint hover:text-ink-muted"
+                    }`}
+                  >
+                    <ImagePlus className="w-4 h-4" />
+                    {!isPremiumChat && (
+                      <Lock className="w-2.5 h-2.5 absolute top-1.5 right-1.5 text-ink-faint" />
+                    )}
+                  </button>
+                  {/* First-visit tooltip for premium */}
+                  {showImageTooltip && isPremiumChat && (
+                    <div className="absolute bottom-full mb-2 left-0 w-60 bg-ink text-white rounded-xl px-3 py-2 shadow-pop z-40 animate-fade-in">
+                      <p className="text-xs leading-snug">
+                        Neu: Fotografiere Speisekarten oder Essen — ich berate dich direkt!
+                      </p>
+                      <div className="absolute -bottom-1 left-4 w-2 h-2 bg-ink rotate-45" />
+                    </div>
+                  )}
+                  {/* Lock popover for non-premium */}
+                  {showImageLock && !isPremiumChat && (
+                    <div className="absolute bottom-full mb-2 left-0 w-64 bg-white rounded-2xl border border-border shadow-pop p-4 z-50 animate-fade-in">
+                      <div className="flex items-start gap-2.5 mb-2">
+                        <div className="w-7 h-7 rounded-full bg-primary-pale flex items-center justify-center flex-shrink-0">
+                          <Lock className="w-3.5 h-3.5 text-primary" />
+                        </div>
+                        <p className="text-sm text-ink leading-snug">
+                          Bild-Upload im Chat ist im <span className="font-medium">Premium-Plan</span> verfügbar.
+                        </p>
+                      </div>
+                      <Link
+                        href="/#pricing"
+                        className="block w-full text-center text-xs font-medium bg-primary text-white rounded-full px-3 py-2 hover:bg-primary-hover transition mt-2"
+                      >
+                        Premium ansehen
+                      </Link>
+                      <button
+                        onClick={() => setShowImageLock(false)}
+                        className="absolute top-2 right-2 text-ink-faint hover:text-ink"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
                 <div className="relative flex-1">
                   <textarea
                     ref={inputRef}
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder={historyMode ? "Schreibe weiter im bisherigen Gespräch…" : "Stelle eine Ernährungsfrage…"}
+                    placeholder={pendingImage ? "Frage zum Bild (optional)…" : historyMode ? "Schreibe weiter im bisherigen Gespräch…" : "Stelle eine Ernährungsfrage…"}
                     rows={1}
                     className="w-full resize-none pl-4 pr-12 py-3 border border-border rounded-2xl text-sm bg-stone-50 placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white transition-all duration-200 max-h-32"
                   />
                   <button
                     onClick={handleSend}
-                    disabled={!input.trim() || isStreaming}
+                    disabled={(!input.trim() && !pendingImage) || isStreaming}
                     className="absolute right-2 bottom-2 w-9 h-9 bg-primary text-white rounded-full flex items-center justify-center hover:bg-primary-hover transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed shadow-card"
                     aria-label="Senden"
                   >
