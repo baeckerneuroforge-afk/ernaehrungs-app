@@ -46,7 +46,7 @@ export function OnboardingWizard({ userId: _userId, existingProfile, initialStep
 
   async function handleSaveProfile() {
     setSaving(true);
-    await fetch("/api/profile", {
+    const res = await fetch("/api/profile", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -63,25 +63,44 @@ export function OnboardingWizard({ userId: _userId, existingProfile, initialStep
         onboarding_done: true,
       }),
     });
-    setStep(4);
     setSaving(false);
+    if (!res.ok) {
+      alert("Dein Profil konnte nicht gespeichert werden. Bitte versuche es erneut.");
+      return;
+    }
+    setStep(4);
   }
 
   async function handleKiConsent(consent: boolean) {
-    await fetch("/api/profile/consent", {
+    setSaving(true);
+    const res = await fetch("/api/profile/consent", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ consent, type: "ki" }),
     });
+    setSaving(false);
+    if (!res.ok) {
+      alert("Einstellung konnte nicht gespeichert werden. Bitte versuche es erneut.");
+      return;
+    }
     setStep(5);
   }
 
   async function handleReviewConsent(consent: boolean) {
-    await fetch("/api/profile/consent", {
+    setSaving(true);
+    const res = await fetch("/api/profile/consent", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ consent, type: "review" }),
     });
+    setSaving(false);
+    if (!res.ok) {
+      alert("Einstellung konnte nicht gespeichert werden. Bitte versuche es erneut.");
+      return;
+    }
+    // Router-Cache invalidieren, damit /chat den frischen DB-State liest
+    // (sonst kann der SC-Cache review_consent noch als null sehen → Redirect-Loop).
+    router.refresh();
     setStep(6);
   }
 
@@ -574,7 +593,13 @@ export function OnboardingWizard({ userId: _userId, existingProfile, initialStep
               </div>
 
               <button
-                onClick={() => router.push("/chat")}
+                onClick={() => {
+                  // Hard navigation: garantiert frische Server-Render von /chat
+                  // ohne Router-Cache / Prefetch-Staleness. router.push() hatte
+                  // teilweise noch den alten (pre-consent) /chat-RSC im Cache
+                  // → /chat sah review_consent=null → Redirect zurück zu /onboarding.
+                  window.location.assign("/chat");
+                }}
                 className="w-full inline-flex items-center justify-center gap-2 text-sm text-white bg-primary hover:bg-primary-hover px-6 py-3 rounded-full shadow-card transition"
               >
                 <Leaf className="w-4 h-4" />
