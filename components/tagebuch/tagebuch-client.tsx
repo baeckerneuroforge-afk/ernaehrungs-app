@@ -93,6 +93,46 @@ function buildWeekStrip(center: string): Date[] {
 
 const WEEKDAYS_SHORT = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
 
+/**
+ * Komprimiert ein Bild browser-seitig per Canvas auf max. 1600px
+ * längste Kante, JPEG Q0.85. Typische Resultate: 300-800 KB.
+ * Läuft auf Vercel NICHT, sharp würde dort Cold-Start-Probleme machen.
+ * Scheitert die Komprimierung (z.B. HEIC, obskurer Browser), geben wir
+ * die Original-Datei zurück — der Server akzeptiert bis 10 MB.
+ */
+async function compressImage(file: File): Promise<File> {
+  try {
+    const bitmap = await createImageBitmap(file).catch(() => null);
+    if (!bitmap) return file;
+
+    const MAX = 1600;
+    const ratio = Math.min(1, MAX / Math.max(bitmap.width, bitmap.height));
+    const w = Math.round(bitmap.width * ratio);
+    const h = Math.round(bitmap.height * ratio);
+
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return file;
+    ctx.drawImage(bitmap, 0, 0, w, h);
+    bitmap.close?.();
+
+    const blob: Blob | null = await new Promise((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", 0.85)
+    );
+    if (!blob) return file;
+
+    // Wenn das Ergebnis größer als das Original ist (winzige Bilder),
+    // behalten wir das Original.
+    if (blob.size >= file.size) return file;
+
+    return new File([blob], "photo.jpg", { type: "image/jpeg" });
+  } catch {
+    return file;
+  }
+}
+
 export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
   const [datum, setDatum] = useState(today);
   const [entries, setEntries] = useState<FoodLog[]>(initialEntries);
@@ -164,8 +204,9 @@ export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
     setAnalysis(null);
 
     try {
+      const compressed = await compressImage(file);
       const fd = new FormData();
-      fd.append("image", file);
+      fd.append("image", compressed);
       fd.append("datum", datum);
       const res = await fetch("/api/food-log/analyze", {
         method: "POST",

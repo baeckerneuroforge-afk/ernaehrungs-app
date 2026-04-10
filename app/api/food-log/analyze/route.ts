@@ -1,7 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-import sharp from "sharp";
 import { randomUUID } from "node:crypto";
 import { hasFeatureAccess } from "@/lib/feature-gates";
 import { getUserPlan } from "@/lib/feature-gates-server";
@@ -123,10 +122,14 @@ export async function POST(request: Request) {
     );
   }
 
-  // Size cap (5 MB)
-  if (image.size > 5 * 1024 * 1024) {
+  // Size cap (10 MB) — der Client komprimiert bereits per Canvas auf
+  // ~1600px / q0.85, das sind üblicherweise 300-800 KB. 10 MB ist nur
+  // noch ein Safety-Net für den Fall, dass die Client-Komprimierung
+  // fehlschlägt oder umgangen wird.
+  if (image.size > 10 * 1024 * 1024) {
+    console.warn("[foto-analyze] Bild zu groß:", image.size, "bytes");
     return NextResponse.json(
-      { error: "Bild zu groß (max. 5 MB)." },
+      { error: "Bild zu groß (max. 10 MB)." },
       { status: 400 }
     );
   }
@@ -150,16 +153,30 @@ export async function POST(request: Request) {
   }
 
   try {
-    const originalBuffer = Buffer.from(await image.arrayBuffer());
+    if (!process.env.ANTHROPIC_API_KEY) {
+      console.error("[foto-analyze] ANTHROPIC_API_KEY fehlt im Environment");
+      return NextResponse.json(
+        { error: "server_misconfigured", message: "Server nicht korrekt konfiguriert." },
+        { status: 500 }
+      );
+    }
 
-    // Server-side compress to max 800px width, JPEG ~82.
-    const compressed = await sharp(originalBuffer)
-      .rotate() // respect EXIF orientation
-      .resize({ width: 800, withoutEnlargement: true })
-      .jpeg({ quality: 82 })
-      .toBuffer();
+    const buffer = Buffer.from(await image.arrayBuffer());
+    const base64 = buffer.toString("base64");
+    // Client komprimiert bereits auf JPEG via Canvas. Falls jemand
+    // das umgeht (z.B. PNG-Upload von Desktop), akzeptieren wir den
+    // Original-MIME-Type und reichen ihn an Claude weiter.
+    const mediaType =
+      image.type === "image/png"
+        ? "image/png"
+        : image.type === "image/webp"
+        ? "image/webp"
+        : "image/jpeg";
 
-    const base64 = compressed.toString("base64");
+    console.log(
+      "[foto-analyze] start",
+      { userId, size: image.size, type: image.type }
+    );
 
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const response = await anthropic.messages.create({
@@ -173,7 +190,7 @@ export async function POST(request: Request) {
               type: "image",
               source: {
                 type: "base64",
-                media_type: "image/jpeg",
+                media_type: mediaType,
                 data: base64,
               },
             },
@@ -210,8 +227,8 @@ export async function POST(request: Request) {
     let photo_url: string | null = null;
     const { error: uploadError } = await supabase.storage
       .from("food-photos")
-      .upload(path, compressed, {
-        contentType: "image/jpeg",
+      .upload(path, buffer, {
+        contentType: mediaType,
         upsert: false,
       });
 
@@ -226,11 +243,21 @@ export async function POST(request: Request) {
       photo_url = signed?.signedUrl || null;
     }
 
+    console.log("[foto-analyze] done", { userId, dish: analysis.dish });
     return NextResponse.json({ analysis, photo_url, photo_path: path });
   } catch (err) {
-    console.error("Foto-Analyse Fehler:", err);
+    const e = err as Error;
+    console.error("[foto-analyze] fehler:", {
+      name: e?.name,
+      message: e?.message,
+      stack: e?.stack,
+    });
     return NextResponse.json(
-      { error: "analysis_failed", message: "Analyse fehlgeschlagen." },
+      {
+        error: "analysis_failed",
+        message: "Analyse fehlgeschlagen.",
+        detail: process.env.NODE_ENV === "production" ? undefined : e?.message,
+      },
       { status: 500 }
     );
   }
