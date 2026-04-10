@@ -23,7 +23,7 @@ export default function SignInPage() {
               footerActionLink: "text-primary hover:text-primary-light",
             },
           }}
-          forceRedirectUrl="/chat"
+          forceRedirectUrl="/auth-callback"
           signUpUrl="/sign-up"
         />
       </main>

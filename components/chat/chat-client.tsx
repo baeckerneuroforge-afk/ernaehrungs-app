@@ -386,33 +386,33 @@ export function ChatClient({ userId, userName }: ChatClientProps) {
                         <Leaf className="w-4 h-4 text-primary" />
                       </div>
                     )}
-                    <div
-                      className={`max-w-[85%] px-4 py-2.5 ${
-                        msg.role === "user"
-                          ? "bg-primary text-white rounded-2xl rounded-br-md shadow-card"
-                          : "bg-white border border-border rounded-2xl rounded-bl-md shadow-card"
-                      }`}
-                    >
-                      {msg.role === "assistant" ? (
-                        <>
+                    <div className={`flex flex-col ${msg.role === "user" ? "items-end max-w-[85%] md:max-w-[75%]" : "items-start max-w-[90%] md:max-w-[80%]"}`}>
+                      <div
+                        className={`px-4 py-2.5 ${
+                          msg.role === "user"
+                            ? "bg-primary text-white rounded-2xl rounded-br-sm shadow-card"
+                            : "bg-white border border-border rounded-2xl rounded-bl-sm shadow-card"
+                        }`}
+                      >
+                        {msg.role === "assistant" ? (
                           <ChatMessage content={msg.content} isStreaming={isStreaming && i === messages.length - 1} />
-                          {msg.content && (
-                            <div className="mt-2 flex items-center gap-2">
-                              <span
-                                title="Antwort generiert von KI auf Basis von Janines Wissensbasis"
-                                className="inline-flex items-center gap-1 text-[10px] font-medium text-primary px-2 py-0.5 rounded-full bg-primary-pale"
-                              >
-                                <Sparkles className="w-2.5 h-2.5" />
-                                KI
-                              </span>
-                              <span className="text-[10px] text-ink-faint">
-                                Ersetzt keine ärztliche Beratung
-                              </span>
-                            </div>
-                          )}
-                        </>
-                      ) : (
-                        <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                        ) : (
+                          <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                        )}
+                      </div>
+                      {msg.role === "assistant" && msg.content && (
+                        <div className="mt-1 flex items-center gap-2 px-1">
+                          <span
+                            title="Antwort generiert von KI auf Basis von Janines Wissensbasis"
+                            className="inline-flex items-center gap-1 text-[10px] font-medium text-primary"
+                          >
+                            <Sparkles className="w-2.5 h-2.5" />
+                            KI
+                          </span>
+                          <span className="text-[11px] text-ink-faint">
+                            Ersetzt keine ärztliche Beratung
+                          </span>
+                        </div>
                       )}
                     </div>
                     {msg.role === "user" && (
@@ -429,7 +429,7 @@ export function ChatClient({ userId, userName }: ChatClientProps) {
                   <div className="w-8 h-8 rounded-full bg-primary-pale flex items-center justify-center flex-shrink-0">
                     <Leaf className="w-4 h-4 text-primary" />
                   </div>
-                  <div className="bg-white border border-border rounded-2xl rounded-bl-md shadow-card px-4 py-3">
+                  <div className="bg-white border border-border rounded-2xl rounded-bl-sm shadow-card px-4 py-3">
                     <div className="flex gap-1 items-center h-4">
                       <span className="w-1.5 h-1.5 bg-primary/50 rounded-full animate-typing-dot" />
                       <span className="w-1.5 h-1.5 bg-primary/50 rounded-full animate-typing-dot [animation-delay:0.15s]" />
@@ -594,7 +594,7 @@ export function ChatClient({ userId, userName }: ChatClientProps) {
                     onKeyDown={handleKeyDown}
                     placeholder={historyMode ? "Schreibe weiter im bisherigen Gespräch…" : "Stelle eine Ernährungsfrage…"}
                     rows={1}
-                    className="w-full resize-none pl-4 pr-12 py-3 border border-border rounded-2xl text-sm bg-surface-bg placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white transition-all duration-200 max-h-32"
+                    className="w-full resize-none pl-4 pr-12 py-3 border border-border rounded-2xl text-sm bg-stone-50 placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white transition-all duration-200 max-h-32"
                   />
                   <button
                     onClick={handleSend}

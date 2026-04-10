@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { SignedIn, SignedOut, useUser, useAuth, useClerk } from "@clerk/nextjs";
 import {
@@ -30,6 +30,15 @@ export function NavbarShell() {
   const [userPlan, setUserPlan] = useState<string>("free");
   const [menuOpen, setMenuOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
+
+  // Sign out + force Server Components cache refresh so the landing
+  // navbar doesn't briefly show stale signed-in state.
+  const handleSignOut = async () => {
+    await signOut();
+    router.refresh();
+    router.replace("/");
+  };
 
   // Fetch plan + admin status whenever the signed-in user changes
   useEffect(() => {
@@ -181,7 +190,7 @@ export function NavbarShell() {
                       </Link>
                     )}
                     <button
-                      onClick={() => signOut({ redirectUrl: "/" })}
+                      onClick={handleSignOut}
                       className="hidden md:flex items-center gap-1.5 text-sm text-ink-muted hover:text-red-500 px-3 py-1.5 rounded-full hover:bg-surface-muted transition-all duration-200 cursor-pointer"
                     >
                       <LogOut className="w-4 h-4" />
@@ -303,7 +312,7 @@ export function NavbarShell() {
 
           <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border">
             <button
-              onClick={() => signOut({ redirectUrl: "/" })}
+              onClick={handleSignOut}
               className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-full text-sm text-ink-muted hover:text-red-500 hover:bg-red-50 border border-border transition-all duration-200 cursor-pointer"
             >
               <LogOut className="w-4 h-4" />
