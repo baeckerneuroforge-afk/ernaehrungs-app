@@ -1,38 +1,126 @@
 import Link from "next/link";
+import { Leaf, Instagram, Linkedin, Mail } from "lucide-react";
 
 export function Footer() {
+  const year = new Date().getFullYear();
+
   return (
-    <footer className="border-t border-warm-border mt-auto">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
-          <span className="text-sm font-medium text-warm-dark">
-            Ernährungsberatung by Janine
-          </span>
-          <div className="flex items-center gap-6">
-            <Link href="/impressum" className="text-sm text-warm-muted hover:text-warm-dark transition">
-              Impressum
-            </Link>
-            <Link href="/datenschutz" className="text-sm text-warm-muted hover:text-warm-dark transition">
-              Datenschutz
-            </Link>
-            <Link href="/agb" className="text-sm text-warm-muted hover:text-warm-dark transition">
-              AGB
-            </Link>
-            <Link href="/support" className="text-sm text-warm-muted hover:text-warm-dark transition">
-              Support
-            </Link>
-            <Link href="/blog" className="text-sm text-warm-muted hover:text-warm-dark transition">
-              Blog
-            </Link>
+    <footer className="bg-[#1C1917] text-stone-300 mt-auto">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-16 pb-10">
+        {/* Top: logo + columns */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-8 md:gap-10">
+          {/* Brand */}
+          <div className="col-span-2 md:col-span-2 pr-4">
+            <div className="flex items-center gap-2.5 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
+                <Leaf className="w-5 h-5 text-white" />
+              </div>
+              <span className="font-serif text-lg font-semibold text-white tracking-tight">
+                Ernährungsberatung
+              </span>
+            </div>
+            <p className="text-sm text-stone-400 leading-relaxed max-w-xs mb-5">
+              Fundierte Ernährungsberatung — personalisiert für dich, kuratiert
+              von einer studierten Ernährungswissenschaftlerin.
+            </p>
+            <div className="flex items-center gap-3">
+              <a
+                href="https://www.instagram.com"
+                target="_blank"
+                rel="noreferrer"
+                aria-label="Instagram"
+                className="w-9 h-9 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-stone-400 hover:text-white transition"
+              >
+                <Instagram className="w-4 h-4" />
+              </a>
+              <a
+                href="https://www.linkedin.com"
+                target="_blank"
+                rel="noreferrer"
+                aria-label="LinkedIn"
+                className="w-9 h-9 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-stone-400 hover:text-white transition"
+              >
+                <Linkedin className="w-4 h-4" />
+              </a>
+              <a
+                href="mailto:kontakt@nutriva-ai.de"
+                aria-label="Email"
+                className="w-9 h-9 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-stone-400 hover:text-white transition"
+              >
+                <Mail className="w-4 h-4" />
+              </a>
+            </div>
           </div>
+
+          <FooterColumn
+            title="Produkt"
+            links={[
+              { href: "/chat", label: "Chat" },
+              { href: "/ernaehrungsplan", label: "Ernährungsplan" },
+              { href: "/tagebuch", label: "Tagebuch" },
+              { href: "/tracker", label: "Tracker" },
+              { href: "/blog", label: "Blog" },
+            ]}
+          />
+
+          <FooterColumn
+            title="Rechtliches"
+            links={[
+              { href: "/impressum", label: "Impressum" },
+              { href: "/datenschutz", label: "Datenschutz" },
+              { href: "/agb", label: "AGB" },
+            ]}
+          />
+
+          <FooterColumn
+            title="Support"
+            links={[
+              { href: "/support", label: "Hilfe & Kontakt" },
+              { href: "/#faq", label: "Häufige Fragen" },
+              { href: "mailto:kontakt@nutriva-ai.de", label: "kontakt@nutriva-ai.de" },
+            ]}
+          />
         </div>
-        <div className="mt-6 pt-6 border-t border-warm-border">
-          <p className="text-xs text-warm-light text-center">
+
+        {/* Bottom strip */}
+        <div className="mt-14 pt-6 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <p className="text-xs text-stone-500">
+            © {year} Ernährungsberatung by Janine · Made with 🌱 in Deutschland
+          </p>
+          <p className="text-[11px] text-stone-600 text-center sm:text-right max-w-md leading-relaxed">
             Diese App ersetzt keine ärztliche Beratung. Bei gesundheitlichen
             Beschwerden wende dich bitte an deinen Arzt oder deine Ärztin.
           </p>
         </div>
       </div>
     </footer>
+  );
+}
+
+function FooterColumn({
+  title,
+  links,
+}: {
+  title: string;
+  links: { href: string; label: string }[];
+}) {
+  return (
+    <div>
+      <h3 className="text-xs font-semibold text-white tracking-wider uppercase mb-4">
+        {title}
+      </h3>
+      <ul className="space-y-2.5">
+        {links.map((link) => (
+          <li key={link.label}>
+            <Link
+              href={link.href}
+              className="text-sm text-stone-400 hover:text-white transition"
+            >
+              {link.label}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

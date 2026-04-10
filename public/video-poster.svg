@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 780" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="header" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2D6A4F"/>
+      <stop offset="1" stop-color="#1F5038"/>
+    </linearGradient>
+  </defs>
+  <!-- background -->
+  <rect width="360" height="780" fill="#F0F7EC"/>
+
+  <!-- header bar -->
+  <rect x="0" y="0" width="360" height="110" fill="url(#header)"/>
+  <circle cx="34" cy="72" r="14" fill="rgba(255,255,255,0.18)"/>
+  <path d="M29 72 Q34 64 39 72 Q34 80 29 72" fill="#FFFFFF"/>
+  <text x="58" y="68" font-family="DM Sans, -apple-system, sans-serif" font-size="13" font-weight="600" fill="#FFFFFF">Ernährungsberatung</text>
+  <text x="58" y="84" font-family="DM Sans, -apple-system, sans-serif" font-size="10" fill="rgba(255,255,255,0.7)">Online · Immer für dich da</text>
+
+  <!-- user bubble -->
+  <rect x="95" y="150" width="235" height="64" rx="18" fill="#2D6A4F"/>
+  <rect x="321" y="200" width="9" height="14" fill="#2D6A4F"/>
+  <text x="110" y="178" font-family="DM Sans, sans-serif" font-size="12" fill="#FFFFFF">Was kann ich als Snack essen wenn ich</text>
+  <text x="110" y="196" font-family="DM Sans, sans-serif" font-size="12" fill="#FFFFFF">Laktoseintoleranz habe?</text>
+
+  <!-- AI avatar -->
+  <circle cx="40" cy="258" r="14" fill="#E2F0DB"/>
+  <path d="M36 258 L40 253 L44 258 L42 261 L38 261 Z" fill="#2D6A4F"/>
+
+  <!-- AI bubble -->
+  <rect x="60" y="240" width="275" height="220" rx="18" fill="#FFFFFF" stroke="#E7E5E4"/>
+  <text x="78" y="270" font-family="DM Sans, sans-serif" font-size="12" font-weight="600" fill="#1C1917">Hier sind 5 leckere Snack-Ideen für dich:</text>
+  <text x="78" y="298" font-family="DM Sans, sans-serif" font-size="11" fill="#57534E">1. Nüsse &amp; Trockenfrüchte-Mix</text>
+  <text x="78" y="322" font-family="DM Sans, sans-serif" font-size="11" fill="#57534E">2. Reiswaffeln mit Avocado</text>
+  <text x="78" y="346" font-family="DM Sans, sans-serif" font-size="11" fill="#57534E">3. Dunkle Schokolade (ab 70%)</text>
+  <text x="78" y="370" font-family="DM Sans, sans-serif" font-size="11" fill="#57534E">4. Hummus mit Gemüsesticks</text>
+  <text x="78" y="394" font-family="DM Sans, sans-serif" font-size="11" fill="#57534E">5. Laktosefreier Joghurt mit Beeren</text>
+  <text x="78" y="432" font-family="DM Sans, sans-serif" font-size="10" font-style="italic" fill="#A8A29E">Alle passend zu deinem Profil ✓</text>
+
+  <!-- input bar -->
+  <rect x="0" y="700" width="360" height="80" fill="#FFFFFF"/>
+  <rect x="0" y="700" width="360" height="1" fill="#E7E5E4"/>
+  <rect x="20" y="720" width="280" height="40" rx="20" fill="#F3F2EE"/>
+  <text x="40" y="744" font-family="DM Sans, sans-serif" font-size="12" fill="#A8A29E">Stelle eine Frage…</text>
+  <circle cx="324" cy="740" r="18" fill="#2D6A4F"/>
+  <path d="M318 740 L330 735 L326 740 L330 745 Z" fill="#FFFFFF"/>
+</svg>

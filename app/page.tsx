@@ -10,7 +10,6 @@ import {
   ChevronDown,
   MessageCircle,
   CalendarDays,
-  User,
   BookOpen,
   TrendingUp,
   Send,
@@ -21,11 +20,18 @@ import {
   Heart,
   Leaf,
   Clock,
+  Crown,
+  Salad,
+  Scale,
+  Apple,
+  BarChart3,
+  Baby,
+  Wheat,
 } from "lucide-react";
 
-/* ═══════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════
    SCROLL REVEAL HOOK
-   ═══════════════════════════════════════ */
+   ═══════════════════════════════════════════════════════════════ */
 function useScrollReveal() {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -49,7 +55,7 @@ function useScrollReveal() {
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen flex flex-col bg-surface-bg">
+    <div className="min-h-screen flex flex-col bg-surface-bg overflow-x-hidden">
       <Navbar />
       <main className="flex-1">
         <HeroSection />
@@ -59,8 +65,7 @@ export default function LandingPage() {
         <ClosedLoopSection />
         <ExampleQuestionsSection />
         <PricingSection />
-        <JanineDirectSection />
-        <AboutJanineSection />
+        <JanineSection />
         <FaqSection />
         <CtaFooterSection />
       </main>
@@ -69,24 +74,21 @@ export default function LandingPage() {
   );
 }
 
-/* ═══════════════════════════════════════
-   1. HERO — Video Demo in Phone Frame
-   ═══════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════
+   1. HERO
+   ═══════════════════════════════════════════════════════════════ */
 function HeroSection() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const phoneRef = useRef<HTMLDivElement>(null);
   const [videoFailed, setVideoFailed] = useState(false);
 
-  // Auto-play video when phone frame scrolls into view
   useEffect(() => {
     const el = phoneRef.current;
     const video = videoRef.current;
     if (!el || !video) return;
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) {
-          video.play().catch(() => {});
-        }
+        if (entry.isIntersecting) video.play().catch(() => {});
       },
       { threshold: 0.3 }
     );
@@ -95,59 +97,105 @@ function HeroSection() {
   }, [videoFailed]);
 
   return (
-    <section className="relative overflow-hidden">
-      {/* Soft organic background shapes */}
-      <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-sage-pale/60 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
-      <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-accent-warmPale/40 rounded-full blur-3xl translate-y-1/2 -translate-x-1/3 pointer-events-none" />
+    <section className="relative min-h-[90vh] flex items-center overflow-hidden">
+      {/* Organic background blobs */}
+      <div
+        aria-hidden
+        className="absolute top-[-15%] right-[-10%] w-[720px] h-[720px] rounded-full pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(closest-side, rgba(226,240,219,0.9), rgba(226,240,219,0) 70%)",
+        }}
+      />
+      <div
+        aria-hidden
+        className="absolute bottom-[-25%] left-[-15%] w-[560px] h-[560px] rounded-full pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(closest-side, rgba(245,237,228,0.8), rgba(245,237,228,0) 70%)",
+        }}
+      />
+      {/* Subtle dot grid */}
+      <div
+        aria-hidden
+        className="absolute inset-0 opacity-[0.35] pointer-events-none"
+        style={{
+          backgroundImage:
+            "radial-gradient(rgba(45,106,79,0.08) 1px, transparent 1px)",
+          backgroundSize: "28px 28px",
+        }}
+      />
 
-      <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-20 pb-24 sm:pt-28 sm:pb-32 lg:pt-32 lg:pb-36">
-        <div className="grid lg:grid-cols-2 gap-16 lg:gap-20 items-center">
-          {/* Left: Copy */}
-          <div className="max-w-xl">
-            <p className="text-sm font-medium text-primary tracking-wide uppercase mb-5">
-              Fundierte Ern&auml;hrungsberatung
-            </p>
-            <h1 className="font-serif text-4xl sm:text-5xl lg:text-[3.6rem] font-semibold text-warm-dark leading-[1.12] mb-6">
-              Deine Ern&auml;hrungs&shy;beraterin.
+      <div className="relative w-full max-w-6xl mx-auto px-4 sm:px-6 pt-24 pb-20 lg:pt-28 lg:pb-24">
+        <div className="grid lg:grid-cols-[1.1fr_1fr] gap-12 lg:gap-20 items-center">
+          {/* Left — Copy */}
+          <div className="max-w-xl relative z-10">
+            <div className="inline-flex items-center gap-2 bg-white/70 backdrop-blur-sm border border-sage-light/60 rounded-full px-4 py-1.5 mb-8 shadow-sm">
+              <Sparkles className="w-3.5 h-3.5 text-primary" />
+              <span className="text-xs font-medium text-primary tracking-wide">
+                Fundierte Ernährungsberatung
+              </span>
+            </div>
+
+            <h1 className="font-serif font-semibold text-warm-dark leading-[1.02] tracking-tight mb-7 text-5xl sm:text-6xl md:text-7xl">
+              Deine Ernährungs
+              <span className="hidden md:inline">&shy;</span>
+              beraterin.
               <br />
-              <span className="text-primary">Immer dabei.</span>
+              <span
+                className="inline-block bg-gradient-to-r from-primary via-primary-light to-sage bg-clip-text text-transparent italic pr-2"
+                style={{ fontFeatureSettings: "'ss01'" }}
+              >
+                Immer dabei.
+              </span>
             </h1>
-            <p className="text-lg text-warm-muted leading-relaxed mb-10 max-w-md">
-              Fundiertes Fachwissen einer studierten Ern&auml;hrungswissenschaftlerin
-              &mdash; pers&ouml;nlich auf dich abgestimmt. Frag was du willst, bekomme
-              Antworten die zu dir passen.
+
+            <p className="text-lg sm:text-xl text-warm-muted leading-relaxed mb-10 max-w-lg font-light">
+              Frag was dich bewegt. Die Antwort kennt dein Ziel, deine Allergien
+              und deinen Alltag.
             </p>
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
               <Link
                 href="/sign-up"
-                className="inline-flex items-center gap-2.5 bg-primary text-white px-8 py-4 rounded-full font-medium hover:bg-primary-light transition-all duration-200 shadow-lg shadow-primary/20 cursor-pointer"
+                className="group inline-flex items-center gap-2.5 bg-primary text-white px-9 py-4 rounded-full font-medium text-base hover:bg-primary-hover hover:scale-[1.03] active:scale-95 transition-all duration-200 shadow-xl shadow-primary/25"
               >
                 Kostenlos starten
-                <ArrowRight className="w-4 h-4" />
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
               </Link>
-              <span className="text-sm text-warm-light">
-                Kein Abo n&ouml;tig &middot; 15 Credits gratis
-              </span>
+              <div className="inline-flex items-center gap-2 bg-white/60 backdrop-blur-sm border border-border rounded-full px-4 py-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                <span className="text-xs text-warm-muted">
+                  Kein Abo nötig · 15 Credits gratis
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* Right: iPhone with Video */}
-          <div className="relative lg:pl-4 flex justify-center lg:justify-end">
-            {/* Decorative ring */}
-            <div className="absolute -top-8 -right-8 w-80 h-80 border border-sage-pale rounded-full pointer-events-none hidden lg:block" />
+          {/* Right — Phone with video */}
+          <div className="relative flex justify-center lg:justify-end">
+            <div
+              aria-hidden
+              className="absolute -top-10 -right-10 w-80 h-80 border border-sage-light/60 rounded-full hidden lg:block"
+            />
+            <div
+              aria-hidden
+              className="absolute -bottom-6 -left-6 w-40 h-40 border border-accent-warmLight/40 rounded-full hidden lg:block"
+            />
 
-            {/* Phone frame */}
-            <div ref={phoneRef} className="relative w-[280px] sm:w-[300px]">
-              <div className="bg-[#1A1A1A] rounded-[44px] p-[6px] shadow-2xl shadow-black/15">
+            <div
+              ref={phoneRef}
+              className="relative w-[280px] sm:w-[310px] motion-safe:transition-transform duration-500"
+              style={{ transform: "rotate(-2deg)" }}
+            >
+              <div className="bg-[#1A1A1A] rounded-[44px] p-[6px] shadow-[0_40px_80px_-20px_rgba(28,25,23,0.35)]">
                 <div className="bg-[#F0F7EC] rounded-[40px] overflow-hidden relative">
-                  {/* Notch overlay */}
                   <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[120px] h-[28px] bg-[#1A1A1A] rounded-b-2xl z-10" />
-
-                  {/* Video or fallback */}
                   {!videoFailed ? (
                     <video
                       ref={videoRef}
                       src="/ernaehrungsapp-demo.mp4"
+                      poster="/video-poster.svg"
                       preload="metadata"
                       autoPlay
                       muted
@@ -159,8 +207,6 @@ function HeroSection() {
                   ) : (
                     <HeroFallback />
                   )}
-
-                  {/* Home indicator overlay */}
                   <div className="absolute bottom-0 left-0 right-0 flex justify-center py-2 z-10">
                     <div className="w-24 h-1 bg-black/10 rounded-full" />
                   </div>
@@ -174,22 +220,19 @@ function HeroSection() {
   );
 }
 
-/* Static fallback if video fails to load */
 function HeroFallback() {
   return (
     <div className="flex flex-col">
-      {/* Header */}
       <div className="bg-primary px-4 pt-10 pb-3 flex items-center gap-2.5">
         <div className="w-7 h-7 rounded-lg bg-white/15 flex items-center justify-center">
           <Leaf className="w-3.5 h-3.5 text-white" />
         </div>
         <div>
-          <p className="text-white font-medium text-xs">Ern&auml;hrungsberatung</p>
+          <p className="text-white font-medium text-xs">Ernährungsberatung</p>
           <p className="text-white/60 text-[10px]">Online</p>
         </div>
       </div>
-      {/* Messages */}
-      <div className="bg-surface-bg px-3 py-4 space-y-3 min-h-[320px] sm:min-h-[360px]">
+      <div className="bg-surface-bg px-3 py-4 space-y-3 min-h-[320px]">
         <div className="flex justify-end">
           <div className="bg-primary text-white px-3 py-2.5 rounded-2xl rounded-br-sm max-w-[85%]">
             <p className="text-xs leading-relaxed">
@@ -203,22 +246,21 @@ function HeroFallback() {
           </div>
           <div className="bg-white border border-warm-border/80 px-3 py-2.5 rounded-2xl rounded-bl-sm max-w-[88%] shadow-sm">
             <p className="text-xs text-warm-text leading-relaxed mb-2 font-medium">
-              Hier sind 5 leckere Snack-Ideen f&uuml;r dich:
+              Hier sind 5 leckere Snack-Ideen für dich:
             </p>
             <ul className="text-xs text-warm-muted space-y-0.5">
-              <li>1. N&uuml;sse &amp; Trockenf&uuml;chte-Mix</li>
+              <li>1. Nüsse &amp; Trockenfrüchte-Mix</li>
               <li>2. Reiswaffeln mit Avocado</li>
               <li>3. Dunkle Schokolade (ab 70%)</li>
-              <li>4. Hummus mit Gem&uuml;sesticks</li>
+              <li>4. Hummus mit Gemüsesticks</li>
               <li>5. Laktosefreier Joghurt mit Beeren</li>
             </ul>
           </div>
         </div>
       </div>
-      {/* Input */}
       <div className="px-3 py-2.5 border-t border-warm-border/60 bg-white flex items-center gap-2">
         <div className="flex-1 bg-surface-muted rounded-xl px-3 py-2">
-          <p className="text-[10px] text-warm-light">Stelle eine Frage...</p>
+          <p className="text-[10px] text-warm-light">Stelle eine Frage…</p>
         </div>
         <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
           <Send className="w-3 h-3 text-white" />
@@ -228,268 +270,584 @@ function HeroFallback() {
   );
 }
 
-/* ═══════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════
    2. TRUST BAR
-   ═══════════════════════════════════════ */
+   ═══════════════════════════════════════════════════════════════ */
 function TrustBar() {
   const ref = useScrollReveal();
   const items = [
-    { icon: <GraduationCap className="w-4 h-4" />, text: "Studierte Ernährungswissenschaftlerin" },
-    { icon: <FlaskConical className="w-4 h-4" />, text: "Wissenschaftlich fundiert" },
-    { icon: <Shield className="w-4 h-4" />, text: "DSGVO-konform" },
+    {
+      icon: <GraduationCap className="w-5 h-5" />,
+      title: "Studierte Expertin",
+      body: "Kuratiert von einer Ernährungswissenschaftlerin",
+    },
+    {
+      icon: <FlaskConical className="w-5 h-5" />,
+      title: "12 kuratierte Quellen",
+      body: "Wissenschaftlich fundiert, laufend aktualisiert",
+    },
+    {
+      icon: <Shield className="w-5 h-5" />,
+      title: "DSGVO-konform",
+      body: "Daten bleiben sicher — kein Namens-Tracking",
+    },
   ];
 
   return (
-    <div ref={ref} className="reveal border-y border-sage-light/40 bg-sage-faint/50">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-7">
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-10">
-          {items.map((item) => (
-            <div key={item.text} className="flex items-center gap-2.5">
-              <span className="text-primary">{item.icon}</span>
-              <span className="text-sm text-warm-muted font-medium">{item.text}</span>
+    <div className="relative bg-white border-y border-border/60 shadow-[0_4px_20px_-10px_rgba(28,25,23,0.06)]">
+      <div
+        ref={ref}
+        className="reveal-stagger max-w-5xl mx-auto px-4 sm:px-6 py-8 grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8"
+      >
+        {items.map((item) => (
+          <div
+            key={item.title}
+            className="flex items-start gap-3.5 sm:justify-center"
+          >
+            <div className="w-11 h-11 rounded-2xl bg-primary-pale text-primary flex items-center justify-center flex-shrink-0">
+              {item.icon}
             </div>
-          ))}
-        </div>
+            <div>
+              <p className="text-sm font-semibold text-warm-dark leading-tight">
+                {item.title}
+              </p>
+              <p className="text-xs text-warm-muted mt-0.5 leading-relaxed">
+                {item.body}
+              </p>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
 }
 
-/* ═══════════════════════════════════════
-   3. HOW IT WORKS (4 Steps) — moved up
-   ═══════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════
+   3. HOW IT WORKS — Zig-Zag with mini app mockups
+   ═══════════════════════════════════════════════════════════════ */
 function HowItWorksSection() {
   const ref = useScrollReveal();
   const steps = [
     {
       num: "01",
       title: "Profil anlegen",
-      desc: "Ziele, Allergien, Ernährungsform — dauert 2 Minuten.",
-      icon: <User className="w-5 h-5" />,
+      desc: "Ziele, Allergien, Ernährungsform — dauert 2 Minuten. Alles was die KI braucht, um dich wirklich zu verstehen.",
+      mockup: <ProfileMockup />,
     },
     {
       num: "02",
       title: "Frage stellen",
-      desc: "Chatte mit deiner KI-Beraterin oder lass dir einen Plan erstellen.",
-      icon: <MessageCircle className="w-5 h-5" />,
+      desc: "Chatte mit deiner KI-Beraterin. Sie kennt dein Profil und gibt dir Antworten, die wirklich zu dir passen.",
+      mockup: <ChatMockup />,
     },
     {
       num: "03",
       title: "Tagebuch führen",
-      desc: "Erfasse was du isst. Die KI lernt dich besser kennen.",
-      icon: <BookOpen className="w-5 h-5" />,
+      desc: "Erfasse was du isst. Je mehr die KI über deine Ernährung weiß, desto persönlicher werden die Empfehlungen.",
+      mockup: <TagebuchMockup />,
     },
     {
       num: "04",
       title: "Besser essen",
-      desc: "Jede Woche bessere Empfehlungen dank Closed-Loop-System.",
-      icon: <Heart className="w-5 h-5" />,
+      desc: "Erhalte Wochenpläne und sanfte Wochenreviews. Jede Woche ein Stück besser — ohne Druck.",
+      mockup: <PlanMockup />,
     },
   ];
 
   return (
-    <section className="max-w-5xl mx-auto px-4 sm:px-6 py-28">
-      <div className="text-center mb-16">
-        <p className="text-sm font-medium text-primary tracking-wide uppercase mb-3">
+    <section className="relative py-28">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 text-center mb-20">
+        <p className="text-xs font-semibold text-primary tracking-[0.2em] uppercase mb-3">
           So funktioniert&apos;s
         </p>
-        <h2 className="font-serif text-3xl sm:text-4xl font-semibold text-warm-dark mb-4">
-          In vier Schritten zu besserer Ern&auml;hrung
+        <h2 className="font-serif text-4xl sm:text-5xl font-semibold text-warm-dark leading-[1.08] tracking-tight">
+          In vier Schritten zu
+          <br />
+          <span className="italic text-primary">besserer Ernährung</span>
         </h2>
       </div>
 
-      <div ref={ref} className="reveal-stagger grid sm:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-6">
-        {steps.map((s, i) => (
-          <div key={s.num} className="relative text-center group">
-            {/* Connector line (desktop only) */}
-            {i < steps.length - 1 && (
-              <div className="hidden lg:block absolute top-7 left-[calc(50%+32px)] right-[calc(-50%+32px)] h-[1px] bg-sage-light" />
-            )}
+      <div ref={ref} className="reveal-stagger max-w-5xl mx-auto px-4 sm:px-6 space-y-16 sm:space-y-24">
+        {steps.map((s, i) => {
+          const reversed = i % 2 === 1;
+          return (
+            <div
+              key={s.num}
+              className={`relative grid md:grid-cols-2 gap-8 md:gap-14 items-center ${
+                reversed ? "md:[&>*:first-child]:order-2" : ""
+              }`}
+            >
+              {/* Text */}
+              <div className={`${reversed ? "md:text-right md:pl-6" : "md:pr-6"} relative`}>
+                <span
+                  aria-hidden
+                  className="font-serif text-[7rem] sm:text-[9rem] leading-none font-semibold text-primary-pale absolute -top-8 -z-10 select-none"
+                  style={reversed ? { right: "-0.25rem" } : { left: "-0.25rem" }}
+                >
+                  {s.num}
+                </span>
+                <span className="inline-block text-[11px] font-semibold text-primary tracking-widest uppercase mb-3 bg-primary-pale rounded-full px-3 py-1">
+                  Schritt {s.num}
+                </span>
+                <h3 className="font-serif text-2xl sm:text-3xl font-semibold text-warm-dark mb-4 leading-tight">
+                  {s.title}
+                </h3>
+                <p className={`text-warm-muted leading-relaxed max-w-md ${reversed ? "md:ml-auto" : ""}`}>
+                  {s.desc}
+                </p>
+              </div>
 
-            {/* Icon circle */}
-            <div className="w-14 h-14 rounded-2xl bg-sage-pale flex items-center justify-center mx-auto mb-5 text-primary group-hover:bg-primary group-hover:text-white transition-all duration-300">
-              {s.icon}
+              {/* Mockup */}
+              <div className="flex justify-center">
+                <div className="relative">
+                  <div
+                    aria-hidden
+                    className="absolute inset-0 bg-primary-pale rounded-3xl blur-2xl opacity-60 -z-10"
+                  />
+                  {s.mockup}
+                </div>
+              </div>
             </div>
-            <span className="text-xs font-medium text-sage-DEFAULT tracking-widest uppercase mb-2 block">
-              Schritt {s.num}
-            </span>
-            <h3 className="font-serif text-lg font-semibold text-warm-dark mb-2">{s.title}</h3>
-            <p className="text-sm text-warm-muted leading-relaxed">{s.desc}</p>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+/* ---- Mini mockups ---- */
+function MockupFrame({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="bg-white rounded-3xl border border-border shadow-xl shadow-black/[0.06] p-5 w-[280px] sm:w-[320px]">
+      {children}
+    </div>
+  );
+}
+
+function ProfileMockup() {
+  return (
+    <MockupFrame>
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-10 h-10 rounded-full bg-primary-pale text-primary flex items-center justify-center font-serif font-semibold">
+          L
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-warm-dark">Lisa</p>
+          <p className="text-[10px] text-warm-light">Profil</p>
+        </div>
+      </div>
+      <div className="space-y-2.5">
+        <MiniField label="Ziel" value="Gewicht halten" />
+        <MiniField label="Ernährungsform" value="Vegetarisch" />
+        <div>
+          <p className="text-[10px] text-warm-light uppercase tracking-wider mb-1.5">
+            Allergien
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {["Laktose", "Nüsse", "Gluten"].map((a) => (
+              <span
+                key={a}
+                className="text-[10px] bg-accent-warmPale text-accent-warm border border-accent-warmLight/60 rounded-full px-2.5 py-0.5 font-medium"
+              >
+                {a}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+    </MockupFrame>
+  );
+}
+
+function MiniField({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="bg-surface-muted rounded-xl px-3 py-2">
+      <p className="text-[9px] text-warm-light uppercase tracking-wider">{label}</p>
+      <p className="text-xs font-medium text-warm-dark">{value}</p>
+    </div>
+  );
+}
+
+function ChatMockup() {
+  return (
+    <MockupFrame>
+      <div className="flex items-center gap-2 mb-3 pb-3 border-b border-border">
+        <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center">
+          <Leaf className="w-3.5 h-3.5 text-white" />
+        </div>
+        <p className="text-xs font-semibold text-warm-dark">KI-Beraterin</p>
+        <span className="ml-auto text-[9px] text-primary bg-primary-pale rounded-full px-2 py-0.5">
+          Online
+        </span>
+      </div>
+      <div className="space-y-2.5">
+        <div className="flex justify-end">
+          <div className="bg-primary text-white rounded-2xl rounded-br-md px-3 py-2 max-w-[85%]">
+            <p className="text-[11px] leading-snug">
+              Was kann ich abends essen?
+            </p>
+          </div>
+        </div>
+        <div className="flex">
+          <div className="bg-surface-muted rounded-2xl rounded-bl-md px-3 py-2 max-w-[88%]">
+            <p className="text-[11px] text-warm-dark leading-snug">
+              Leichte Proteine wie Magerquark oder ein Omelett mit Gemüse —
+              sättigend, ohne zu belasten.
+            </p>
+          </div>
+        </div>
+      </div>
+    </MockupFrame>
+  );
+}
+
+function TagebuchMockup() {
+  const entries = [
+    { time: "08:12", meal: "Haferflocken mit Beeren", kcal: 340 },
+    { time: "12:45", meal: "Linsensuppe mit Brot", kcal: 480 },
+    { time: "15:30", meal: "Apfel + Mandeln", kcal: 210 },
+  ];
+  return (
+    <MockupFrame>
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <p className="text-[10px] text-warm-light uppercase tracking-wider">
+            Heute
+          </p>
+          <p className="text-sm font-semibold text-warm-dark">Mittwoch</p>
+        </div>
+        <div className="text-right">
+          <p className="text-lg font-serif font-semibold text-primary leading-none">
+            1.030
+          </p>
+          <p className="text-[9px] text-warm-light">/ 1.800 kcal</p>
+        </div>
+      </div>
+      <div className="h-1.5 bg-surface-muted rounded-full mb-4 overflow-hidden">
+        <div className="h-full bg-primary rounded-full" style={{ width: "57%" }} />
+      </div>
+      <div className="space-y-2">
+        {entries.map((e) => (
+          <div
+            key={e.time}
+            className="flex items-center gap-2.5 bg-surface-muted/60 rounded-xl px-2.5 py-1.5"
+          >
+            <div className="w-7 h-7 rounded-lg bg-white flex items-center justify-center flex-shrink-0">
+              <Apple className="w-3.5 h-3.5 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-medium text-warm-dark truncate">
+                {e.meal}
+              </p>
+              <p className="text-[9px] text-warm-light">{e.time}</p>
+            </div>
+            <p className="text-[10px] text-warm-muted font-medium">
+              {e.kcal}
+            </p>
           </div>
         ))}
       </div>
-    </section>
+    </MockupFrame>
   );
 }
 
-/* ═══════════════════════════════════════
-   4. FEATURES (3 Cards)
-   ═══════════════════════════════════════ */
+function PlanMockup() {
+  const days = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
+  return (
+    <MockupFrame>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <CalendarDays className="w-4 h-4 text-primary" />
+          <p className="text-sm font-semibold text-warm-dark">Woche 14</p>
+        </div>
+        <span className="text-[9px] bg-accent-warmPale text-accent-warm rounded-full px-2 py-0.5 font-medium">
+          16:8
+        </span>
+      </div>
+      <div className="grid grid-cols-7 gap-1 mb-3">
+        {days.map((d, i) => (
+          <div key={d} className="text-center">
+            <p className="text-[9px] text-warm-light mb-1">{d}</p>
+            <div
+              className={`h-1.5 rounded-full ${
+                i < 3 ? "bg-primary" : "bg-surface-muted"
+              }`}
+            />
+          </div>
+        ))}
+      </div>
+      <div className="space-y-1.5">
+        <MiniMealRow meal="Frühstück" label="Overnight Oats" />
+        <MiniMealRow meal="Mittag" label="Quinoa-Bowl" />
+        <MiniMealRow meal="Abend" label="Ofengemüse" />
+      </div>
+    </MockupFrame>
+  );
+}
+
+function MiniMealRow({ meal, label }: { meal: string; label: string }) {
+  return (
+    <div className="flex items-center justify-between bg-surface-muted/60 rounded-lg px-2.5 py-1.5">
+      <p className="text-[10px] text-warm-light uppercase tracking-wider">
+        {meal}
+      </p>
+      <p className="text-[11px] font-medium text-warm-dark">{label}</p>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   4. FEATURES
+   ═══════════════════════════════════════════════════════════════ */
 function FeaturesSection() {
   const ref = useScrollReveal();
-  const features = [
-    {
-      icon: <MessageCircle className="w-5 h-5" />,
-      title: "Chat mit KI-Beraterin",
-      description:
-        "Stelle jede Frage rund um Ernährung. Sofort fundierte Antworten — basierend auf deinem Profil, Tagebuch und Zielen.",
-    },
-    {
-      icon: <CalendarDays className="w-5 h-5" />,
-      title: "Dein Ernährungsplan",
-      description:
-        "KI-generierte Wochenpläne abgestimmt auf deine Ziele, Allergien, Vorlieben und dein echtes Essverhalten.",
-    },
-    {
-      icon: <TrendingUp className="w-5 h-5" />,
-      title: "Wochenreview",
-      description:
-        "Jeden Sonntag: Was lief gut, was kannst du verbessern, Fokus für die nächste Woche. Warmherzig und fachlich.",
-    },
-  ];
 
   return (
-    <section className="bg-sage-faint/30 border-y border-sage-light/30">
+    <section className="relative bg-gradient-to-b from-sage-faint/50 via-surface-bg to-surface-bg border-y border-sage-light/30">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-28">
         <div className="text-center mb-16">
-          <p className="text-sm font-medium text-primary tracking-wide uppercase mb-3">
+          <p className="text-xs font-semibold text-primary tracking-[0.2em] uppercase mb-3">
             Funktionen
           </p>
-          <h2 className="font-serif text-3xl sm:text-4xl font-semibold text-warm-dark mb-4">
-            Alles f&uuml;r bessere Ern&auml;hrung
+          <h2 className="font-serif text-4xl sm:text-5xl font-semibold text-warm-dark mb-5 tracking-tight leading-tight">
+            Alles für bessere Ernährung
           </h2>
-          <p className="text-warm-muted max-w-lg mx-auto leading-relaxed">
-            Fundiertes Wissen, individuell auf dich abgestimmt &mdash;
-            wie eine pers&ouml;nliche Beratung, die immer f&uuml;r dich da ist.
+          <p className="text-warm-muted max-w-lg mx-auto leading-relaxed font-light text-lg">
+            Fundiertes Wissen, individuell auf dich abgestimmt — wie eine
+            persönliche Beratung, die immer für dich da ist.
           </p>
         </div>
 
-        <div ref={ref} className="reveal-stagger grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {features.map((f) => (
-            <div
-              key={f.title}
-              className="group bg-white rounded-2xl border border-sage-light/50 p-8 hover:shadow-lg hover:shadow-sage-DEFAULT/[0.06] hover:-translate-y-1 transition-all duration-300 cursor-default"
-            >
-              <div className="w-12 h-12 rounded-2xl bg-sage-pale flex items-center justify-center text-primary mb-5">
-                {f.icon}
-              </div>
-              <h3 className="font-serif text-xl font-semibold text-warm-dark mb-3">
-                {f.title}
-              </h3>
-              <p className="text-sm text-warm-muted leading-relaxed">{f.description}</p>
-            </div>
-          ))}
+        <div
+          ref={ref}
+          className="reveal-stagger grid md:grid-cols-3 gap-6"
+        >
+          <FeatureCard
+            icon={<MessageCircle className="w-5 h-5" />}
+            title="Chat mit KI-Beraterin"
+            description="Stelle jede Frage rund um Ernährung. Sofort fundierte Antworten — basierend auf deinem Profil, Tagebuch und Zielen."
+            preview={<ChatPreview />}
+          />
+          <FeatureCard
+            icon={<CalendarDays className="w-5 h-5" />}
+            title="Dein Ernährungsplan"
+            description="KI-generierte Wochenpläne abgestimmt auf deine Ziele, Allergien, Vorlieben und dein echtes Essverhalten."
+            preview={<PlanPreview />}
+          />
+          <FeatureCard
+            icon={<TrendingUp className="w-5 h-5" />}
+            title="Wochenreview"
+            description="Jeden Sonntag: Was lief gut, was kannst du verbessern, Fokus für die nächste Woche. Warmherzig und fachlich."
+            preview={<ReviewPreview />}
+          />
         </div>
       </div>
     </section>
   );
 }
 
-/* ═══════════════════════════════════════
-   5. CLOSED LOOP — Cards with animated arrows
-   ═══════════════════════════════════════ */
+function FeatureCard({
+  icon,
+  title,
+  description,
+  preview,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  preview: React.ReactNode;
+}) {
+  return (
+    <div className="group bg-white rounded-3xl border border-border p-7 hover:shadow-2xl hover:shadow-primary/[0.08] hover:-translate-y-1 hover:border-primary/30 transition-all duration-300 flex flex-col">
+      {/* Preview */}
+      <div className="bg-gradient-to-br from-primary-faint to-sage-faint rounded-2xl p-4 mb-6 h-36 flex items-center justify-center overflow-hidden">
+        {preview}
+      </div>
+      <div className="w-11 h-11 rounded-2xl bg-primary-pale text-primary group-hover:bg-primary group-hover:text-white flex items-center justify-center mb-4 transition-colors duration-300">
+        {icon}
+      </div>
+      <h3 className="font-serif text-xl font-semibold text-warm-dark mb-2.5 tracking-tight">
+        {title}
+      </h3>
+      <p className="text-sm text-warm-muted leading-relaxed flex-1">
+        {description}
+      </p>
+    </div>
+  );
+}
+
+function ChatPreview() {
+  return (
+    <div className="w-full space-y-2">
+      <div className="flex justify-end">
+        <div className="bg-primary text-white text-[10px] rounded-xl rounded-br-sm px-2.5 py-1.5 max-w-[80%]">
+          Wie viel Protein brauche ich?
+        </div>
+      </div>
+      <div className="flex">
+        <div className="bg-white border border-border text-[10px] rounded-xl rounded-bl-sm px-2.5 py-1.5 max-w-[85%] shadow-sm">
+          <p className="text-warm-dark font-medium">Bei deinem Profil: ca. 1,2 g / kg Körpergewicht.</p>
+          <p className="text-warm-muted mt-0.5">Das entspricht ~84 g pro Tag.</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PlanPreview() {
+  const days = ["M", "D", "M", "D", "F", "S", "S"];
+  return (
+    <div className="w-full">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-[9px] text-warm-muted uppercase tracking-wider font-semibold">Woche</p>
+        <span className="text-[9px] bg-white border border-border rounded-full px-1.5 py-0.5 text-warm-muted">
+          16:8
+        </span>
+      </div>
+      <div className="grid grid-cols-7 gap-1 mb-2">
+        {days.map((d, i) => (
+          <div key={i} className="text-center">
+            <p className="text-[8px] text-warm-light mb-0.5">{d}</p>
+            <div className="h-6 rounded bg-white border border-border flex items-center justify-center">
+              <div className={`w-2 h-2 rounded-full ${i < 4 ? "bg-primary" : "bg-sage-light"}`} />
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="bg-white border border-border rounded-lg px-2 py-1 text-[9px] text-warm-muted">
+        Heute: Quinoa-Bowl · 520 kcal
+      </div>
+    </div>
+  );
+}
+
+function ReviewPreview() {
+  const blocks = [
+    { icon: <Scale className="w-3 h-3" />, label: "Gewicht", value: "−0,4 kg" },
+    { icon: <Salad className="w-3 h-3" />, label: "Ziel", value: "82%" },
+    { icon: <BarChart3 className="w-3 h-3" />, label: "Woche", value: "Gut" },
+  ];
+  return (
+    <div className="w-full space-y-1.5">
+      <p className="text-[9px] text-warm-muted uppercase tracking-wider font-semibold mb-1.5">
+        Sonntagsreview
+      </p>
+      {blocks.map((b) => (
+        <div
+          key={b.label}
+          className="flex items-center gap-2 bg-white border border-border rounded-lg px-2 py-1.5"
+        >
+          <div className="w-5 h-5 rounded bg-primary-pale text-primary flex items-center justify-center">
+            {b.icon}
+          </div>
+          <p className="text-[10px] text-warm-muted flex-1">{b.label}</p>
+          <p className="text-[10px] font-semibold text-warm-dark">{b.value}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   5. CLOSED LOOP — horizontal flow
+   ═══════════════════════════════════════════════════════════════ */
 function ClosedLoopSection() {
   const ref = useScrollReveal();
   const steps = [
-    { label: "Tagebuch", desc: "Erfasse deine Mahlzeiten", icon: <BookOpen className="w-5 h-5" /> },
-    { label: "Chat", desc: "Stelle individuelle Fragen", icon: <MessageCircle className="w-5 h-5" /> },
-    { label: "Plan", desc: "Erhalte deinen Wochenplan", icon: <CalendarDays className="w-5 h-5" /> },
-    { label: "Wochencheck", desc: "Reflektiere deine Woche", icon: <TrendingUp className="w-5 h-5" /> },
+    {
+      label: "Tagebuch",
+      desc: "Du erfasst deine Mahlzeiten",
+      icon: <BookOpen className="w-5 h-5" />,
+      color: "bg-primary-pale text-primary",
+    },
+    {
+      label: "Chat",
+      desc: "Die KI kennt dein Verhalten",
+      icon: <MessageCircle className="w-5 h-5" />,
+      color: "bg-accent-warmPale text-accent-warm",
+    },
+    {
+      label: "Plan",
+      desc: "Dein Wochenplan wird präziser",
+      icon: <CalendarDays className="w-5 h-5" />,
+      color: "bg-sage-pale text-primary",
+    },
+    {
+      label: "Review",
+      desc: "Reflexion fließt zurück",
+      icon: <TrendingUp className="w-5 h-5" />,
+      color: "bg-primary-faint text-primary",
+    },
   ];
 
   return (
-    <section className="max-w-5xl mx-auto px-4 sm:px-6 py-28">
-      <div ref={ref} className="reveal">
+    <section className="relative py-28 overflow-hidden">
+      <div
+        aria-hidden
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(ellipse at center, rgba(226,240,219,0.8) 0%, rgba(226,240,219,0) 65%)",
+        }}
+      />
+
+      <div ref={ref} className="reveal relative max-w-6xl mx-auto px-4 sm:px-6">
         <div className="text-center mb-16">
-          <p className="text-sm font-medium text-primary tracking-wide uppercase mb-3">
+          <p className="text-xs font-semibold text-primary tracking-[0.2em] uppercase mb-3">
             Closed-Loop-System
           </p>
-          <h2 className="font-serif text-3xl sm:text-4xl font-semibold text-warm-dark mb-5">
-            Je mehr du teilst,<br className="hidden sm:block" /> desto besser werde ich.
+          <h2 className="font-serif text-4xl sm:text-5xl font-semibold text-warm-dark mb-5 tracking-tight leading-[1.08]">
+            Je mehr du teilst,
+            <br />
+            <span className="italic text-primary">desto besser werde ich.</span>
           </h2>
-          <p className="text-warm-muted max-w-2xl mx-auto leading-relaxed">
-            Dein Tagebuch, dein Gewichtsverlauf und deine Ziele flie&szlig;en in jede Antwort ein.
-            Keine generischen Tipps &mdash; sondern Empfehlungen die auf deinem echten Verhalten basieren.
+          <p className="text-warm-muted max-w-2xl mx-auto leading-relaxed text-lg font-light">
+            Dein Tagebuch, dein Gewichtsverlauf und deine Ziele fließen in jede
+            Antwort ein — keine generischen Tipps.
           </p>
         </div>
 
-        {/* Loop diagram — cards with animated SVG arrows */}
-        <div className="flex justify-center">
-          <div className="relative w-[320px] h-[320px] sm:w-[400px] sm:h-[400px]">
-            {/* Animated rotating circle behind everything */}
-            <svg
-              className="absolute inset-0 w-full h-full animate-rotate-slow motion-reduce:animate-none"
-              viewBox="0 0 400 400"
-            >
-              <defs>
-                <linearGradient id="arrow-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#A8C99B" stopOpacity="0.3" />
-                  <stop offset="50%" stopColor="#A8C99B" stopOpacity="0.8" />
-                  <stop offset="100%" stopColor="#A8C99B" stopOpacity="0.3" />
-                </linearGradient>
-              </defs>
-              <circle
-                cx="200" cy="200" r="155"
-                fill="none"
-                stroke="url(#arrow-grad)"
-                strokeWidth="2"
-                strokeDasharray="16 10"
-                strokeLinecap="round"
-              />
-            </svg>
-
-            {/* Static arrows between cards */}
-            <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 400 400">
-              {/* Top → Right */}
-              <path d="M250 75 Q 310 95 325 155" fill="none" stroke="#C5DFB8" strokeWidth="2" />
-              <polygon points="327,155 320,145 332,148" fill="#A8C99B" />
-              {/* Right → Bottom */}
-              <path d="M325 245 Q 310 305 250 325" fill="none" stroke="#C5DFB8" strokeWidth="2" />
-              <polygon points="250,327 258,320 255,332" fill="#A8C99B" />
-              {/* Bottom → Left */}
-              <path d="M150 325 Q 60 305 45 245" fill="none" stroke="#C5DFB8" strokeWidth="2" />
-              <polygon points="43,245 50,255 38,252" fill="#A8C99B" />
-              {/* Left → Top */}
-              <path d="M45 155 Q 60 95 150 75" fill="none" stroke="#C5DFB8" strokeWidth="2" />
-              <polygon points="150,73 142,80 145,68" fill="#A8C99B" />
-            </svg>
-
-            {/* Center text */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <p className="text-xs sm:text-sm font-medium text-primary/60 text-center leading-tight max-w-[100px]">
-                Wird jede Woche besser
-              </p>
-            </div>
-
-            {/* Cards */}
-            {steps.map((step, i) => {
-              const positions = [
-                "top-0 left-1/2 -translate-x-1/2 -translate-y-1",
-                "right-0 top-1/2 -translate-y-1/2 translate-x-1",
-                "bottom-0 left-1/2 -translate-x-1/2 translate-y-1",
-                "left-0 top-1/2 -translate-y-1/2 -translate-x-10",
-              ];
-              return (
+        {/* Horizontal flow */}
+        <div className="grid md:grid-cols-4 gap-4 md:gap-3 mb-10 relative">
+          {steps.map((s, i) => (
+            <div key={s.label} className="relative group">
+              <div className="bg-white border border-border rounded-2xl p-5 hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/10 transition-all duration-300 h-full">
                 <div
-                  key={step.label}
-                  className={`absolute ${positions[i]} group`}
+                  className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${s.color}`}
                 >
-                  <div className="bg-white border border-sage-light/60 rounded-2xl px-4 py-3 shadow-sm hover:shadow-md hover:border-sage-DEFAULT transition-all duration-200 cursor-default">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-xl bg-sage-pale flex items-center justify-center text-primary flex-shrink-0">
-                        {step.icon}
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-warm-dark">{step.label}</p>
-                        <p className="text-[11px] text-warm-light hidden group-hover:block transition-all">
-                          {step.desc}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+                  {s.icon}
                 </div>
-              );
-            })}
+                <p className="text-[10px] text-warm-light uppercase tracking-wider mb-1 font-semibold">
+                  0{i + 1}
+                </p>
+                <p className="font-serif text-lg font-semibold text-warm-dark mb-1">
+                  {s.label}
+                </p>
+                <p className="text-xs text-warm-muted leading-relaxed">
+                  {s.desc}
+                </p>
+              </div>
+
+              {/* Arrow to next step */}
+              {i < steps.length - 1 && (
+                <div
+                  aria-hidden
+                  className="hidden md:flex absolute top-1/2 -right-3 -translate-y-1/2 z-10 w-6 h-6 rounded-full bg-white border border-border items-center justify-center shadow-sm"
+                >
+                  <ArrowRight className="w-3 h-3 text-primary" />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Loop-back indicator */}
+        <div className="flex justify-center">
+          <div className="inline-flex items-center gap-2 bg-primary text-white rounded-full px-5 py-2.5 shadow-lg shadow-primary/25">
+            <Sparkles className="w-4 h-4" />
+            <span className="text-sm font-medium">
+              Wird jede Woche besser — im Kreislauf
+            </span>
           </div>
         </div>
       </div>
@@ -497,44 +855,103 @@ function ClosedLoopSection() {
   );
 }
 
-/* ═══════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════════
    6. EXAMPLE QUESTIONS
-   ═══════════════════════════════════════ */
+   ═══════════════════════════════════════════════════════════════ */
 function ExampleQuestionsSection() {
   const ref = useScrollReveal();
-  const questions = [
-    "Was kann ich abends essen um besser zu schlafen?",
-    "Wie bekomme ich genug Protein als Vegetarierin?",
-    "Welche Lebensmittel helfen bei Eisenmangel?",
-    "Erstelle mir einen Wochenplan ohne Gluten",
-    "Was sind gesunde Snacks für unterwegs?",
-    "Wie ernähre ich mich in der Schwangerschaft optimal?",
+  const questions: {
+    category: string;
+    catColor: string;
+    icon: React.ReactNode;
+    q: string;
+    preview: string;
+  }[] = [
+    {
+      category: "Schlaf",
+      catColor: "bg-[#EEF4FA] text-[#2C5282]",
+      icon: <MessageCircle className="w-3.5 h-3.5" />,
+      q: "Was kann ich abends essen um besser zu schlafen?",
+      preview: "Leichte, tryptophanreiche Kost — z.B. Banane mit Joghurt…",
+    },
+    {
+      category: "Vegetarisch",
+      catColor: "bg-primary-pale text-primary",
+      icon: <Salad className="w-3.5 h-3.5" />,
+      q: "Wie bekomme ich genug Protein als Vegetarierin?",
+      preview: "Linsen, Tofu, Quark, Eier — kombiniert decken sie alle…",
+    },
+    {
+      category: "Mangel",
+      catColor: "bg-red-50 text-red-700",
+      icon: <Apple className="w-3.5 h-3.5" />,
+      q: "Welche Lebensmittel helfen bei Eisenmangel?",
+      preview: "Hülsenfrüchte + Vitamin C = optimale Aufnahme…",
+    },
+    {
+      category: "Planung",
+      catColor: "bg-accent-warmPale text-accent-warm",
+      icon: <CalendarDays className="w-3.5 h-3.5" />,
+      q: "Erstelle mir einen Wochenplan ohne Gluten",
+      preview: "7 Tage, 3 Mahlzeiten, alle glutenfrei und abgestimmt…",
+    },
+    {
+      category: "Alltag",
+      catColor: "bg-sage-pale text-primary",
+      icon: <Wheat className="w-3.5 h-3.5" />,
+      q: "Was sind gesunde Snacks für unterwegs?",
+      preview: "Nüsse, Äpfel, Vollkornriegel ohne Zuckerzusatz…",
+    },
+    {
+      category: "Schwangerschaft",
+      catColor: "bg-[#F5EDE4] text-accent-warm",
+      icon: <Baby className="w-3.5 h-3.5" />,
+      q: "Wie ernähre ich mich in der Schwangerschaft optimal?",
+      preview: "Folsäure, Eisen, Omega-3 — und was du meiden solltest…",
+    },
   ];
 
   return (
-    <section className="bg-sage-faint/30 border-y border-sage-light/30">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-28">
+    <section className="relative bg-surface-muted/40 border-y border-border">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-28">
         <div className="text-center mb-14">
-          <p className="text-sm font-medium text-primary tracking-wide uppercase mb-3">
+          <p className="text-xs font-semibold text-primary tracking-[0.2em] uppercase mb-3">
             Beispielfragen
           </p>
-          <h2 className="font-serif text-3xl sm:text-4xl font-semibold text-warm-dark mb-4">
+          <h2 className="font-serif text-4xl sm:text-5xl font-semibold text-warm-dark mb-4 tracking-tight leading-tight">
             Das kannst du fragen
           </h2>
-          <p className="text-warm-muted max-w-md mx-auto">
-            Von Alltagsfragen bis zum Wochenplan &mdash; probier es einfach aus.
+          <p className="text-warm-muted max-w-md mx-auto font-light text-lg">
+            Von Alltagsfragen bis zum Wochenplan — probier es einfach aus.
           </p>
         </div>
 
-        <div ref={ref} className="reveal-stagger grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {questions.map((q) => (
+        <div
+          ref={ref}
+          className="reveal-stagger grid sm:grid-cols-2 lg:grid-cols-3 gap-4"
+        >
+          {questions.map((item) => (
             <Link
-              key={q}
+              key={item.q}
               href="/sign-up"
-              className="group flex items-start gap-3 bg-white border border-sage-light/50 rounded-2xl px-5 py-4 text-sm text-warm-text hover:border-sage-DEFAULT hover:bg-sage-faint/50 hover:shadow-sm transition-all duration-200 cursor-pointer"
+              className="group relative bg-white rounded-2xl border border-border p-5 hover:border-primary/40 hover:shadow-xl hover:shadow-primary/5 hover:-translate-y-0.5 transition-all duration-300 overflow-hidden"
             >
-              <MessageCircle className="w-4 h-4 text-sage-DEFAULT flex-shrink-0 mt-0.5 group-hover:text-primary transition-colors" />
-              <span className="leading-relaxed">{q}</span>
+              <div
+                className={`inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider rounded-full px-2.5 py-1 mb-3 ${item.catColor}`}
+              >
+                {item.icon}
+                {item.category}
+              </div>
+              <p className="text-sm font-medium text-warm-dark leading-snug mb-2">
+                „{item.q}“
+              </p>
+              <p className="text-xs text-warm-light leading-relaxed line-clamp-2 opacity-80 group-hover:opacity-100 transition">
+                {item.preview}
+              </p>
+              <div className="mt-3 pt-3 border-t border-border/60 flex items-center gap-1.5 text-[11px] font-medium text-primary opacity-0 group-hover:opacity-100 transition">
+                Frage stellen
+                <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+              </div>
             </Link>
           ))}
         </div>
@@ -543,153 +960,257 @@ function ExampleQuestionsSection() {
   );
 }
 
-/* ═══════════════════════════════════════
-   7. PRICING (3 Tiers)
-   ═══════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════
+   7. PRICING
+   ═══════════════════════════════════════════════════════════════ */
 function PricingSection() {
   const ref = useScrollReveal();
   const [yearly, setYearly] = useState(false);
 
   return (
-    <section id="preise" className="max-w-6xl mx-auto px-4 sm:px-6 py-28">
-      <div className="text-center mb-6">
-        <p className="text-sm font-medium text-primary tracking-wide uppercase mb-3">
-          Preise
-        </p>
-        <h2 className="font-serif text-3xl sm:text-4xl font-semibold text-warm-dark mb-4">
-          W&auml;hle deinen Plan
-        </h2>
-        <p className="text-warm-muted max-w-md mx-auto">
-          Starte kostenlos. Upgrade wenn du mehr willst.
-        </p>
-      </div>
+    <section id="preise" className="relative py-28">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6">
+        <div className="text-center mb-6">
+          <p className="text-xs font-semibold text-primary tracking-[0.2em] uppercase mb-3">
+            Preise
+          </p>
+          <h2 className="font-serif text-4xl sm:text-5xl font-semibold text-warm-dark mb-4 tracking-tight leading-tight">
+            Wähle deinen Plan
+          </h2>
+          <p className="text-warm-muted max-w-md mx-auto text-lg font-light">
+            Starte kostenlos. Upgrade wenn du mehr willst.
+          </p>
+        </div>
 
-      {/* Toggle */}
-      <div className="flex items-center justify-center gap-3 mb-16">
-        <span
-          className={`text-sm cursor-pointer transition ${!yearly ? "text-warm-dark font-medium" : "text-warm-muted"}`}
-          onClick={() => setYearly(false)}
+        {/* Toggle */}
+        <div className="flex items-center justify-center gap-3 mb-14">
+          <button
+            onClick={() => setYearly(false)}
+            className={`text-sm transition px-4 py-2 rounded-full ${
+              !yearly ? "text-warm-dark font-semibold bg-white shadow-sm" : "text-warm-muted"
+            }`}
+          >
+            Monatlich
+          </button>
+          <button
+            onClick={() => setYearly(true)}
+            className={`text-sm transition px-4 py-2 rounded-full inline-flex items-center gap-2 ${
+              yearly ? "text-warm-dark font-semibold bg-white shadow-sm" : "text-warm-muted"
+            }`}
+          >
+            Jährlich
+            <span className="text-[10px] font-bold bg-primary text-white rounded-full px-2 py-0.5">
+              Spare 20%
+            </span>
+          </button>
+        </div>
+
+        <div
+          ref={ref}
+          className="reveal-stagger grid md:grid-cols-3 gap-6 max-w-5xl mx-auto items-center"
         >
-          Monatlich
-        </span>
-        <button
-          onClick={() => setYearly(!yearly)}
-          className={`relative w-12 h-7 rounded-full transition-colors duration-200 cursor-pointer ${yearly ? "bg-primary" : "bg-sage-light"}`}
-          aria-label="Zwischen monatlich und j&auml;hrlich wechseln"
-        >
-          <div
-            className={`absolute top-1 w-5 h-5 rounded-full bg-white shadow-sm transition-transform duration-200 ${yearly ? "translate-x-6" : "translate-x-1"}`}
+          {/* Free */}
+          <PricingCard
+            name="Kostenlos"
+            tagline="Zum Ausprobieren"
+            price="0"
+            suffix=""
+            features={[
+              { text: "15 Credits pro Monat" },
+              { text: "Basisprofil" },
+              { text: "Allgemeine Empfehlungen" },
+            ]}
+            ctaLabel="Kostenlos starten"
+            ctaVariant="outline"
           />
-        </button>
-        <span
-          className={`text-sm cursor-pointer transition ${yearly ? "text-warm-dark font-medium" : "text-warm-muted"}`}
-          onClick={() => setYearly(true)}
-        >
-          J&auml;hrlich{" "}
-          <span className="text-primary text-xs font-medium ml-1 bg-sage-pale px-2 py-0.5 rounded-full">
-            &minus;20%
-          </span>
-        </span>
-      </div>
 
-      <div ref={ref} className="reveal-stagger grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-        {/* Free */}
-        <div className="bg-white rounded-2xl border border-sage-light/60 p-8 flex flex-col">
-          <div className="mb-6">
-            <h3 className="font-serif text-xl font-semibold text-warm-dark mb-1">Kostenlos</h3>
-            <p className="text-sm text-warm-muted">Zum Ausprobieren</p>
-          </div>
-          <div className="mb-8">
-            <span className="text-4xl font-bold text-warm-dark">0</span>
-            <span className="text-lg text-warm-muted ml-1">&euro;</span>
-          </div>
-          <ul className="space-y-3.5 mb-10 flex-1">
-            <PricingFeature text="15 Credits pro Monat" />
-            <PricingFeature text="Basisprofil" />
-            <PricingFeature text="Allgemeine Empfehlungen" />
-          </ul>
-          <Link
-            href="/sign-up"
-            className="block text-center border-2 border-sage-light text-warm-text px-5 py-3 rounded-full text-sm font-medium hover:border-primary hover:text-primary transition cursor-pointer"
-          >
-            Kostenlos starten
-          </Link>
+          {/* Basis — highlighted, scale-105 */}
+          <PricingCard
+            name="Basis"
+            tagline="Für bewusste Ernährung"
+            price={yearly ? "12,79" : "15,99"}
+            suffix="/ Monat"
+            badge={{ label: "Beliebt", color: "bg-primary text-white" }}
+            featured
+            features={[
+              { text: "100 Credits pro Monat", highlight: true },
+              { text: "Persönliche Ernährungspläne", highlight: true },
+              { text: "Ernährungstagebuch", highlight: true },
+              { text: "Gewichts- & Ziel-Tracker" },
+              { text: "Wöchentlicher KI-Review" },
+              { text: "Rezeptvorschläge" },
+            ]}
+            ctaLabel="Basis wählen"
+            ctaVariant="primary"
+          />
+
+          {/* Premium — amber accent */}
+          <PricingCard
+            name="Premium"
+            tagline="Mit persönlicher Betreuung"
+            price={yearly ? "39,99" : "49,99"}
+            suffix="/ Monat"
+            badge={{
+              label: (
+                <span className="inline-flex items-center gap-1">
+                  <Crown className="w-3 h-3" />
+                  Premium
+                </span>
+              ),
+              color: "bg-gradient-to-r from-accent-warm to-amber-600 text-white",
+            }}
+            accent="amber"
+            features={[
+              { text: "400 Credits pro Monat", highlight: true, accent: "amber" },
+              { text: "Alles aus Basis" },
+              {
+                text: "Wöchentliche Reviews von Janine",
+                highlight: true,
+                accent: "amber",
+              },
+              {
+                text: "Direktnachrichten an Janine",
+                highlight: true,
+                accent: "amber",
+              },
+              { text: "Prioritäts-Support" },
+            ]}
+            ctaLabel="Premium wählen"
+            ctaVariant="amber"
+          />
         </div>
 
-        {/* Basis — highlighted */}
-        <div className="bg-white rounded-2xl border-2 border-sage-DEFAULT p-8 flex flex-col relative shadow-lg shadow-sage-DEFAULT/10">
-          <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-primary text-white text-xs font-medium px-4 py-1.5 rounded-full">
-            Beliebt
-          </div>
-          <div className="mb-6">
-            <h3 className="font-serif text-xl font-semibold text-warm-dark mb-1">Basis</h3>
-            <p className="text-sm text-warm-muted">F&uuml;r bewusste Ern&auml;hrung</p>
-          </div>
-          <div className="mb-8">
-            <span className="text-4xl font-bold text-warm-dark">
-              {yearly ? "12,79" : "15,99"}
-            </span>
-            <span className="text-lg text-warm-muted ml-1">&euro;</span>
-            <span className="text-warm-muted text-sm ml-1">/ Monat</span>
-          </div>
-          <ul className="space-y-3.5 mb-10 flex-1">
-            <PricingFeature text="100 Credits pro Monat" highlight />
-            <PricingFeature text="Persönliche Ernährungspläne" highlight />
-            <PricingFeature text="Ernährungstagebuch" highlight />
-            <PricingFeature text="Gewichts- & Ziel-Tracker" />
-            <PricingFeature text="Wöchentlicher KI-Review" />
-            <PricingFeature text="Rezeptvorschläge" />
-          </ul>
-          <Link
-            href="/sign-up"
-            className="block text-center bg-primary text-white px-5 py-3 rounded-full text-sm font-medium hover:bg-primary-light transition shadow-md shadow-primary/20 cursor-pointer"
-          >
-            Basis w&auml;hlen
-          </Link>
-        </div>
-
-        {/* Premium */}
-        <div className="bg-white rounded-2xl border border-sage-light/60 p-8 flex flex-col">
-          <div className="mb-6">
-            <h3 className="font-serif text-xl font-semibold text-warm-dark mb-1">Premium</h3>
-            <p className="text-sm text-warm-muted">Mit pers&ouml;nlicher Betreuung</p>
-          </div>
-          <div className="mb-8">
-            <span className="text-4xl font-bold text-warm-dark">
-              {yearly ? "39,99" : "49,99"}
-            </span>
-            <span className="text-lg text-warm-muted ml-1">&euro;</span>
-            <span className="text-warm-muted text-sm ml-1">/ Monat</span>
-          </div>
-          <ul className="space-y-3.5 mb-10 flex-1">
-            <PricingFeature text="400 Credits pro Monat" highlight />
-            <PricingFeature text="Alles aus Basis" />
-            <PricingFeature text="Wöchentliche Reviews von Janine" highlight />
-            <PricingFeature text="Direktnachrichten an Janine" highlight />
-            <PricingFeature text="Prioritäts-Support" />
-          </ul>
-          <Link
-            href="/sign-up"
-            className="block text-center bg-primary text-white px-5 py-3 rounded-full text-sm font-medium hover:bg-primary-light transition cursor-pointer"
-          >
-            Premium w&auml;hlen
-          </Link>
-        </div>
+        <p className="text-center text-xs text-warm-light mt-10">
+          ✓ Alle Pläne starten mit 15 kostenlosen Credits · Jederzeit kündbar
+        </p>
       </div>
     </section>
   );
 }
 
-function PricingFeature({ text, highlight }: { text: string; highlight?: boolean }) {
+interface PricingFeatureItem {
+  text: string;
+  highlight?: boolean;
+  accent?: "amber";
+}
+
+function PricingCard({
+  name,
+  tagline,
+  price,
+  suffix,
+  badge,
+  featured,
+  accent,
+  features,
+  ctaLabel,
+  ctaVariant,
+}: {
+  name: string;
+  tagline: string;
+  price: string;
+  suffix: string;
+  badge?: { label: React.ReactNode; color: string };
+  featured?: boolean;
+  accent?: "amber";
+  features: PricingFeatureItem[];
+  ctaLabel: string;
+  ctaVariant: "outline" | "primary" | "amber";
+}) {
+  const isAmber = accent === "amber";
+  return (
+    <div
+      className={`relative rounded-3xl p-8 flex flex-col transition-all duration-300 ${
+        featured
+          ? "bg-white border-2 border-primary shadow-2xl shadow-primary/15 md:scale-[1.04] bg-gradient-to-b from-white to-primary-faint/30"
+          : isAmber
+            ? "bg-white border border-accent-warmLight/40 shadow-lg shadow-amber-600/5"
+            : "bg-white border border-border"
+      }`}
+    >
+      {badge && (
+        <div
+          className={`absolute -top-3.5 left-1/2 -translate-x-1/2 text-xs font-semibold px-4 py-1.5 rounded-full shadow-md whitespace-nowrap ${badge.color}`}
+        >
+          {badge.label}
+        </div>
+      )}
+
+      <div className="mb-6">
+        <h3
+          className={`font-serif text-2xl font-semibold mb-1 ${isAmber ? "text-accent-warm" : "text-warm-dark"}`}
+        >
+          {name}
+        </h3>
+        <p className="text-sm text-warm-muted">{tagline}</p>
+      </div>
+
+      <div className="mb-8">
+        <span className="text-5xl font-serif font-semibold text-warm-dark tracking-tight">
+          {price}
+        </span>
+        <span className="text-2xl text-warm-muted ml-1">€</span>
+        {suffix && (
+          <span className="text-warm-muted text-sm ml-1">{suffix}</span>
+        )}
+      </div>
+
+      <ul className="space-y-3.5 mb-10 flex-1">
+        {features.map((f) => (
+          <PricingFeature
+            key={f.text}
+            text={f.text}
+            highlight={f.highlight}
+            accent={f.accent}
+          />
+        ))}
+      </ul>
+
+      <Link
+        href="/sign-up"
+        className={`block text-center px-5 py-3.5 rounded-full text-sm font-semibold transition-all duration-200 ${
+          ctaVariant === "primary"
+            ? "bg-primary text-white hover:bg-primary-hover hover:scale-[1.02] shadow-lg shadow-primary/25"
+            : ctaVariant === "amber"
+              ? "bg-gradient-to-r from-accent-warm to-amber-600 text-white hover:scale-[1.02] shadow-lg shadow-amber-600/20"
+              : "border-2 border-border text-warm-text hover:border-primary hover:text-primary"
+        }`}
+      >
+        {ctaLabel}
+      </Link>
+    </div>
+  );
+}
+
+function PricingFeature({
+  text,
+  highlight,
+  accent,
+}: {
+  text: string;
+  highlight?: boolean;
+  accent?: "amber";
+}) {
+  const isAmber = accent === "amber";
   return (
     <li className="flex items-start gap-3">
       <div
-        className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
-          highlight ? "bg-sage-pale" : "bg-surface-muted"
+        className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
+          isAmber
+            ? "bg-accent-warmPale"
+            : highlight
+              ? "bg-primary-pale"
+              : "bg-surface-muted"
         }`}
       >
         <Check
-          className={`w-3 h-3 ${highlight ? "text-primary" : "text-warm-light"}`}
+          className={`w-3.5 h-3.5 ${
+            isAmber
+              ? "text-accent-warm"
+              : highlight
+                ? "text-primary"
+                : "text-warm-light"
+          }`}
         />
       </div>
       <span
@@ -703,79 +1224,130 @@ function PricingFeature({ text, highlight }: { text: string; highlight?: boolean
   );
 }
 
-/* ═══════════════════════════════════════
-   7b. SPRICH DIREKT MIT JANINE
-   ═══════════════════════════════════════ */
-function JanineDirectSection() {
+/* ═══════════════════════════════════════════════════════════════
+   8. JANINE — Merged section
+   ═══════════════════════════════════════════════════════════════ */
+function JanineSection() {
   const ref = useScrollReveal();
   const points = [
     {
-      icon: <MessageCircle className="w-5 h-5" />,
+      icon: <MessageCircle className="w-4 h-4" />,
       title: "Persönliche Nachrichten",
-      desc: "Schreibe Janine direkt in der App und erhalte eine individuelle Antwort.",
+      desc: "Schreibe Janine direkt in der App.",
     },
     {
-      icon: <Clock className="w-5 h-5" />,
-      title: "Antwort innerhalb von 24h",
-      desc: "Kein Bot, keine Warteschleife — echte Expertise, wenn du sie brauchst.",
+      icon: <Clock className="w-4 h-4" />,
+      title: "Antwort binnen 24h",
+      desc: "Kein Bot, keine Warteschleife.",
     },
     {
-      icon: <Heart className="w-5 h-5" />,
+      icon: <Heart className="w-4 h-4" />,
       title: "Empathisch & fachlich",
-      desc: "Janine kennt dein Profil und gibt dir Rat, der wirklich zu dir passt.",
+      desc: "Rat, der wirklich zu dir passt.",
     },
   ];
 
   return (
-    <section className="max-w-6xl mx-auto px-4 sm:px-6 py-28">
-      <div ref={ref} className="reveal">
-        <div className="grid md:grid-cols-[1fr_1.2fr] gap-12 lg:gap-16 items-center">
-          {/* Left — Photo placeholder */}
+    <section className="relative overflow-hidden">
+      <div
+        aria-hidden
+        className="absolute inset-0 bg-gradient-to-br from-primary-faint via-sage-faint to-accent-warmPale/40"
+      />
+      <div
+        aria-hidden
+        className="absolute top-0 right-0 w-[500px] h-[500px] rounded-full pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(closest-side, rgba(255,255,255,0.7), rgba(255,255,255,0) 70%)",
+        }}
+      />
+
+      <div
+        ref={ref}
+        className="reveal relative max-w-6xl mx-auto px-4 sm:px-6 py-28"
+      >
+        <div className="grid md:grid-cols-[auto_1fr] gap-12 lg:gap-16 items-start">
+          {/* Photo */}
           <div className="flex justify-center md:justify-start">
-            <div className="w-64 h-72 sm:w-72 sm:h-80 rounded-3xl bg-gradient-to-br from-sage-pale to-accent-warmPale flex items-center justify-center border-2 border-sage-light/50 relative overflow-hidden">
-              <span className="text-7xl font-serif font-semibold text-primary/20">J</span>
-              <div className="absolute bottom-4 left-4 right-4 bg-white/80 backdrop-blur-sm rounded-xl px-4 py-3 border border-sage-light/40">
-                <p className="text-xs font-medium text-primary">Janine</p>
-                <p className="text-[11px] text-warm-muted">Ernährungswissenschaftlerin</p>
+            <div className="relative">
+              <div
+                aria-hidden
+                className="absolute -inset-4 bg-gradient-to-br from-primary/20 to-accent-warm/20 rounded-full blur-2xl"
+              />
+              <div className="relative w-[240px] h-[240px] sm:w-[280px] sm:h-[280px] rounded-full bg-gradient-to-br from-sage-pale to-accent-warmPale flex items-center justify-center border-4 border-white shadow-2xl overflow-hidden">
+                <span className="text-[10rem] font-serif font-semibold text-primary/25 leading-none">
+                  J
+                </span>
+              </div>
+              <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-white rounded-full px-5 py-2 shadow-lg border border-border whitespace-nowrap">
+                <p className="text-[11px] font-semibold text-warm-dark">Janine</p>
+                <p className="text-[9px] text-warm-muted -mt-0.5">
+                  Ernährungswissenschaftlerin
+                </p>
               </div>
             </div>
           </div>
 
-          {/* Right — Text block */}
+          {/* Right column */}
           <div>
-            <p className="text-sm font-medium text-primary tracking-wide uppercase mb-3">
-              Premium-Funktion
+            <p className="text-xs font-semibold text-primary tracking-[0.2em] uppercase mb-3">
+              Die Expertin hinter Nutriva
             </p>
-            <h2 className="font-serif text-3xl sm:text-4xl font-semibold text-warm-dark mb-4">
-              Sprich direkt mit Janine
+            <h2 className="font-serif text-4xl sm:text-5xl font-semibold text-warm-dark mb-5 tracking-tight leading-[1.05]">
+              Janine.
             </h2>
-            <p className="text-warm-muted leading-relaxed mb-8 max-w-lg">
-              Manchmal braucht man mehr als eine KI-Antwort. Im Premium-Plan
-              kannst du Janine persönlich schreiben und bekommst fundierte,
-              individuelle Beratung.
+            <p className="text-warm-muted leading-relaxed mb-4 max-w-xl font-light text-lg">
+              Studierte Ernährungswissenschaftlerin mit Leidenschaft für
+              individuelle Beratung. Die gesamte Wissensbasis dieser App
+              basiert auf meinem Fachwissen — wissenschaftlich fundiert und
+              persönlich kuratiert.
+            </p>
+            <p className="text-warm-muted leading-relaxed mb-10 max-w-xl font-light">
+              Ich glaube daran, dass gute Ernährung einfach sein kann, wenn
+              man die richtige Unterstützung hat.
             </p>
 
-            <div className="space-y-5 mb-10">
-              {points.map((point) => (
-                <div key={point.title} className="flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-sage-pale flex items-center justify-center text-primary flex-shrink-0">
-                    {point.icon}
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-warm-dark mb-0.5">{point.title}</p>
-                    <p className="text-sm text-warm-muted leading-relaxed">{point.desc}</p>
-                  </div>
+            {/* Premium card-in-card */}
+            <div className="bg-white rounded-3xl border border-border shadow-xl shadow-primary/5 p-6 sm:p-7 max-w-xl">
+              <div className="flex items-center gap-2.5 mb-5">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-accent-warm to-amber-600 flex items-center justify-center shadow-md">
+                  <Crown className="w-4 h-4 text-white" />
                 </div>
-              ))}
+                <div>
+                  <p className="text-[10px] font-bold text-accent-warm tracking-wider uppercase">
+                    Premium
+                  </p>
+                  <p className="font-serif text-lg font-semibold text-warm-dark leading-tight">
+                    Schreib Janine direkt
+                  </p>
+                </div>
+              </div>
+              <div className="grid sm:grid-cols-3 gap-3 mb-6">
+                {points.map((point) => (
+                  <div
+                    key={point.title}
+                    className="bg-surface-bg rounded-xl p-3 border border-border"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-accent-warmPale text-accent-warm flex items-center justify-center mb-2">
+                      {point.icon}
+                    </div>
+                    <p className="text-xs font-semibold text-warm-dark mb-0.5">
+                      {point.title}
+                    </p>
+                    <p className="text-[11px] text-warm-muted leading-snug">
+                      {point.desc}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              <Link
+                href="/sign-up"
+                className="group inline-flex items-center gap-2 bg-gradient-to-r from-accent-warm to-amber-600 text-white px-6 py-3 rounded-full text-sm font-semibold hover:scale-[1.02] transition-all shadow-lg shadow-amber-600/25"
+              >
+                Premium entdecken
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+              </Link>
             </div>
-
-            <Link
-              href="/sign-up"
-              className="inline-flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-full text-sm font-medium hover:bg-primary-light transition shadow-md shadow-primary/20 cursor-pointer"
-            >
-              Premium entdecken
-              <ArrowRight className="w-4 h-4" />
-            </Link>
           </div>
         </div>
       </div>
@@ -783,50 +1355,9 @@ function JanineDirectSection() {
   );
 }
 
-/* ═══════════════════════════════════════
-   8. ABOUT JANINE
-   ═══════════════════════════════════════ */
-function AboutJanineSection() {
-  const ref = useScrollReveal();
-  return (
-    <section className="bg-sage-faint/30 border-y border-sage-light/30">
-      <div ref={ref} className="reveal max-w-4xl mx-auto px-4 sm:px-6 py-28">
-        <div className="grid md:grid-cols-[auto_1fr] gap-12 items-center">
-          {/* Photo placeholder */}
-          <div className="flex justify-center md:justify-start">
-            <div className="w-40 h-40 sm:w-48 sm:h-48 rounded-3xl bg-gradient-to-br from-sage-pale to-accent-warmPale flex items-center justify-center border-2 border-sage-light/50">
-              <span className="text-5xl font-serif font-semibold text-primary/30">J</span>
-            </div>
-          </div>
-
-          {/* Text */}
-          <div className="text-center md:text-left">
-            <p className="text-sm font-medium text-primary tracking-wide uppercase mb-3">
-              Die Expertin dahinter
-            </p>
-            <h2 className="font-serif text-3xl font-semibold text-warm-dark mb-5">
-              &Uuml;ber Janine
-            </h2>
-            <p className="text-warm-muted leading-relaxed mb-4 max-w-lg">
-              Studierte Ern&auml;hrungswissenschaftlerin mit Leidenschaft f&uuml;r individuelle Beratung.
-              Die gesamte Wissensbasis dieser App basiert auf meinem Fachwissen &mdash;
-              wissenschaftlich fundiert und pers&ouml;nlich kuratiert.
-            </p>
-            <p className="text-warm-muted leading-relaxed max-w-lg">
-              Ich glaube daran, dass gute Ern&auml;hrung einfach sein kann,
-              wenn man die richtige Unterst&uuml;tzung hat. Diese App ist mein Weg,
-              fundiertes Wissen f&uuml;r alle zug&auml;nglich zu machen.
-            </p>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ═══════════════════════════════════════
-   9. FAQ
-   ═══════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════
+   9. FAQ — 2 columns
+   ═══════════════════════════════════════════════════════════════ */
 function FaqSection() {
   const ref = useScrollReveal();
   const faqs = [
@@ -863,19 +1394,26 @@ function FaqSection() {
   ];
 
   return (
-    <section id="faq" className="max-w-3xl mx-auto px-4 sm:px-6 py-28">
+    <section id="faq" className="max-w-5xl mx-auto px-4 sm:px-6 py-28">
       <div className="text-center mb-14">
-        <p className="text-sm font-medium text-primary tracking-wide uppercase mb-3">
+        <p className="text-xs font-semibold text-primary tracking-[0.2em] uppercase mb-3">
           FAQ
         </p>
-        <h2 className="font-serif text-3xl sm:text-4xl font-semibold text-warm-dark">
-          H&auml;ufige Fragen
+        <h2 className="font-serif text-4xl sm:text-5xl font-semibold text-warm-dark tracking-tight leading-tight">
+          Häufige Fragen
         </h2>
       </div>
 
-      <div ref={ref} className="reveal space-y-1">
+      <div
+        ref={ref}
+        className="reveal grid md:grid-cols-2 gap-4"
+      >
         {faqs.map((faq) => (
-          <FaqItem key={faq.question} question={faq.question} answer={faq.answer} />
+          <FaqItem
+            key={faq.question}
+            question={faq.question}
+            answer={faq.answer}
+          />
         ))}
       </div>
     </section>
@@ -884,64 +1422,114 @@ function FaqSection() {
 
 function FaqItem({ question, answer }: { question: string; answer: string }) {
   const [open, setOpen] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   return (
-    <div className="border-b border-warm-border/60">
+    <div
+      className={`bg-white rounded-2xl border transition-all duration-300 ${
+        open
+          ? "border-primary/40 shadow-lg shadow-primary/5"
+          : "border-border hover:border-primary/20"
+      }`}
+    >
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center justify-between gap-4 w-full py-5 text-left cursor-pointer group"
+        className="flex items-start justify-between gap-4 w-full px-5 py-5 text-left group"
+        aria-expanded={open}
       >
-        <span className="font-medium text-warm-dark group-hover:text-primary transition-colors">
+        <span className="text-[15px] font-semibold text-warm-dark group-hover:text-primary transition-colors leading-snug">
           {question}
         </span>
         <ChevronDown
-          className={`w-4 h-4 text-warm-light flex-shrink-0 transition-transform duration-200 ${
-            open ? "rotate-180" : ""
+          className={`w-4 h-4 text-warm-light flex-shrink-0 mt-1 transition-transform duration-300 ${
+            open ? "rotate-180 text-primary" : ""
           }`}
         />
       </button>
       <div
-        className={`overflow-hidden transition-all duration-300 ease-out ${
-          open ? "max-h-40 opacity-100 pb-5" : "max-h-0 opacity-0"
-        }`}
+        ref={contentRef}
+        className="overflow-hidden transition-[max-height,opacity] duration-300 ease-out"
+        style={{
+          maxHeight: open
+            ? `${contentRef.current?.scrollHeight ?? 500}px`
+            : "0",
+          opacity: open ? 1 : 0,
+        }}
       >
-        <p className="text-sm text-warm-muted leading-relaxed">{answer}</p>
+        <p className="text-sm text-warm-muted leading-relaxed px-5 pb-5">
+          {answer}
+        </p>
       </div>
     </div>
   );
 }
 
-/* ═══════════════════════════════════════
-   10. CTA FOOTER
-   ═══════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════
+   10. CTA FOOTER — full-bleed primary
+   ═══════════════════════════════════════════════════════════════ */
 function CtaFooterSection() {
   const ref = useScrollReveal();
   return (
-    <section className="max-w-4xl mx-auto px-4 sm:px-6 pb-28">
+    <section className="relative overflow-hidden">
+      <div
+        aria-hidden
+        className="absolute inset-0 bg-gradient-to-br from-primary via-primary-hover to-[#0f3a26]"
+      />
+      {/* Decorative shapes */}
+      <div
+        aria-hidden
+        className="absolute top-0 right-0 w-[600px] h-[600px] rounded-full pointer-events-none -translate-y-1/3 translate-x-1/4"
+        style={{
+          background:
+            "radial-gradient(closest-side, rgba(168,201,155,0.3), rgba(168,201,155,0) 70%)",
+        }}
+      />
+      <div
+        aria-hidden
+        className="absolute bottom-0 left-0 w-[400px] h-[400px] rounded-full pointer-events-none translate-y-1/3 -translate-x-1/4"
+        style={{
+          background:
+            "radial-gradient(closest-side, rgba(212,165,116,0.2), rgba(212,165,116,0) 70%)",
+        }}
+      />
+      <div
+        aria-hidden
+        className="absolute inset-0 opacity-30 pointer-events-none"
+        style={{
+          backgroundImage:
+            "radial-gradient(rgba(255,255,255,0.12) 1px, transparent 1px)",
+          backgroundSize: "32px 32px",
+        }}
+      />
+
       <div
         ref={ref}
-        className="reveal relative overflow-hidden bg-gradient-to-br from-sage-DEFAULT to-sage-light rounded-3xl px-8 py-16 sm:px-16 sm:py-20 text-center"
+        className="reveal relative max-w-4xl mx-auto px-4 sm:px-6 py-28 sm:py-32 text-center"
       >
-        {/* Decorative elements */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/3 pointer-events-none" />
-
-        <div className="relative">
-          <h2 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-semibold text-primary mb-5">
-            Bereit f&uuml;r fundierte<br className="hidden sm:block" /> Ern&auml;hrungsberatung?
-          </h2>
-          <p className="text-primary/60 mb-10 max-w-md mx-auto leading-relaxed">
-            Erstelle dein Profil und stelle deine erste Frage &mdash;
-            kostenlos und unverbindlich.
-          </p>
-          <Link
-            href="/sign-up"
-            className="inline-flex items-center gap-2.5 bg-primary text-white px-8 py-4 rounded-full font-medium hover:bg-primary-light transition shadow-lg shadow-primary/20 cursor-pointer"
-          >
-            Jetzt loslegen
-            <ArrowRight className="w-4 h-4" />
-          </Link>
+        <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-1.5 mb-8">
+          <Sparkles className="w-3.5 h-3.5 text-white" />
+          <span className="text-xs font-medium text-white tracking-wide">
+            Starte in 2 Minuten
+          </span>
         </div>
+        <h2 className="font-serif text-4xl sm:text-5xl lg:text-6xl font-semibold text-white mb-6 tracking-tight leading-[1.05]">
+          Bereit, dich besser
+          <br />
+          <span className="italic">zu ernähren?</span>
+        </h2>
+        <p className="text-white/80 mb-10 max-w-lg mx-auto leading-relaxed text-lg font-light">
+          Starte in 2 Minuten. Kostenlos. Kein Abo nötig.
+        </p>
+        <Link
+          href="/sign-up"
+          className="group inline-flex items-center gap-2.5 bg-white text-primary px-9 py-4 rounded-full font-semibold text-base hover:scale-[1.04] active:scale-95 transition-all duration-200 shadow-2xl"
+        >
+          Jetzt loslegen
+          <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+        </Link>
+        <p className="text-xs text-white/60 mt-6">
+          15 Credits gratis · Keine Kreditkarte · Jederzeit kündbar
+        </p>
       </div>
     </section>
   );
