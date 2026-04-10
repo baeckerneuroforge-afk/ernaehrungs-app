@@ -244,11 +244,46 @@ export async function POST(request: Request) {
         ? "image/webp"
         : "image/jpeg";
 
+    // Sanity-Check: base64-Prefix muss zum angegebenen media_type passen.
+    // JPEG beginnt mit "/9j/", PNG mit "iVBOR", WEBP mit "UklGR".
+    // Wenn der Browser HEIC durchgereicht hat oder die Datei kaputt ist,
+    // lehnen wir HIER ab, statt Anthropic einen kaputten Stream zu füttern
+    // (was dort als 500 zurückkommen würde).
+    const prefix = base64.slice(0, 8);
+    const looksLikeJpeg = base64.startsWith("/9j/");
+    const looksLikePng = base64.startsWith("iVBOR");
+    const looksLikeWebp = base64.startsWith("UklGR");
+    const prefixMatchesType =
+      (mediaType === "image/jpeg" && looksLikeJpeg) ||
+      (mediaType === "image/png" && looksLikePng) ||
+      (mediaType === "image/webp" && looksLikeWebp);
+
     console.log("[foto-analyze] step: buffer ready", {
       bytes: buffer.byteLength,
       base64Len: base64.length,
       mediaType,
+      base64Prefix: prefix,
+      prefixMatchesType,
     });
+
+    if (!prefixMatchesType) {
+      console.error("[foto-analyze] base64 prefix does not match media_type", {
+        mediaType,
+        prefix,
+        looksLikeJpeg,
+        looksLikePng,
+        looksLikeWebp,
+      });
+      return NextResponse.json(
+        {
+          error: "invalid_image_data",
+          message:
+            "Das Bild ist beschädigt oder hat ein unerwartetes Format. Bitte ein anderes Foto wählen.",
+          detail: `media_type=${mediaType} prefix=${prefix}`,
+        },
+        { status: 400 }
+      );
+    }
 
     // Profil + TDEE für Kontext laden. Fehler hier sind nicht kritisch —
     // dann läuft die Analyse ohne Profil-Kontext.
@@ -274,9 +309,14 @@ export async function POST(request: Request) {
     });
 
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    console.log("[foto-analyze] step: calling Claude Vision");
+    const model = "claude-sonnet-4-5-20250929";
+    console.log("[foto-analyze] Calling Claude:", {
+      model,
+      mediaType,
+      imageSize: base64.length,
+    });
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-5-20250929",
+      model,
       max_tokens: 1000,
       messages: [
         {
@@ -367,6 +407,7 @@ export async function POST(request: Request) {
         detail: e?.message,
         name: e?.name,
         status: e?.status,
+        apiError: e?.error,
       },
       { status: 500 }
     );
