@@ -72,8 +72,18 @@ export async function POST(request: Request) {
       datum: datum || new Date().toISOString().split("T")[0],
     })
     .select()
-    .limit(1);
+    .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data?.[0]);
+  if (error) {
+    console.error("[api/tagebuch POST] insert failed:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+  if (!data?.id) {
+    console.error("[api/tagebuch POST] insert returned no id:", data);
+    return NextResponse.json(
+      { error: "insert returned no row" },
+      { status: 500 }
+    );
+  }
+  return NextResponse.json(data);
 }

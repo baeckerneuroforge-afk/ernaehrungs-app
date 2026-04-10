@@ -403,8 +403,14 @@ export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
 
       if (res.ok) {
         const entry = (await res.json()) as FoodLog;
-        setEntries((prev) => [...prev, entry]);
         const wasPhotoEntry = formSource === "photo";
+        console.log("[tagebuch] Save success:", {
+          wasPhotoEntry,
+          entryId: entry?.id,
+          formSource,
+          entryKeys: entry ? Object.keys(entry) : null,
+        });
+        setEntries((prev) => [...prev, entry]);
         closeForm();
         // Foto-Einträge: 5s lang Feedback-Leiste zeigen
         if (wasPhotoEntry && entry?.id) {
@@ -415,6 +421,11 @@ export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
               current === entry.id ? null : current
             );
           }, 5000);
+        } else if (wasPhotoEntry) {
+          console.warn(
+            "[tagebuch] Photo entry saved but feedback bar skipped — entry.id missing",
+            entry
+          );
         }
       } else {
         const errorData = await res
