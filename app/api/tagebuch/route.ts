@@ -39,6 +39,8 @@ export async function POST(request: Request) {
     uhrzeit,
     source,
     photo_url,
+    photo_tip,
+    photo_daily_budget_percent,
     datum,
   } = body;
 
@@ -62,6 +64,11 @@ export async function POST(request: Request) {
       uhrzeit: uhrzeit || null,
       source: source === "photo" ? "photo" : "manual",
       photo_url: photo_url || null,
+      photo_tip: photo_tip || null,
+      photo_daily_budget_percent:
+        typeof photo_daily_budget_percent === "number"
+          ? photo_daily_budget_percent
+          : null,
       datum: datum || new Date().toISOString().split("T")[0],
     })
     .select()

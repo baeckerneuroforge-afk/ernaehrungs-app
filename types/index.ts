@@ -129,6 +129,9 @@ export interface FoodLog {
   uhrzeit: string | null;
   source: "manual" | "photo";
   photo_url: string | null;
+  photo_feedback: "accurate" | "too_low" | "too_high" | null;
+  photo_tip: string | null;
+  photo_daily_budget_percent: number | null;
   datum: string;
   created_at: string;
 }

@@ -7,6 +7,7 @@ import { getUserPlan } from "@/lib/feature-gates-server";
 import { deductCredits, CREDIT_COSTS } from "@/lib/credits";
 import { hasKiConsent } from "@/lib/consent";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
+import { calculateTDEE } from "@/lib/tdee";
 
 console.log("[foto-analyze] MODULE LOADED");
 
@@ -21,27 +22,49 @@ export const maxDuration = 60;
 // trotzdem explizit gemacht.
 export const dynamic = "force-dynamic";
 
-const ANALYSIS_PROMPT = `Analysiere dieses Foto einer Mahlzeit. Schätze:
+function buildAnalysisPrompt(userCtx: {
+  ziel?: string | null;
+  aktivitaet?: string | null;
+  target?: number | null;
+  goalLabel?: string | null;
+}): string {
+  const profileLine = userCtx.target
+    ? `Der Nutzer hat folgendes Profil: Ziel "${userCtx.goalLabel || userCtx.ziel || "unbekannt"}", Aktivität "${userCtx.aktivitaet || "unbekannt"}", Tagesbedarf ca. ${userCtx.target} kcal.
+Ordne die Mahlzeit als "dailyBudgetPercent" ein — also wie viel Prozent des Tagesbedarfs diese Mahlzeit ausmacht (gerundet, z.B. 25, 30, 45).`
+    : `Kein Profil bekannt. Setze dailyBudgetPercent auf null.`;
+
+  return `Analysiere dieses Foto einer Mahlzeit. Schätze:
 
 - Was auf dem Bild zu sehen ist (Gericht, Zutaten)
 - Geschätzte Kalorien (kcal)
 - Geschätzte Makronährstoffe (Protein in g, Kohlenhydrate in g, Fett in g)
-- Portionsgröße
+- Portionsgröße (inkl. ungefährem Gewicht in g wenn möglich)
 
-Antworte auf Deutsch. Sei ehrlich wenn du unsicher bist — lieber eine Spanne (z.B. "400-500 kcal") als eine falsche Zahl.
+WICHTIG bei der Kalorienschätzung:
+- Berücksichtige IMMER nicht sichtbares Bratfett, Öl, Butter und Saucen. Gebratenes Fleisch/Fisch: +80-150 kcal für Bratfett. Röstkartoffeln/Bratkartoffeln: +100 kcal für Öl. Salat mit Dressing: +100-150 kcal. Pasta mit Sahne-/Käse-Sauce: +150-250 kcal versteckt.
+- Schätze eher leicht ÜBER dem Minimum als darunter — die meisten Menschen unterschätzen Kalorien systematisch.
+- Portionsgrößen auf Fotos wirken kleiner als sie sind. Ein voller Teller hat typisch 400-600g Essen, nicht 250g.
+- Gib die Kalorien als EINZELNE Zahl (dein bester Schätz-Wert), NICHT als Spanne.
+
+${profileLine}
+
+Gib zusätzlich einen kurzen, konkreten "tip" (1 Satz, auf Deutsch, max 140 Zeichen) — entweder ein Hinweis auf versteckte Kalorien, eine positive Beobachtung (gute Proteinquelle etc.) oder einen Einordnungs-Satz zur Mahlzeit.
 
 Antworte AUSSCHLIESSLICH als gültiges JSON ohne Markdown-Codeblock, ohne erklärenden Text davor oder danach:
 {
   "dish": "Name des Gerichts",
-  "calories": 450,
-  "protein": 30,
-  "carbs": 50,
-  "fat": 15,
-  "portion": "1 Teller",
-  "confidence": "sicher" | "mittel" | "unsicher"
+  "calories": 780,
+  "protein": 42,
+  "carbs": 55,
+  "fat": 38,
+  "portion": "1 Teller, ca. 450g",
+  "confidence": "sicher" | "mittel" | "unsicher",
+  "dailyBudgetPercent": 30,
+  "tip": "Gute Proteinquelle! Die Röstkartoffeln bringen durch das Bratfett mehr Kalorien mit als man denkt."
 }
 
-Wenn du auf dem Bild keine Mahlzeit erkennst, gib ein JSON zurück mit "dish": "" und "confidence": "unsicher".`;
+Wenn du auf dem Bild keine Mahlzeit erkennst, gib ein JSON zurück mit "dish": "", "confidence": "unsicher" und "tip": "Auf dem Bild ist keine Mahlzeit erkennbar."`;
+}
 
 type Analysis = {
   dish: string;
@@ -51,6 +74,8 @@ type Analysis = {
   fat: number | null;
   portion: string;
   confidence: "sicher" | "mittel" | "unsicher";
+  dailyBudgetPercent: number | null;
+  tip: string;
 };
 
 function parseAnalysisJson(raw: string): Analysis | null {
@@ -77,6 +102,11 @@ function parseAnalysisJson(raw: string): Analysis | null {
         parsed.confidence === "unsicher"
           ? parsed.confidence
           : "mittel",
+      dailyBudgetPercent:
+        typeof parsed.dailyBudgetPercent === "number"
+          ? Math.round(parsed.dailyBudgetPercent)
+          : null,
+      tip: typeof parsed.tip === "string" ? parsed.tip.slice(0, 200) : "",
     };
   } catch {
     return null;
@@ -220,6 +250,29 @@ export async function POST(request: Request) {
       mediaType,
     });
 
+    // Profil + TDEE für Kontext laden. Fehler hier sind nicht kritisch —
+    // dann läuft die Analyse ohne Profil-Kontext.
+    const { data: profile } = await supabase
+      .from("ea_profiles")
+      .select(
+        "gewicht_kg, groesse_cm, alter_jahre, geschlecht, aktivitaet, ziel, target_weight, target_timeframe"
+      )
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    const tdee = profile ? calculateTDEE(profile) : null;
+    console.log("[foto-analyze] step: profile loaded", {
+      hasProfile: !!profile,
+      target: tdee?.target || null,
+    });
+
+    const prompt = buildAnalysisPrompt({
+      ziel: profile?.ziel,
+      aktivitaet: profile?.aktivitaet,
+      target: tdee?.target || null,
+      goalLabel: tdee?.goalLabel || null,
+    });
+
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     console.log("[foto-analyze] step: calling Claude Vision");
     const response = await anthropic.messages.create({
@@ -237,7 +290,7 @@ export async function POST(request: Request) {
                 data: base64,
               },
             },
-            { type: "text", text: ANALYSIS_PROMPT },
+            { type: "text", text: prompt },
           ],
         },
       ],

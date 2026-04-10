@@ -17,6 +17,8 @@ import {
   Lock,
   Sparkles,
   ImageIcon,
+  ThumbsUp,
+  ThumbsDown,
 } from "lucide-react";
 
 interface Props {
@@ -34,6 +36,8 @@ type PhotoAnalysis = {
   fat: number | null;
   portion: string;
   confidence: Confidence;
+  dailyBudgetPercent: number | null;
+  tip: string;
 };
 
 const CONFIDENCE_STYLE: Record<
@@ -198,6 +202,13 @@ export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
   const [formFat, setFormFat] = useState<number | null>(null);
   const [formPhotoUrl, setFormPhotoUrl] = useState<string | null>(null);
   const [formSource, setFormSource] = useState<"manual" | "photo">("manual");
+  const [formPhotoTip, setFormPhotoTip] = useState<string | null>(null);
+  const [formPhotoBudget, setFormPhotoBudget] = useState<number | null>(null);
+
+  // Nach dem Speichern eines Foto-Eintrags: 5-Sekunden-Feedback-Leiste
+  // über dem Eintrag anzeigen.
+  const [feedbackPromptId, setFeedbackPromptId] = useState<string | null>(null);
+  const [feedbackDetailId, setFeedbackDetailId] = useState<string | null>(null);
 
   // Photo analysis state
   const [analyzing, setAnalyzing] = useState(false);
@@ -216,6 +227,8 @@ export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
     setFormFat(null);
     setFormPhotoUrl(null);
     setFormSource("manual");
+    setFormPhotoTip(null);
+    setFormPhotoBudget(null);
     setAnalysis(null);
     setAnalysisError(null);
   }
@@ -335,6 +348,8 @@ export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
       setFormFat(a.fat);
       setFormPhotoUrl(json.photo_url);
       setFormSource("photo");
+      setFormPhotoTip(a.tip || null);
+      setFormPhotoBudget(a.dailyBudgetPercent);
     } catch (err) {
       console.error("[foto-client] unexpected error:", err);
       setAnalysisError(
@@ -375,15 +390,59 @@ export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
         uhrzeit: formUhrzeit || null,
         source: formSource,
         photo_url: formPhotoUrl,
+        photo_tip: formPhotoTip,
+        photo_daily_budget_percent: formPhotoBudget,
         datum,
       }),
     });
     if (res.ok) {
-      const entry = await res.json();
+      const entry = (await res.json()) as FoodLog;
       setEntries((prev) => [...prev, entry]);
+      const wasPhotoEntry = formSource === "photo";
       closeForm();
+      // Foto-Einträge: 5s lang Feedback-Leiste zeigen
+      if (wasPhotoEntry && entry?.id) {
+        setFeedbackPromptId(entry.id);
+        setFeedbackDetailId(null);
+        setTimeout(() => {
+          setFeedbackPromptId((current) =>
+            current === entry.id ? null : current
+          );
+        }, 5000);
+      }
     }
     setSaving(false);
+  }
+
+  async function submitFeedback(
+    entryId: string,
+    feedback: "accurate" | "too_low" | "too_high"
+  ) {
+    // Optimistisch schließen
+    if (feedback === "accurate") {
+      setFeedbackPromptId(null);
+      setFeedbackDetailId(null);
+    } else {
+      // Bei 👎 erstmal Detail-Auswahl zeigen statt sofort zu schließen
+      if (!feedbackDetailId || feedbackDetailId !== entryId) {
+        setFeedbackDetailId(entryId);
+        return;
+      }
+      setFeedbackPromptId(null);
+      setFeedbackDetailId(null);
+    }
+    setEntries((prev) =>
+      prev.map((e) =>
+        e.id === entryId ? { ...e, photo_feedback: feedback } : e
+      )
+    );
+    await fetch(`/api/tagebuch/${entryId}/feedback`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ feedback }),
+    }).catch(() => {
+      /* silent — Feedback ist optional */
+    });
   }
 
   async function handleDelete(id: string) {
@@ -590,56 +649,116 @@ export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
                 </div>
                 <div className="space-y-2">
                   {group.items.map((entry) => (
-                    <div
-                      key={entry.id}
-                      className="bg-white rounded-2xl border border-border p-4 flex items-start justify-between gap-3 shadow-card"
-                    >
-                      {entry.photo_url && (
-                        <button
-                          type="button"
-                          onClick={() => setLightboxEntry(entry)}
-                          className="shrink-0 w-16 h-16 rounded-xl overflow-hidden border border-stone-200 shadow-sm"
-                          aria-label="Foto vergrößern"
-                        >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={entry.photo_url}
-                            alt={entry.beschreibung}
-                            className="w-full h-full object-cover"
-                            loading="lazy"
-                          />
-                        </button>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <span
-                            className={`inline-flex items-center gap-1 text-[10px] uppercase tracking-wide font-medium px-2 py-0.5 rounded-full ${style.badge}`}
-                          >
-                            <Icon className="w-3 h-3" />
-                            {style.label}
-                          </span>
-                          {entry.uhrzeit && (
-                            <span className="text-[10px] text-ink-faint">
-                              {entry.uhrzeit.slice(0, 5)}
-                            </span>
+                    <div key={entry.id} className="space-y-2">
+                      {/* Feedback-Leiste — nur für Foto-Einträge direkt
+                          nach dem Speichern, 5 Sekunden lang */}
+                      {feedbackPromptId === entry.id && (
+                        <div className="bg-primary-faint border border-primary/20 rounded-2xl px-4 py-2.5 flex items-center justify-between gap-3 animate-fade-in">
+                          {feedbackDetailId === entry.id ? (
+                            <>
+                              <span className="text-xs text-ink-muted">
+                                Was war daneben?
+                              </span>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => submitFeedback(entry.id, "too_low")}
+                                  className="text-xs px-3 py-1.5 rounded-full bg-white border border-border hover:border-primary/40 text-ink transition"
+                                >
+                                  Eher zu wenig
+                                </button>
+                                <button
+                                  onClick={() => submitFeedback(entry.id, "too_high")}
+                                  className="text-xs px-3 py-1.5 rounded-full bg-white border border-border hover:border-primary/40 text-ink transition"
+                                >
+                                  Eher zu viel
+                                </button>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <span className="text-xs text-ink-muted">
+                                War die Schätzung passend?
+                              </span>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => submitFeedback(entry.id, "accurate")}
+                                  className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-full bg-white border border-border hover:border-primary/40 text-ink transition"
+                                  aria-label="Passt"
+                                >
+                                  <ThumbsUp className="w-3 h-3" /> Passt
+                                </button>
+                                <button
+                                  onClick={() => setFeedbackDetailId(entry.id)}
+                                  className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-full bg-white border border-border hover:border-primary/40 text-ink transition"
+                                  aria-label="Daneben"
+                                >
+                                  <ThumbsDown className="w-3 h-3" /> Daneben
+                                </button>
+                              </div>
+                            </>
                           )}
                         </div>
-                        <p className="text-sm text-ink leading-relaxed">
-                          {entry.beschreibung}
-                        </p>
-                        {entry.kalorien_geschaetzt && (
-                          <p className="text-xs text-ink-faint mt-1.5">
-                            ~{entry.kalorien_geschaetzt} kcal
-                          </p>
+                      )}
+
+                      <div className="bg-white rounded-2xl border border-border p-4 flex items-start justify-between gap-3 shadow-card">
+                        {entry.photo_url && (
+                          <button
+                            type="button"
+                            onClick={() => setLightboxEntry(entry)}
+                            className="shrink-0 w-16 h-16 rounded-xl overflow-hidden border border-stone-200 shadow-sm"
+                            aria-label="Foto vergrößern"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={entry.photo_url}
+                              alt={entry.beschreibung}
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                          </button>
                         )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                            <span
+                              className={`inline-flex items-center gap-1 text-[10px] uppercase tracking-wide font-medium px-2 py-0.5 rounded-full ${style.badge}`}
+                            >
+                              <Icon className="w-3 h-3" />
+                              {style.label}
+                            </span>
+                            {entry.uhrzeit && (
+                              <span className="text-[10px] text-ink-faint">
+                                {entry.uhrzeit.slice(0, 5)}
+                              </span>
+                            )}
+                            {entry.source === "photo" &&
+                              entry.photo_daily_budget_percent != null && (
+                                <span className="inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full bg-primary-faint text-primary">
+                                  ~{entry.photo_daily_budget_percent}% Tagesbedarf
+                                </span>
+                              )}
+                          </div>
+                          <p className="text-sm text-ink leading-relaxed">
+                            {entry.beschreibung}
+                          </p>
+                          {entry.kalorien_geschaetzt && (
+                            <p className="text-xs text-ink-faint mt-1.5">
+                              ~{entry.kalorien_geschaetzt} kcal
+                            </p>
+                          )}
+                          {entry.source === "photo" && entry.photo_tip && (
+                            <p className="text-xs text-stone-500 italic mt-1.5 leading-snug">
+                              {entry.photo_tip}
+                            </p>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => handleDelete(entry.id)}
+                          className="text-ink-faint hover:text-red-500 transition p-1 shrink-0"
+                          aria-label="Eintrag löschen"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
-                      <button
-                        onClick={() => handleDelete(entry.id)}
-                        className="text-ink-faint hover:text-red-500 transition p-1 shrink-0"
-                        aria-label="Eintrag löschen"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
                     </div>
                   ))}
                 </div>
