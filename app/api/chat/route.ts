@@ -144,7 +144,7 @@ Gerne helfe ich dir bei anderen Ernährungsthemen – frag mich nach einem **Ern
 // ---------------------------------------------------------------------------
 // 5. Model routing based on action type + user plan
 // ---------------------------------------------------------------------------
-const MODEL_SONNET = "claude-sonnet-4-5-20250929";
+const MODEL_SONNET = "claude-sonnet-4-6";
 const MODEL_HAIKU = "claude-haiku-4-5-20251001";
 
 function getModelForAction(action: string, plan: string | null | undefined): string {

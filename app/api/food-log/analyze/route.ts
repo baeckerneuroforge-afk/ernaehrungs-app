@@ -309,7 +309,7 @@ export async function POST(request: Request) {
     });
 
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    const model = "claude-sonnet-4-5-20250929";
+    const model = "claude-sonnet-4-6";
     console.log("[foto-analyze] Calling Claude:", {
       model,
       mediaType,

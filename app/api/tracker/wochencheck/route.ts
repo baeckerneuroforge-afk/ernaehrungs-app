@@ -90,7 +90,7 @@ export async function POST(_request: Request) {
     // Stream response
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const stream = anthropic.messages.stream({
-      model: "claude-sonnet-4-5-20250929",
+      model: "claude-sonnet-4-6",
       max_tokens: 1000,
       system: systemPrompt,
       messages: [
