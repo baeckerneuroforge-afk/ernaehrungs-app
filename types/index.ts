@@ -123,6 +123,12 @@ export interface FoodLog {
   mahlzeit_typ: "fruehstueck" | "mittag" | "abend" | "snack";
   beschreibung: string;
   kalorien_geschaetzt: number | null;
+  protein_g: number | null;
+  carbs_g: number | null;
+  fat_g: number | null;
+  uhrzeit: string | null;
+  source: "manual" | "photo";
+  photo_url: string | null;
   datum: string;
   created_at: string;
 }

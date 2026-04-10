@@ -1,6 +1,8 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import sharp from "sharp";
+import { randomUUID } from "node:crypto";
 import { hasFeatureAccess } from "@/lib/feature-gates";
 import { getUserPlan } from "@/lib/feature-gates-server";
 import { deductCredits, CREDIT_COSTS } from "@/lib/credits";
@@ -112,11 +114,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Kein Bild übergeben" }, { status: 400 });
   }
 
-  const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif"] as const;
+  const allowed = ["image/jpeg", "image/png", "image/webp"] as const;
   type AllowedMedia = (typeof allowed)[number];
   if (!allowed.includes(image.type as AllowedMedia)) {
     return NextResponse.json(
-      { error: "Nur JPEG, PNG, WEBP oder GIF erlaubt." },
+      { error: "Nur JPEG, PNG oder WEBP erlaubt." },
       { status: 400 }
     );
   }
@@ -148,9 +150,16 @@ export async function POST(request: Request) {
   }
 
   try {
-    const buffer = Buffer.from(await image.arrayBuffer());
-    const base64 = buffer.toString("base64");
-    const mediaType = image.type as AllowedMedia;
+    const originalBuffer = Buffer.from(await image.arrayBuffer());
+
+    // Server-side compress to max 800px width, JPEG ~82.
+    const compressed = await sharp(originalBuffer)
+      .rotate() // respect EXIF orientation
+      .resize({ width: 800, withoutEnlargement: true })
+      .jpeg({ quality: 82 })
+      .toBuffer();
+
+    const base64 = compressed.toString("base64");
 
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const response = await anthropic.messages.create({
@@ -164,7 +173,7 @@ export async function POST(request: Request) {
               type: "image",
               source: {
                 type: "base64",
-                media_type: mediaType,
+                media_type: "image/jpeg",
                 data: base64,
               },
             },
@@ -189,7 +198,35 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json({ analysis });
+    // Upload compressed JPEG to Supabase Storage.
+    // Path: {userId}/{datum}/{uuid}.jpg — datum kommt aus dem Request,
+    // fallback auf heute. Wir wollen pro Tag gruppieren können.
+    const datum =
+      (formData.get("datum") as string | null) ||
+      new Date().toISOString().split("T")[0];
+    const safeUserId = userId.replace(/[^a-zA-Z0-9_-]/g, "_");
+    const path = `${safeUserId}/${datum}/${randomUUID()}.jpg`;
+
+    let photo_url: string | null = null;
+    const { error: uploadError } = await supabase.storage
+      .from("food-photos")
+      .upload(path, compressed, {
+        contentType: "image/jpeg",
+        upsert: false,
+      });
+
+    if (uploadError) {
+      console.error("Storage-Upload fehlgeschlagen:", uploadError);
+      // Analyse trotzdem zurückgeben, nur ohne Foto-URL
+    } else {
+      // Signed URL mit 1 Jahr Gültigkeit — Bucket ist privat.
+      const { data: signed } = await supabase.storage
+        .from("food-photos")
+        .createSignedUrl(path, 60 * 60 * 24 * 365);
+      photo_url = signed?.signedUrl || null;
+    }
+
+    return NextResponse.json({ analysis, photo_url, photo_path: path });
   } catch (err) {
     console.error("Foto-Analyse Fehler:", err);
     return NextResponse.json(

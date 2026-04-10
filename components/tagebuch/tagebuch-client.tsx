@@ -16,6 +16,7 @@ import {
   Camera,
   Lock,
   Sparkles,
+  ImageIcon,
 } from "lucide-react";
 
 interface Props {
@@ -104,6 +105,12 @@ export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
   const [formBeschreibung, setFormBeschreibung] = useState("");
   const [formKcal, setFormKcal] = useState("");
   const [formUhrzeit, setFormUhrzeit] = useState("");
+  // Hidden state — nicht im Formular sichtbar, aber persistiert.
+  const [formProtein, setFormProtein] = useState<number | null>(null);
+  const [formCarbs, setFormCarbs] = useState<number | null>(null);
+  const [formFat, setFormFat] = useState<number | null>(null);
+  const [formPhotoUrl, setFormPhotoUrl] = useState<string | null>(null);
+  const [formSource, setFormSource] = useState<"manual" | "photo">("manual");
 
   // Photo analysis state
   const [analyzing, setAnalyzing] = useState(false);
@@ -111,9 +118,17 @@ export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
   const [analysis, setAnalysis] = useState<PhotoAnalysis | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
+  // Lightbox für Foto-Galerie
+  const [lightboxEntry, setLightboxEntry] = useState<FoodLog | null>(null);
+
   function resetForm() {
     setFormBeschreibung("");
     setFormKcal("");
+    setFormProtein(null);
+    setFormCarbs(null);
+    setFormFat(null);
+    setFormPhotoUrl(null);
+    setFormSource("manual");
     setAnalysis(null);
     setAnalysisError(null);
   }
@@ -151,6 +166,7 @@ export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
     try {
       const fd = new FormData();
       fd.append("image", file);
+      fd.append("datum", datum);
       const res = await fetch("/api/food-log/analyze", {
         method: "POST",
         body: fd,
@@ -162,22 +178,22 @@ export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
         );
         return;
       }
-      const json = (await res.json()) as { analysis: PhotoAnalysis };
+      const json = (await res.json()) as {
+        analysis: PhotoAnalysis;
+        photo_url: string | null;
+      };
       const a = json.analysis;
       setAnalysis(a);
-      // Auto-fill form fields with the KI suggestion — user can still edit
-      const bits = [a.dish, a.portion].filter(Boolean).join(" · ");
-      const macros = [
-        a.protein != null ? `${a.protein} g Protein` : null,
-        a.carbs != null ? `${a.carbs} g Carbs` : null,
-        a.fat != null ? `${a.fat} g Fett` : null,
-      ]
-        .filter(Boolean)
-        .join(", ");
+      // Beschreibung = nur Gericht + Portion. Makros fließen in hidden state.
       setFormBeschreibung(
-        macros ? `${bits}\n(${macros})` : bits || "Mahlzeit"
+        [a.dish, a.portion].filter(Boolean).join(" · ") || "Mahlzeit"
       );
       if (a.calories != null) setFormKcal(String(a.calories));
+      setFormProtein(a.protein);
+      setFormCarbs(a.carbs);
+      setFormFat(a.fat);
+      setFormPhotoUrl(json.photo_url);
+      setFormSource("photo");
     } catch {
       setAnalysisError("Foto-Analyse fehlgeschlagen. Bitte erneut versuchen.");
     } finally {
@@ -209,7 +225,12 @@ export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
         mahlzeit_typ: formTyp,
         beschreibung: formBeschreibung.trim(),
         kalorien_geschaetzt: formKcal ? parseInt(formKcal) : null,
+        protein_g: formProtein,
+        carbs_g: formCarbs,
+        fat_g: formFat,
         uhrzeit: formUhrzeit || null,
+        source: formSource,
+        photo_url: formPhotoUrl,
         datum,
       }),
     });
@@ -241,6 +262,9 @@ export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
   );
 
   const weekDays = buildWeekStrip(datum);
+
+  // Alle Einträge mit Foto für die Tages-Galerie
+  const photoEntries = entries.filter((e) => e.photo_url);
 
   return (
     <div className="space-y-6">
@@ -365,6 +389,36 @@ export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
         </div>
       ) : (
         <div className="space-y-6 animate-fade-in">
+          {/* Tages-Foto-Galerie — nur wenn mindestens 1 Foto existiert */}
+          {photoEntries.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <ImageIcon className="w-3.5 h-3.5 text-ink-faint" />
+                <h3 className="text-xs uppercase tracking-wide text-ink-faint font-medium">
+                  Fotos heute
+                </h3>
+              </div>
+              <div className="flex gap-2 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-none">
+                {photoEntries.map((entry) => (
+                  <button
+                    key={entry.id}
+                    type="button"
+                    onClick={() => setLightboxEntry(entry)}
+                    className="shrink-0 w-20 h-20 rounded-xl overflow-hidden border border-stone-200 shadow-sm hover:shadow-card transition"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={entry.photo_url!}
+                      alt={entry.beschreibung}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {grouped.map((group) => {
             const style = MEAL_STYLES[group.value as MealTyp];
             const Icon = style.icon;
@@ -396,6 +450,22 @@ export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
                       key={entry.id}
                       className="bg-white rounded-2xl border border-border p-4 flex items-start justify-between gap-3 shadow-card"
                     >
+                      {entry.photo_url && (
+                        <button
+                          type="button"
+                          onClick={() => setLightboxEntry(entry)}
+                          className="shrink-0 w-16 h-16 rounded-xl overflow-hidden border border-stone-200 shadow-sm"
+                          aria-label="Foto vergrößern"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={entry.photo_url}
+                            alt={entry.beschreibung}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                        </button>
+                      )}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1.5">
                           <span
@@ -404,6 +474,11 @@ export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
                             <Icon className="w-3 h-3" />
                             {style.label}
                           </span>
+                          {entry.uhrzeit && (
+                            <span className="text-[10px] text-ink-faint">
+                              {entry.uhrzeit.slice(0, 5)}
+                            </span>
+                          )}
                         </div>
                         <p className="text-sm text-ink leading-relaxed">
                           {entry.beschreibung}
@@ -438,6 +513,52 @@ export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
       >
         <Plus className="w-6 h-6" />
       </button>
+
+      {/* Lightbox für Foto-Galerie */}
+      {lightboxEntry && lightboxEntry.photo_url && (
+        <div
+          className="fixed inset-0 z-[70] bg-black/80 flex items-center justify-center p-4 animate-fade-in"
+          onClick={() => setLightboxEntry(null)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setLightboxEntry(null);
+            }}
+            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition"
+            aria-label="Schließen"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <div
+            className="relative max-w-lg w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={lightboxEntry.photo_url}
+              alt={lightboxEntry.beschreibung}
+              className="w-full max-h-[70vh] object-contain rounded-2xl"
+            />
+            <div className="mt-4 text-center text-white">
+              <p className="text-base font-medium">
+                {lightboxEntry.beschreibung}
+              </p>
+              <p className="text-xs text-white/70 mt-1">
+                {lightboxEntry.kalorien_geschaetzt
+                  ? `~${lightboxEntry.kalorien_geschaetzt} kcal`
+                  : null}
+                {lightboxEntry.kalorien_geschaetzt && lightboxEntry.uhrzeit
+                  ? " · "
+                  : null}
+                {lightboxEntry.uhrzeit ? lightboxEntry.uhrzeit.slice(0, 5) : null}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add entry sheet / modal */}
       {showForm && (

@@ -15,7 +15,7 @@ export async function loadUserBehaviorContext(
     // Last 7 days of food diary
     supabase
       .from("ea_food_log")
-      .select("mahlzeit_typ, beschreibung, kalorien_geschaetzt, datum")
+      .select("mahlzeit_typ, beschreibung, kalorien_geschaetzt, protein_g, carbs_g, fat_g, datum")
       .eq("user_id", userId)
       .gte("datum", daysAgo(7))
       .order("datum", { ascending: false })
@@ -42,7 +42,15 @@ export async function loadUserBehaviorContext(
 
   // --- Food diary context ---
   if (foodLogResult.data?.length) {
-    type FoodEntry = { mahlzeit_typ: string; beschreibung: string; kalorien_geschaetzt: number | null; datum: string };
+    type FoodEntry = {
+      mahlzeit_typ: string;
+      beschreibung: string;
+      kalorien_geschaetzt: number | null;
+      protein_g: number | null;
+      carbs_g: number | null;
+      fat_g: number | null;
+      datum: string;
+    };
     const entries = foodLogResult.data as FoodEntry[];
     const byDay: Record<string, FoodEntry[]> = {};
     for (const e of entries) {
@@ -56,7 +64,12 @@ export async function loadUserBehaviorContext(
       const mealSummary = meals
         .map((m: FoodEntry) => {
           const kcal = m.kalorien_geschaetzt ? ` (~${m.kalorien_geschaetzt} kcal)` : "";
-          return `  - ${mealLabel(m.mahlzeit_typ)}: ${m.beschreibung}${kcal}`;
+          const macroParts: string[] = [];
+          if (m.protein_g != null) macroParts.push(`${m.protein_g}g P`);
+          if (m.carbs_g != null) macroParts.push(`${m.carbs_g}g C`);
+          if (m.fat_g != null) macroParts.push(`${m.fat_g}g F`);
+          const macros = macroParts.length ? ` (${macroParts.join(", ")})` : "";
+          return `  - ${mealLabel(m.mahlzeit_typ)}: ${m.beschreibung}${kcal}${macros}`;
         })
         .join("\n");
 
