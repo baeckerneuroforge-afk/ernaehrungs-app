@@ -376,7 +376,7 @@ function HowItWorksSection() {
               <div className={`${reversed ? "anim-fade-right" : "anim-fade-left"} order-2 ${reversed ? "md:order-2 md:text-right md:pl-6" : "md:order-1 md:pr-6"} relative`}>
                 <span
                   aria-hidden
-                  className="font-serif text-[7rem] sm:text-[9rem] leading-none font-semibold text-primary-pale absolute -top-8 -z-10 select-none"
+                  className="font-serif text-[7rem] sm:text-[9rem] leading-none font-semibold text-primary-pale dark:text-[rgba(26,51,40,0.55)] absolute -top-8 -z-10 select-none"
                   style={reversed ? { right: "-0.25rem" } : { left: "-0.25rem" }}
                 >
                   {s.num}
