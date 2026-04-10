@@ -204,22 +204,58 @@ export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
     setAnalysis(null);
 
     try {
+      console.log("[foto-client] original file", {
+        name: file.name,
+        size: file.size,
+        type: file.type,
+      });
       const compressed = await compressImage(file);
+      console.log("[foto-client] compressed", {
+        size: compressed.size,
+        type: compressed.type,
+      });
+
       const fd = new FormData();
       fd.append("image", compressed);
       fd.append("datum", datum);
-      const res = await fetch("/api/food-log/analyze", {
-        method: "POST",
-        body: fd,
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
+
+      console.log("[foto-client] POST /api/food-log/analyze …");
+      let res: Response;
+      try {
+        res = await fetch("/api/food-log/analyze", {
+          method: "POST",
+          body: fd,
+        });
+      } catch (netErr) {
+        console.error("[foto-client] network error:", netErr);
         setAnalysisError(
-          err?.message || "Foto-Analyse fehlgeschlagen. Bitte erneut versuchen."
+          `Netzwerk-Fehler: ${(netErr as Error)?.message || "unbekannt"}`
         );
         return;
       }
-      const json = (await res.json()) as {
+      console.log("[foto-client] response status", res.status, res.statusText);
+
+      const bodyText = await res.text();
+      console.log("[foto-client] response body", bodyText.slice(0, 500));
+
+      if (!res.ok) {
+        let err: { message?: string; error?: string; detail?: string } = {};
+        try {
+          err = JSON.parse(bodyText);
+        } catch {
+          /* plain text */
+        }
+        const msg =
+          err?.message ||
+          err?.detail ||
+          err?.error ||
+          bodyText.slice(0, 200) ||
+          `HTTP ${res.status}`;
+        setAnalysisError(`Foto-Analyse fehlgeschlagen: ${msg}`);
+        return;
+      }
+
+      const json = JSON.parse(bodyText) as {
         analysis: PhotoAnalysis;
         photo_url: string | null;
       };
@@ -235,8 +271,11 @@ export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
       setFormFat(a.fat);
       setFormPhotoUrl(json.photo_url);
       setFormSource("photo");
-    } catch {
-      setAnalysisError("Foto-Analyse fehlgeschlagen. Bitte erneut versuchen.");
+    } catch (err) {
+      console.error("[foto-client] unexpected error:", err);
+      setAnalysisError(
+        `Foto-Analyse fehlgeschlagen: ${(err as Error)?.message || "unbekannt"}`
+      );
     } finally {
       setAnalyzing(false);
     }

@@ -73,24 +73,54 @@ function parseAnalysisJson(raw: string): Analysis | null {
 }
 
 export async function POST(request: Request) {
+  console.log("[foto-analyze] REQUEST RECEIVED", {
+    contentType: request.headers.get("content-type"),
+    contentLength: request.headers.get("content-length"),
+    ua: request.headers.get("user-agent")?.slice(0, 80),
+  });
+
   const { userId } = await auth();
   if (!userId) {
+    console.warn("[foto-analyze] 401 no userId");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  console.log("[foto-analyze] step: auth ok", { userId });
+
+  // Env-Var-Check direkt nach auth — dann sehen wir Misskonfig sofort
+  // bevor wir Credits verbrennen.
+  const envMissing: string[] = [];
+  if (!process.env.ANTHROPIC_API_KEY) envMissing.push("ANTHROPIC_API_KEY");
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) envMissing.push("NEXT_PUBLIC_SUPABASE_URL");
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) envMissing.push("SUPABASE_SERVICE_ROLE_KEY");
+  if (envMissing.length) {
+    console.error("[foto-analyze] ENV VARS MISSING:", envMissing);
+    return NextResponse.json(
+      {
+        error: "server_misconfigured",
+        message: `Server-Config fehlt: ${envMissing.join(", ")}`,
+        missing: envMissing,
+      },
+      { status: 500 }
+    );
   }
 
   const supabase = createSupabaseAdmin();
 
   // KI-Consent (Art. 9 Abs. 2 lit. a DSGVO)
   if (!(await hasKiConsent(supabase, userId))) {
+    console.warn("[foto-analyze] 403 ki_consent_missing", { userId });
     return NextResponse.json(
       { error: "ki_consent_missing", message: "Bitte erlaube die KI-Nutzung in deinen Einstellungen." },
       { status: 403 }
     );
   }
+  console.log("[foto-analyze] step: consent ok");
 
   // Premium-Gate: Foto-Tracking ist pro_plus/admin only
   const plan = await getUserPlan(userId);
+  console.log("[foto-analyze] step: plan", { plan });
   if (!hasFeatureAccess(plan, "foto_tracking")) {
+    console.warn("[foto-analyze] 403 feature_locked", { plan });
     return NextResponse.json(
       {
         error: "feature_locked",
@@ -104,20 +134,31 @@ export async function POST(request: Request) {
   let formData: FormData;
   try {
     formData = await request.formData();
-  } catch {
-    return NextResponse.json({ error: "Invalid form data" }, { status: 400 });
+  } catch (err) {
+    console.error("[foto-analyze] formData parse failed:", err);
+    return NextResponse.json(
+      { error: "invalid_form_data", message: "Formular-Daten ungültig.", detail: (err as Error)?.message },
+      { status: 400 }
+    );
   }
 
   const image = formData.get("image");
   if (!image || !(image instanceof File)) {
+    console.warn("[foto-analyze] 400 no image", { hasImage: !!image, type: typeof image });
     return NextResponse.json({ error: "Kein Bild übergeben" }, { status: 400 });
   }
+  console.log("[foto-analyze] step: image received", {
+    size: image.size,
+    type: image.type,
+    name: image.name,
+  });
 
   const allowed = ["image/jpeg", "image/png", "image/webp"] as const;
   type AllowedMedia = (typeof allowed)[number];
   if (!allowed.includes(image.type as AllowedMedia)) {
+    console.warn("[foto-analyze] 400 invalid mime", { type: image.type });
     return NextResponse.json(
-      { error: "Nur JPEG, PNG oder WEBP erlaubt." },
+      { error: `Nur JPEG, PNG oder WEBP erlaubt. (erhalten: ${image.type || "leer"})` },
       { status: 400 }
     );
   }
@@ -153,19 +194,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    if (!process.env.ANTHROPIC_API_KEY) {
-      console.error("[foto-analyze] ANTHROPIC_API_KEY fehlt im Environment");
-      return NextResponse.json(
-        { error: "server_misconfigured", message: "Server nicht korrekt konfiguriert." },
-        { status: 500 }
-      );
-    }
-
     const buffer = Buffer.from(await image.arrayBuffer());
     const base64 = buffer.toString("base64");
-    // Client komprimiert bereits auf JPEG via Canvas. Falls jemand
-    // das umgeht (z.B. PNG-Upload von Desktop), akzeptieren wir den
-    // Original-MIME-Type und reichen ihn an Claude weiter.
     const mediaType =
       image.type === "image/png"
         ? "image/png"
@@ -173,12 +203,14 @@ export async function POST(request: Request) {
         ? "image/webp"
         : "image/jpeg";
 
-    console.log(
-      "[foto-analyze] start",
-      { userId, size: image.size, type: image.type }
-    );
+    console.log("[foto-analyze] step: buffer ready", {
+      bytes: buffer.byteLength,
+      base64Len: base64.length,
+      mediaType,
+    });
 
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    console.log("[foto-analyze] step: calling Claude Vision");
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-5-20250929",
       max_tokens: 1000,
@@ -198,6 +230,11 @@ export async function POST(request: Request) {
           ],
         },
       ],
+    });
+
+    console.log("[foto-analyze] step: Claude responded", {
+      stopReason: response.stop_reason,
+      blocks: response.content.length,
     });
 
     const textBlock = response.content.find((b) => b.type === "text");
@@ -233,9 +270,14 @@ export async function POST(request: Request) {
       });
 
     if (uploadError) {
-      console.error("Storage-Upload fehlgeschlagen:", uploadError);
+      console.error("[foto-analyze] Storage-Upload fehlgeschlagen:", {
+        message: uploadError.message,
+        name: uploadError.name,
+        path,
+      });
       // Analyse trotzdem zurückgeben, nur ohne Foto-URL
     } else {
+      console.log("[foto-analyze] step: uploaded to storage", { path });
       // Signed URL mit 1 Jahr Gültigkeit — Bucket ist privat.
       const { data: signed } = await supabase.storage
         .from("food-photos")
@@ -243,20 +285,24 @@ export async function POST(request: Request) {
       photo_url = signed?.signedUrl || null;
     }
 
-    console.log("[foto-analyze] done", { userId, dish: analysis.dish });
+    console.log("[foto-analyze] DONE", { userId, dish: analysis.dish, hasPhoto: !!photo_url });
     return NextResponse.json({ analysis, photo_url, photo_path: path });
   } catch (err) {
-    const e = err as Error;
-    console.error("[foto-analyze] fehler:", {
+    const e = err as Error & { status?: number; error?: unknown };
+    console.error("[foto-analyze] CAUGHT ERROR:", {
       name: e?.name,
       message: e?.message,
+      status: e?.status,
+      apiError: e?.error,
       stack: e?.stack,
     });
     return NextResponse.json(
       {
         error: "analysis_failed",
-        message: "Analyse fehlgeschlagen.",
-        detail: process.env.NODE_ENV === "production" ? undefined : e?.message,
+        message: `Analyse fehlgeschlagen: ${e?.message || "unbekannt"}`,
+        detail: e?.message,
+        name: e?.name,
+        status: e?.status,
       },
       { status: 500 }
     );
