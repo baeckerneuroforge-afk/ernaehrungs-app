@@ -119,7 +119,7 @@ export default function ZielePage() {
   return (
     <div className="min-h-screen flex flex-col bg-surface-bg">
       <Navbar />
-      <main className="flex-1 max-w-3xl mx-auto px-4 sm:px-6 py-10 w-full pb-bottom-nav animate-fade-in">
+      <main className="flex-1 max-w-3xl mx-auto px-4 sm:px-6 py-10 w-full animate-fade-in">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="font-serif text-3xl text-ink">Ziele</h1>

@@ -51,7 +51,7 @@ export default async function BillingPage() {
   return (
     <div className="min-h-screen flex flex-col bg-surface-bg">
       <Navbar />
-      <main className="flex-1 max-w-3xl mx-auto px-4 sm:px-6 py-10 w-full pb-bottom-nav">
+      <main className="flex-1 max-w-3xl mx-auto px-4 sm:px-6 py-10 w-full">
         <BillingClient
           plan={plan}
           isAdmin={isAdmin}

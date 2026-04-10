@@ -41,7 +41,7 @@ export default async function TrackerPage() {
   return (
     <div className="min-h-screen flex flex-col bg-surface-bg">
       <Navbar />
-      <main className="flex-1 max-w-3xl mx-auto px-4 sm:px-6 py-10 w-full pb-bottom-nav animate-fade-in">
+      <main className="flex-1 max-w-3xl mx-auto px-4 sm:px-6 py-10 w-full animate-fade-in">
         <h1 className="font-serif text-3xl text-ink mb-2">Tracker</h1>
         <p className="text-ink-muted text-sm mb-8">
           Verfolge deinen Fortschritt und bleib motiviert.

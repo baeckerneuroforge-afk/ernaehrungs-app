@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import { deDE } from "@clerk/localizations";
 import { CookieBanner } from "@/components/cookie-banner";
-import { BottomNav } from "@/components/layout/bottom-nav";
 import { CreditWarning } from "@/components/credit-warning";
 import { PageTransition } from "@/components/layout/page-transition";
 import "./globals.css";
@@ -54,7 +53,6 @@ export default function RootLayout({
       <body className="antialiased">
         <CreditWarning />
         <PageTransition>{children}</PageTransition>
-        <BottomNav />
         <CookieBanner />
         <script
           dangerouslySetInnerHTML={{

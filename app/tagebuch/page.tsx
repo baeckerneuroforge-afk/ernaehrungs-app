@@ -32,7 +32,7 @@ export default async function TagebuchPage() {
   return (
     <div className="min-h-screen flex flex-col bg-surface-bg">
       <Navbar />
-      <main className="flex-1 max-w-3xl mx-auto px-4 sm:px-6 py-10 w-full pb-bottom-nav">
+      <main className="flex-1 max-w-3xl mx-auto px-4 sm:px-6 py-10 w-full">
         <h1 className="text-2xl font-bold text-gray-800 mb-2">
           Ernährungstagebuch
         </h1>
