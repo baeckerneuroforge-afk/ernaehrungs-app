@@ -161,6 +161,14 @@ export function NavbarShell() {
                     >
                       <HelpCircle className="w-[18px] h-[18px]" />
                     </Link>
+                    <Link
+                      href="/einstellungen"
+                      className="hidden md:flex items-center justify-center w-8 h-8 rounded-full text-ink-muted hover:text-primary hover:bg-primary-pale transition-all duration-200"
+                      aria-label="Einstellungen"
+                      title="Einstellungen"
+                    >
+                      <Settings className="w-[18px] h-[18px]" />
+                    </Link>
                     {isAdmin && (
                       <Link
                         href="/admin/dashboard"
@@ -266,6 +274,13 @@ export function NavbarShell() {
                 </Link>
               );
             })}
+            <Link
+              href="/einstellungen"
+              className="flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] text-ink-muted hover:text-primary hover:bg-primary-pale transition-all duration-200"
+            >
+              <Settings className="w-[18px] h-[18px]" />
+              Einstellungen
+            </Link>
             <Link
               href="/support"
               className="flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] text-ink-muted hover:text-primary hover:bg-primary-pale transition-all duration-200"

@@ -17,6 +17,84 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* ----------------------------------------------------------------------
+   Dark mode — global overrides
+   Toggled via class="dark" on <html> (see layout.tsx inline script).
+   Instead of touching every component, we intercept the tailwind utility
+   classes that carry surface/ink/border tokens and re-color them here.
+---------------------------------------------------------------------- */
+html.dark {
+  color-scheme: dark;
+}
+html.dark body {
+  background-color: #1C1917;
+  color: #FAFAF5;
+}
+
+/* Surfaces */
+html.dark .bg-white { background-color: #292524 !important; }
+html.dark .bg-white\/80 { background-color: rgba(41, 37, 36, 0.8) !important; }
+html.dark .bg-white\/60 { background-color: rgba(41, 37, 36, 0.6) !important; }
+html.dark .bg-white\/50 { background-color: rgba(41, 37, 36, 0.5) !important; }
+html.dark .bg-surface { background-color: #292524 !important; }
+html.dark .bg-surface-bg { background-color: #1C1917 !important; }
+html.dark .bg-surface-muted { background-color: #44403C !important; }
+html.dark .bg-gray-50 { background-color: #292524 !important; }
+html.dark .bg-gray-100 { background-color: #44403C !important; }
+
+/* Text */
+html.dark .text-ink { color: #FAFAF5 !important; }
+html.dark .text-ink-muted { color: #A8A29E !important; }
+html.dark .text-ink-faint { color: #78716C !important; }
+html.dark .text-warm-text { color: #FAFAF5 !important; }
+html.dark .text-warm-muted { color: #A8A29E !important; }
+html.dark .text-warm-light { color: #78716C !important; }
+html.dark .text-gray-800 { color: #FAFAF5 !important; }
+html.dark .text-gray-700 { color: #E7E5E4 !important; }
+html.dark .text-gray-600 { color: #D6D3D1 !important; }
+html.dark .text-gray-500 { color: #A8A29E !important; }
+html.dark .text-gray-400 { color: #78716C !important; }
+
+/* Borders */
+html.dark .border-border { border-color: #44403C !important; }
+html.dark .border-border-soft { border-color: #3a3734 !important; }
+html.dark .border-warm-border { border-color: #44403C !important; }
+html.dark .border-gray-100 { border-color: #44403C !important; }
+html.dark .border-gray-200 { border-color: #44403C !important; }
+html.dark .divide-border > :not([hidden]) ~ :not([hidden]) { border-color: #44403C !important; }
+
+/* Primary-pale surfaces (badges, active nav) — deep green */
+html.dark .bg-primary-pale { background-color: #1a3328 !important; }
+html.dark .bg-primary-faint { background-color: #142820 !important; }
+html.dark .bg-primary-bg { background-color: #1a3328 !important; }
+
+/* Form inputs — contrast against dark surface */
+html.dark input,
+html.dark textarea,
+html.dark select {
+  color: #FAFAF5;
+  background-color: #1C1917;
+}
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #78716C;
+}
+
+/* Scrollbar thumb in dark mode */
+html.dark .scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(250, 250, 245, 0.12);
+}
+html.dark .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: rgba(250, 250, 245, 0.22);
+}
+
+/* Paper background in dark */
+html.dark .bg-paper {
+  background-color: #1C1917;
+  background-image:
+    radial-gradient(rgba(168, 201, 155, 0.05) 1px, transparent 1px);
+}
+
 h1, h2, h3, h4, h5, h6 {
   font-family: 'Lora', Georgia, 'Times New Roman', serif;
   font-weight: 600;

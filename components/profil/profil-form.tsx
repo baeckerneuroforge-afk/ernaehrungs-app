@@ -535,6 +535,28 @@ export function ProfilForm({
             Einwilligung gem. Art. 9 Abs. 2 lit. a DSGVO · Widerruf jederzeit
             möglich
           </p>
+
+          <div className="pt-4 border-t border-border">
+            <Link
+              href="/einstellungen"
+              className="flex items-center justify-between gap-3 p-3 -mx-1 rounded-xl hover:bg-primary-faint transition group"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-primary-pale flex items-center justify-center">
+                  <Settings className="w-4 h-4 text-primary" />
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-ink">
+                    Weitere Einstellungen
+                  </div>
+                  <div className="text-xs text-ink-muted">
+                    Benachrichtigungen, Dark Mode und mehr
+                  </div>
+                </div>
+              </div>
+              <ArrowUpRight className="w-4 h-4 text-ink-faint group-hover:text-primary group-hover:translate-x-0.5 transition" />
+            </Link>
+          </div>
         </div>
       </FormSection>
 

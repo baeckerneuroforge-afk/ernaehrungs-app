@@ -42,6 +42,14 @@ export default function RootLayout({
     <html lang="de">
       <head>
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+        {/* Theme boot — run before paint to avoid flash of wrong theme.
+            Reads 'theme' from localStorage ('light' | 'dark' | 'system'),
+            falls back to 'system' which honors prefers-color-scheme. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('theme')||'system';var d=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(d)document.documentElement.classList.add('dark');}catch(e){}})();`,
+          }}
+        />
       </head>
       <body className="antialiased">
         <CreditWarning />
