@@ -27,6 +27,9 @@ import {
   BarChart3,
   Baby,
   Wheat,
+  Camera,
+  ShoppingBasket,
+  UtensilsCrossed,
 } from "lucide-react";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -62,6 +65,7 @@ export default function LandingPage() {
         <TrustBar />
         <HowItWorksSection />
         <FeaturesSection />
+        <PhotoAiSection />
         <ClosedLoopSection />
         <ExampleQuestionsSection />
         <PricingSection />
@@ -630,6 +634,12 @@ function FeaturesSection() {
             title="Chat mit KI-Beraterin"
             description="Stelle jede Frage rund um Ernährung. Sofort fundierte Antworten — basierend auf deinem Profil, Tagebuch und Zielen."
             preview={<ChatPreview />}
+            badge={
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full bg-gradient-to-r from-accent-warm to-amber-600 text-white shadow-md shadow-amber-600/20">
+                <Camera className="w-2.5 h-2.5" />
+                Neu: Foto-Analyse
+              </span>
+            }
           />
           <FeatureCard
             icon={<CalendarDays className="w-5 h-5" />}
@@ -654,14 +664,19 @@ function FeatureCard({
   title,
   description,
   preview,
+  badge,
 }: {
   icon: React.ReactNode;
   title: string;
   description: string;
   preview: React.ReactNode;
+  badge?: React.ReactNode;
 }) {
   return (
-    <div className="group bg-white rounded-3xl border border-border p-7 hover:shadow-2xl hover:shadow-primary/[0.08] hover:-translate-y-1 hover:border-primary/30 transition-all duration-300 flex flex-col">
+    <div className="relative group bg-white rounded-3xl border border-border p-7 hover:shadow-2xl hover:shadow-primary/[0.08] hover:-translate-y-1 hover:border-primary/30 transition-all duration-300 flex flex-col">
+      {badge && (
+        <div className="absolute -top-3 right-5 z-10">{badge}</div>
+      )}
       {/* Preview */}
       <div className="bg-gradient-to-br from-primary-faint to-sage-faint dark:from-[#142820] dark:to-[#1a3328] rounded-2xl p-4 mb-6 h-36 flex items-center justify-center overflow-hidden">
         {preview}
@@ -747,6 +762,220 @@ function ReviewPreview() {
           <p className="text-[10px] font-semibold text-warm-dark">{b.value}</p>
         </div>
       ))}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   4b. PHOTO AI — Premium feature spotlight
+   ═══════════════════════════════════════════════════════════════ */
+function PhotoAiSection() {
+  const ref = useScrollReveal();
+
+  const useCases = [
+    {
+      icon: <UtensilsCrossed className="w-5 h-5" />,
+      title: "Speisekarte fotografieren",
+      desc: "Im Restaurant? Schick ein Foto der Karte. Die KI sagt dir, was zu deinem Ziel passt — inklusive Kalorienbudget für den Rest des Tages.",
+    },
+    {
+      icon: <Camera className="w-5 h-5" />,
+      title: "Essen fotografieren",
+      desc: "Foto machen, fertig. Kalorien, Protein und Makros werden automatisch erkannt und ins Tagebuch eingetragen.",
+    },
+    {
+      icon: <ShoppingBasket className="w-5 h-5" />,
+      title: "Zutatenliste scannen",
+      desc: "Verpackung abfotografieren und sofort wissen: Passt das zu meinem Ziel? Was wäre eine bessere Alternative?",
+    },
+  ];
+
+  return (
+    <section className="relative overflow-hidden bg-white border-y border-accent-warmLight/30">
+      {/* Subtle amber/gold gradient blobs */}
+      <div
+        aria-hidden
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(ellipse at 85% 20%, rgba(245,212,155,0.25) 0%, rgba(245,212,155,0) 55%), radial-gradient(ellipse at 15% 80%, rgba(253,230,192,0.3) 0%, rgba(253,230,192,0) 60%)",
+        }}
+      />
+
+      <div ref={ref} className="reveal relative max-w-6xl mx-auto px-4 sm:px-6 py-28">
+        <div className="grid md:grid-cols-[3fr_2fr] gap-12 lg:gap-16 items-center">
+          {/* Left — Text + Use Cases */}
+          <div className="anim-fade-left">
+            <p className="inline-flex items-center gap-1.5 text-xs font-bold text-accent-warm tracking-[0.2em] uppercase mb-4">
+              <Crown className="w-3 h-3" />
+              Premium-Feature
+            </p>
+            <h2 className="font-serif text-4xl sm:text-5xl font-semibold text-warm-dark mb-4 tracking-tight leading-[1.08]">
+              Fotografieren
+              <br />
+              <span className="italic text-accent-warm">statt tippen.</span>
+            </h2>
+            <p className="text-warm-muted leading-relaxed font-light text-lg mb-10 max-w-xl">
+              Schick ein Foto — die KI erledigt den Rest.
+            </p>
+
+            <div className="space-y-4 mb-10">
+              {useCases.map((uc) => (
+                <div
+                  key={uc.title}
+                  className="flex items-start gap-4 bg-white/80 backdrop-blur-sm border border-accent-warmLight/40 rounded-2xl p-4 sm:p-5 hover:border-accent-warm/50 hover:shadow-lg hover:shadow-amber-600/5 transition-all duration-300"
+                >
+                  <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-accent-warmPale to-amber-100 text-accent-warm flex items-center justify-center flex-shrink-0">
+                    {uc.icon}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-serif text-lg font-semibold text-warm-dark mb-1 leading-snug">
+                      {uc.title}
+                    </p>
+                    <p className="text-sm text-warm-muted leading-relaxed">
+                      {uc.desc}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <Link
+              href="#preise"
+              className="inline-flex items-center gap-2 bg-gradient-to-r from-accent-warm to-amber-600 text-white px-6 py-3.5 rounded-full text-sm font-semibold hover:scale-[1.02] transition-all shadow-lg shadow-amber-600/25"
+            >
+              Premium entdecken
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+
+          {/* Right — Phone mockup */}
+          <div className="anim-fade-right delay-2 flex justify-center md:justify-end">
+            <PhoneMockupPhotoChat />
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function PhoneMockupPhotoChat() {
+  return (
+    <div className="relative">
+      {/* Glow */}
+      <div
+        aria-hidden
+        className="absolute -inset-6 bg-gradient-to-br from-accent-warm/15 to-amber-400/10 rounded-[3rem] blur-2xl"
+      />
+      {/* Phone frame */}
+      <div className="relative w-[280px] sm:w-[300px] rounded-[2.5rem] bg-ink border-[10px] border-ink shadow-2xl">
+        <div className="rounded-[1.75rem] overflow-hidden bg-surface-bg">
+          {/* Status bar */}
+          <div className="flex items-center justify-between px-5 pt-3 pb-2 text-[10px] text-ink-muted font-semibold">
+            <span>9:41</span>
+            <div className="flex items-center gap-1">
+              <span className="w-3 h-1.5 bg-ink rounded-sm" />
+              <span className="w-3 h-1.5 bg-ink rounded-sm" />
+              <span className="w-4 h-1.5 bg-ink rounded-sm" />
+            </div>
+          </div>
+          {/* Chat header */}
+          <div className="px-4 py-2.5 border-b border-border bg-white/80 backdrop-blur flex items-center gap-2">
+            <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center">
+              <Leaf className="w-3.5 h-3.5 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-semibold text-warm-dark leading-tight">Ernährungsassistent</p>
+              <p className="text-[9px] text-primary leading-tight">● Online</p>
+            </div>
+            <span className="inline-flex items-center gap-0.5 text-[8px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-gradient-to-r from-accent-warm to-amber-600 text-white">
+              <Sparkles className="w-2 h-2" />
+              Sonnet
+            </span>
+          </div>
+
+          {/* Messages */}
+          <div className="px-4 py-4 space-y-2.5 min-h-[340px] bg-gradient-to-b from-surface-bg to-white/50">
+            {/* User bubble with image thumbnail */}
+            <div className="flex justify-end">
+              <div className="flex flex-col items-end gap-1 max-w-[80%]">
+                {/* Fake menu thumbnail */}
+                <div className="rounded-xl overflow-hidden shadow-md border border-border bg-white">
+                  <div className="w-[140px] h-[90px] bg-gradient-to-br from-amber-50 via-white to-amber-100/60 p-2 flex flex-col justify-between">
+                    <p className="text-[7px] font-serif font-bold text-warm-dark tracking-tight">RISTORANTE</p>
+                    <div className="space-y-0.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[6px] text-warm-dark font-medium">Lachsfilet</span>
+                        <span className="text-[6px] text-warm-muted">18€</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[6px] text-warm-dark font-medium">Carbonara</span>
+                        <span className="text-[6px] text-warm-muted">14€</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[6px] text-warm-dark font-medium">Caesar Salad</span>
+                        <span className="text-[6px] text-warm-muted">12€</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[6px] text-warm-dark font-medium">Tiramisu</span>
+                        <span className="text-[6px] text-warm-muted">7€</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-primary text-white text-[10px] rounded-2xl rounded-br-sm px-3 py-1.5 shadow-sm">
+                  Was soll ich bestellen?
+                </div>
+              </div>
+            </div>
+
+            {/* Assistant bubble */}
+            <div className="flex gap-1.5">
+              <div className="w-6 h-6 rounded-full bg-primary-pale flex items-center justify-center flex-shrink-0">
+                <Leaf className="w-3 h-3 text-primary" />
+              </div>
+              <div className="bg-white border border-border text-[10px] rounded-2xl rounded-bl-sm px-3 py-2 shadow-sm max-w-[85%]">
+                <p className="text-warm-dark leading-snug">
+                  Du hast noch <span className="font-semibold text-primary">850 kcal</span> übrig.
+                </p>
+                <p className="text-warm-dark leading-snug mt-1">
+                  Nimm das <span className="font-semibold">Lachsfilet</span> (~620 kcal) — gutes Protein und passt perfekt.
+                </p>
+                <p className="text-warm-muted leading-snug mt-1">
+                  Die Carbonara (~950 kcal) würde dein Budget sprengen.
+                </p>
+              </div>
+            </div>
+
+            {/* Typing indicator spacer */}
+            <div className="flex gap-1.5 opacity-60">
+              <div className="w-6 h-6 rounded-full bg-primary-pale flex items-center justify-center flex-shrink-0">
+                <Leaf className="w-3 h-3 text-primary" />
+              </div>
+              <div className="bg-white border border-border rounded-2xl rounded-bl-sm px-3 py-2 shadow-sm">
+                <div className="flex gap-1 items-center h-3">
+                  <span className="w-1 h-1 bg-primary/50 rounded-full animate-typing-dot" />
+                  <span className="w-1 h-1 bg-primary/50 rounded-full animate-typing-dot [animation-delay:0.15s]" />
+                  <span className="w-1 h-1 bg-primary/50 rounded-full animate-typing-dot [animation-delay:0.3s]" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Input bar */}
+          <div className="px-3 py-2.5 border-t border-border bg-white flex items-center gap-1.5">
+            <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-amber-50 to-amber-100 border border-accent-warmLight/60 flex items-center justify-center flex-shrink-0">
+              <Camera className="w-3 h-3 text-accent-warm" />
+            </div>
+            <div className="flex-1 h-7 rounded-full bg-surface-muted px-3 flex items-center">
+              <span className="text-[9px] text-ink-faint">Frage stellen…</span>
+            </div>
+            <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center flex-shrink-0 shadow-sm">
+              <Send className="w-3 h-3 text-white" />
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
