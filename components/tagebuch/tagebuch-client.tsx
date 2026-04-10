@@ -190,6 +190,7 @@ export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Form state
   const [formTyp, setFormTyp] = useState<MealTyp>("fruehstueck");
@@ -231,6 +232,7 @@ export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
     setFormPhotoBudget(null);
     setAnalysis(null);
     setAnalysisError(null);
+    setSaveError(null);
   }
 
   function openForm() {
@@ -377,41 +379,58 @@ export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
   async function handleAdd() {
     if (!formBeschreibung.trim()) return;
     setSaving(true);
-    const res = await fetch("/api/tagebuch", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        mahlzeit_typ: formTyp,
-        beschreibung: formBeschreibung.trim(),
-        kalorien_geschaetzt: formKcal ? parseInt(formKcal) : null,
-        protein_g: formProtein,
-        carbs_g: formCarbs,
-        fat_g: formFat,
-        uhrzeit: formUhrzeit || null,
-        source: formSource,
-        photo_url: formPhotoUrl,
-        photo_tip: formPhotoTip,
-        photo_daily_budget_percent: formPhotoBudget,
-        datum,
-      }),
-    });
-    if (res.ok) {
-      const entry = (await res.json()) as FoodLog;
-      setEntries((prev) => [...prev, entry]);
-      const wasPhotoEntry = formSource === "photo";
-      closeForm();
-      // Foto-Einträge: 5s lang Feedback-Leiste zeigen
-      if (wasPhotoEntry && entry?.id) {
-        setFeedbackPromptId(entry.id);
-        setFeedbackDetailId(null);
-        setTimeout(() => {
-          setFeedbackPromptId((current) =>
-            current === entry.id ? null : current
-          );
-        }, 5000);
+    setSaveError(null);
+
+    try {
+      const res = await fetch("/api/tagebuch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mahlzeit_typ: formTyp,
+          beschreibung: formBeschreibung.trim(),
+          kalorien_geschaetzt: formKcal ? parseInt(formKcal) : null,
+          protein_g: formProtein,
+          carbs_g: formCarbs,
+          fat_g: formFat,
+          uhrzeit: formUhrzeit || null,
+          source: formSource,
+          photo_url: formPhotoUrl,
+          photo_tip: formPhotoTip,
+          photo_daily_budget_percent: formPhotoBudget,
+          datum,
+        }),
+      });
+
+      if (res.ok) {
+        const entry = (await res.json()) as FoodLog;
+        setEntries((prev) => [...prev, entry]);
+        const wasPhotoEntry = formSource === "photo";
+        closeForm();
+        // Foto-Einträge: 5s lang Feedback-Leiste zeigen
+        if (wasPhotoEntry && entry?.id) {
+          setFeedbackPromptId(entry.id);
+          setFeedbackDetailId(null);
+          setTimeout(() => {
+            setFeedbackPromptId((current) =>
+              current === entry.id ? null : current
+            );
+          }, 5000);
+        }
+      } else {
+        const errorData = await res
+          .json()
+          .catch(() => ({} as { error?: string }));
+        setSaveError(
+          errorData?.error || `Fehler beim Speichern (${res.status})`
+        );
+        console.error("[tagebuch] Save failed:", res.status, errorData);
       }
+    } catch (err) {
+      setSaveError("Netzwerk-Fehler. Bitte prüfe deine Verbindung.");
+      console.error("[tagebuch] Network error:", err);
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   }
 
   async function submitFeedback(
@@ -989,6 +1008,9 @@ export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
                   Speichern
                 </button>
               </div>
+              {saveError && (
+                <p className="text-red-500 text-sm mt-2">{saveError}</p>
+              )}
             </div>
           </div>
         </div>
