@@ -97,7 +97,7 @@ function HeroSection() {
   }, [videoFailed]);
 
   return (
-    <section className="relative min-h-[90vh] flex items-center overflow-hidden dark:bg-[#1C1917]">
+    <section className="relative min-h-[85vh] md:min-h-[90vh] flex items-center overflow-hidden dark:bg-[#1C1917]">
       {/* Organic background blobs */}
       <div
         aria-hidden
@@ -126,21 +126,22 @@ function HeroSection() {
         }}
       />
 
-      <div className="relative w-full max-w-6xl mx-auto px-4 sm:px-6 pt-24 pb-20 lg:pt-28 lg:pb-24">
-        <div className="grid lg:grid-cols-[1.1fr_1fr] gap-12 lg:gap-20 items-center">
+      <div className="relative w-full max-w-6xl mx-auto px-5 sm:px-6 pt-24 pb-16 lg:pt-28 lg:pb-24">
+        <div className="grid lg:grid-cols-[1.1fr_1fr] gap-10 lg:gap-20 items-center">
           {/* Left — Copy */}
-          <div className="max-w-xl relative z-10">
-            <div className="inline-flex items-center gap-2 bg-white/70 backdrop-blur-sm border border-sage-light/60 rounded-full px-4 py-1.5 mb-8 shadow-sm">
+          <div className="relative z-10 max-w-full lg:max-w-xl">
+            <div className="inline-flex items-center gap-2 bg-white/70 backdrop-blur-sm border border-sage-light/60 rounded-full px-4 py-1.5 mb-7 shadow-sm">
               <Sparkles className="w-3.5 h-3.5 text-primary" />
               <span className="text-xs font-medium text-primary tracking-wide">
                 Fundierte Ernährungsberatung
               </span>
             </div>
 
-            <h1 className="font-serif font-semibold text-warm-dark leading-[1.02] tracking-tight mb-7 text-5xl sm:text-6xl md:text-7xl">
-              Deine Ernährungs
-              <span className="hidden md:inline">&shy;</span>
-              beraterin.
+            <h1
+              lang="de"
+              className="font-serif font-semibold text-warm-dark leading-[1.05] tracking-tight mb-6 text-[2rem] sm:text-5xl md:text-6xl lg:text-7xl break-words hyphens-auto"
+            >
+              Deine Ernährungs&shy;beraterin.
               <br />
               <span
                 className="inline-block bg-gradient-to-r from-primary via-primary-light to-sage bg-clip-text text-transparent italic pr-2"
@@ -150,15 +151,15 @@ function HeroSection() {
               </span>
             </h1>
 
-            <p className="text-lg sm:text-xl text-warm-muted leading-relaxed mb-10 max-w-lg font-light">
+            <p className="text-base sm:text-xl text-warm-muted leading-relaxed mb-8 sm:mb-10 max-w-full sm:max-w-lg font-light">
               Frag was dich bewegt. Die Antwort kennt dein Ziel, deine Allergien
               und deinen Alltag.
             </p>
 
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-5">
               <Link
                 href="/sign-up"
-                className="group inline-flex items-center gap-2.5 bg-primary text-white px-9 py-4 rounded-full font-medium text-base hover:bg-primary-hover hover:scale-[1.03] active:scale-95 transition-all duration-200 shadow-xl shadow-primary/25"
+                className="group inline-flex items-center gap-2.5 bg-primary text-white px-8 sm:px-9 py-3.5 sm:py-4 rounded-full font-medium text-base hover:bg-primary-hover hover:scale-[1.03] active:scale-95 transition-all duration-200 shadow-xl shadow-primary/25"
               >
                 Kostenlos starten
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
@@ -172,8 +173,8 @@ function HeroSection() {
             </div>
           </div>
 
-          {/* Right — Phone with video */}
-          <div className="relative flex justify-center lg:justify-end">
+          {/* Right — Video (Remotion video already contains its own phone frame) */}
+          <div className="relative flex justify-center lg:justify-end mt-8 lg:mt-0">
             <div
               aria-hidden
               className="absolute -top-10 -right-10 w-80 h-80 border border-sage-light/60 rounded-full hidden lg:block"
@@ -185,33 +186,27 @@ function HeroSection() {
 
             <div
               ref={phoneRef}
-              className="relative w-[280px] sm:w-[310px] motion-safe:transition-transform duration-500"
+              className="relative w-full max-w-[250px] sm:max-w-[300px] lg:max-w-[360px] motion-safe:transition-transform duration-500"
               style={{ transform: "rotate(-2deg)" }}
             >
-              <div className="bg-[#1A1A1A] dark:bg-[#0a0a0a] rounded-[44px] p-[6px] shadow-[0_40px_80px_-20px_rgba(28,25,23,0.35)] dark:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.8)]">
-                <div className="bg-[#F0F7EC] rounded-[40px] overflow-hidden relative">
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[120px] h-[28px] bg-[#1A1A1A] rounded-b-2xl z-10" />
-                  {!videoFailed ? (
-                    <video
-                      ref={videoRef}
-                      src="/ernaehrungsapp-demo.mp4"
-                      poster="/video-poster.svg"
-                      preload="metadata"
-                      autoPlay
-                      muted
-                      loop
-                      playsInline
-                      onError={() => setVideoFailed(true)}
-                      className="w-full aspect-[9/19.5] object-cover"
-                    />
-                  ) : (
-                    <HeroFallback />
-                  )}
-                  <div className="absolute bottom-0 left-0 right-0 flex justify-center py-2 z-10">
-                    <div className="w-24 h-1 bg-black/10 rounded-full" />
-                  </div>
+              {!videoFailed ? (
+                <video
+                  ref={videoRef}
+                  src="/ernaehrungsapp-demo.mp4"
+                  poster="/video-poster.svg"
+                  preload="metadata"
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  onError={() => setVideoFailed(true)}
+                  className="w-full aspect-[9/19.5] object-cover rounded-3xl shadow-2xl shadow-black/25 dark:shadow-black/60"
+                />
+              ) : (
+                <div className="rounded-3xl overflow-hidden shadow-2xl shadow-black/25 dark:shadow-black/60 bg-[#F0F7EC]">
+                  <HeroFallback />
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
