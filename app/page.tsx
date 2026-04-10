@@ -80,6 +80,7 @@ export default function LandingPage() {
 function HeroSection() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const phoneRef = useRef<HTMLDivElement>(null);
+  const revealRef = useScrollReveal();
   const [videoFailed, setVideoFailed] = useState(false);
 
   useEffect(() => {
@@ -126,11 +127,11 @@ function HeroSection() {
         }}
       />
 
-      <div className="relative w-full max-w-6xl mx-auto px-5 sm:px-6 pt-24 pb-16 lg:pt-28 lg:pb-24">
+      <div ref={revealRef} className="reveal relative w-full max-w-6xl mx-auto px-5 sm:px-6 pt-24 pb-16 lg:pt-28 lg:pb-24">
         <div className="grid lg:grid-cols-[1.1fr_1fr] gap-10 lg:gap-20 items-center">
           {/* Left — Copy */}
           <div className="relative z-10 max-w-full lg:max-w-xl">
-            <div className="inline-flex items-center gap-2 bg-white/70 backdrop-blur-sm border border-sage-light/60 rounded-full px-4 py-1.5 mb-7 shadow-sm">
+            <div className="anim-fade-up inline-flex items-center gap-2 bg-white/70 backdrop-blur-sm border border-sage-light/60 rounded-full px-4 py-1.5 mb-7 shadow-sm">
               <Sparkles className="w-3.5 h-3.5 text-primary" />
               <span className="text-xs font-medium text-primary tracking-wide">
                 Fundierte Ernährungsberatung
@@ -139,7 +140,7 @@ function HeroSection() {
 
             <h1
               lang="de"
-              className="font-serif font-semibold text-warm-dark leading-[1.05] tracking-tight mb-6 text-[2rem] sm:text-5xl md:text-6xl lg:text-7xl break-words hyphens-auto"
+              className="font-serif font-semibold text-warm-dark leading-[1.05] tracking-tight mb-6 text-[2rem] sm:text-5xl md:text-6xl lg:text-7xl [hyphens:manual] anim-fade-up delay-1"
             >
               Deine Ernährungs&shy;beraterin.
               <br />
@@ -151,12 +152,12 @@ function HeroSection() {
               </span>
             </h1>
 
-            <p className="text-base sm:text-xl text-warm-muted leading-relaxed mb-8 sm:mb-10 max-w-full sm:max-w-lg font-light">
+            <p className="anim-fade-up delay-2 text-base sm:text-xl text-warm-muted leading-relaxed mb-8 sm:mb-10 max-w-full sm:max-w-lg font-light">
               Frag was dich bewegt. Die Antwort kennt dein Ziel, deine Allergien
               und deinen Alltag.
             </p>
 
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-5">
+            <div className="anim-fade-up delay-3 flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-5">
               <Link
                 href="/sign-up"
                 className="group inline-flex items-center gap-2.5 bg-primary text-white px-8 sm:px-9 py-3.5 sm:py-4 rounded-full font-medium text-base hover:bg-primary-hover hover:scale-[1.03] active:scale-95 transition-all duration-200 shadow-xl shadow-primary/25"
@@ -186,9 +187,9 @@ function HeroSection() {
 
             <div
               ref={phoneRef}
-              className="relative w-full max-w-[250px] sm:max-w-[300px] lg:max-w-[360px] motion-safe:transition-transform duration-500"
-              style={{ transform: "rotate(-2deg)" }}
+              className="anim-scale-up delay-2 relative w-full max-w-[250px] sm:max-w-[300px] lg:max-w-[360px]"
             >
+            <div className="relative motion-safe:[transform:rotate(-2deg)]">
               {!videoFailed ? (
                 <video
                   ref={videoRef}
@@ -207,6 +208,7 @@ function HeroSection() {
                   <HeroFallback />
                 </div>
               )}
+            </div>
             </div>
           </div>
         </div>
@@ -321,7 +323,6 @@ function TrustBar() {
    3. HOW IT WORKS — Zig-Zag with mini app mockups
    ═══════════════════════════════════════════════════════════════ */
 function HowItWorksSection() {
-  const ref = useScrollReveal();
   const steps = [
     {
       num: "01",
@@ -362,16 +363,13 @@ function HowItWorksSection() {
         </h2>
       </div>
 
-      <div ref={ref} className="reveal-stagger max-w-5xl mx-auto px-4 sm:px-6 space-y-16 sm:space-y-24">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 space-y-16 sm:space-y-24">
         {steps.map((s, i) => {
           const reversed = i % 2 === 1;
           return (
-            <div
-              key={s.num}
-              className="relative grid md:grid-cols-2 gap-8 md:gap-14 items-center"
-            >
+            <HowItWorksStep key={s.num}>
               {/* Text — on mobile always below mockup */}
-              <div className={`order-2 ${reversed ? "md:order-2 md:text-right md:pl-6" : "md:order-1 md:pr-6"} relative`}>
+              <div className={`${reversed ? "anim-fade-right" : "anim-fade-left"} order-2 ${reversed ? "md:order-2 md:text-right md:pl-6" : "md:order-1 md:pr-6"} relative`}>
                 <span
                   aria-hidden
                   className="font-serif text-[7rem] sm:text-[9rem] leading-none font-semibold text-primary-pale absolute -top-8 -z-10 select-none"
@@ -391,7 +389,7 @@ function HowItWorksSection() {
               </div>
 
               {/* Mockup */}
-              <div className={`order-1 ${reversed ? "md:order-1" : "md:order-2"} flex justify-center`}>
+              <div className={`anim-scale-up delay-2 order-1 ${reversed ? "md:order-1" : "md:order-2"} flex justify-center`}>
                 <div className="relative">
                   <div
                     aria-hidden
@@ -400,11 +398,23 @@ function HowItWorksSection() {
                   {s.mockup}
                 </div>
               </div>
-            </div>
+            </HowItWorksStep>
           );
         })}
       </div>
     </section>
+  );
+}
+
+function HowItWorksStep({ children }: { children: React.ReactNode }) {
+  const ref = useScrollReveal();
+  return (
+    <div
+      ref={ref}
+      className="reveal relative grid md:grid-cols-2 gap-8 md:gap-14 items-center"
+    >
+      {children}
+    </div>
   );
 }
 
@@ -846,7 +856,7 @@ function ClosedLoopSection() {
         </div>
 
         {/* Loop-back indicator */}
-        <div className="flex justify-center">
+        <div className="anim-scale-up delay-4 flex justify-center">
           <div className="inline-flex items-center gap-2 bg-primary text-white rounded-full px-5 py-2.5 shadow-lg shadow-primary/25">
             <Sparkles className="w-4 h-4" />
             <span className="text-sm font-medium">
@@ -987,10 +997,10 @@ function PricingSection() {
 
         <div
           ref={ref}
-          className="reveal-stagger grid md:grid-cols-3 gap-6 max-w-5xl mx-auto items-center"
+          className="reveal grid md:grid-cols-3 gap-6 max-w-5xl mx-auto items-center"
         >
           {/* Free — on mobile shown second, on desktop first (left) */}
-          <div className="order-2 md:order-1">
+          <div className="anim-fade-left order-2 md:order-1">
           <PricingCard
             name="Kostenlos"
             tagline="Zum Ausprobieren"
@@ -1007,7 +1017,7 @@ function PricingSection() {
           </div>
 
           {/* Basis — prominent, shown first on mobile, center on desktop */}
-          <div className="order-1 md:order-2">
+          <div className="anim-scale-up delay-1 order-1 md:order-2">
           <PricingCard
             name="Basis"
             tagline="Für bewusste Ernährung"
@@ -1029,7 +1039,7 @@ function PricingSection() {
           </div>
 
           {/* Premium — amber accent */}
-          <div className="order-3">
+          <div className="anim-fade-right delay-2 order-3">
           <PricingCard
             name="Premium"
             tagline="Mit persönlicher Betreuung"
@@ -1254,7 +1264,7 @@ function JanineSection() {
       >
         <div className="grid md:grid-cols-[auto_1fr] gap-12 lg:gap-16 items-start">
           {/* Photo */}
-          <div className="flex justify-center md:justify-start">
+          <div className="anim-fade-left flex justify-center md:justify-start">
             <div className="relative">
               <div
                 aria-hidden
@@ -1279,7 +1289,7 @@ function JanineSection() {
           </div>
 
           {/* Right column */}
-          <div>
+          <div className="anim-fade-right delay-2">
             <p className="text-xs font-semibold text-primary tracking-[0.2em] uppercase mb-3">
               Die Expertin hinter Nutriva
             </p>

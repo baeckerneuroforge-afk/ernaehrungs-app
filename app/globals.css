@@ -231,6 +231,75 @@ html {
 .reveal-stagger.visible > *:nth-child(5) { transition-delay: 320ms; opacity: 1 !important; transform: translateY(0) !important; }
 .reveal-stagger.visible > *:nth-child(6) { transition-delay: 400ms; opacity: 1 !important; transform: translateY(0) !important; }
 
+/* ----------------------------------------------------------------------
+   Animation variants — usable inside .reveal or .reveal-stagger containers.
+   Add one of .anim-fade-up / .anim-fade-left / .anim-fade-right / .anim-scale-up
+   to any descendant; it stays hidden until the parent reveal container
+   receives .visible. Combine with .delay-1 … .delay-5 for staggering.
+---------------------------------------------------------------------- */
+.reveal.js-reveal .anim-fade-up,
+.reveal-stagger.js-reveal .anim-fade-up {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.7s ease-out, transform 0.7s ease-out;
+}
+.reveal.js-reveal .anim-fade-left,
+.reveal-stagger.js-reveal .anim-fade-left {
+  opacity: 0;
+  transform: translateX(-40px);
+  transition: opacity 0.7s ease-out, transform 0.7s ease-out;
+}
+.reveal.js-reveal .anim-fade-right,
+.reveal-stagger.js-reveal .anim-fade-right {
+  opacity: 0;
+  transform: translateX(40px);
+  transition: opacity 0.7s ease-out, transform 0.7s ease-out;
+}
+.reveal.js-reveal .anim-scale-up,
+.reveal-stagger.js-reveal .anim-scale-up {
+  opacity: 0;
+  transform: scale(0.94);
+  transition: opacity 0.7s ease-out, transform 0.7s ease-out;
+}
+
+.reveal.visible .anim-fade-up,
+.reveal.visible .anim-fade-left,
+.reveal.visible .anim-fade-right,
+.reveal.visible .anim-scale-up,
+.reveal-stagger.visible .anim-fade-up,
+.reveal-stagger.visible .anim-fade-left,
+.reveal-stagger.visible .anim-fade-right,
+.reveal-stagger.visible .anim-scale-up {
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+/* Stagger delay utilities (apply alongside anim-*) */
+.reveal .delay-1, .reveal-stagger .delay-1 { transition-delay: 0.1s; }
+.reveal .delay-2, .reveal-stagger .delay-2 { transition-delay: 0.2s; }
+.reveal .delay-3, .reveal-stagger .delay-3 { transition-delay: 0.3s; }
+.reveal .delay-4, .reveal-stagger .delay-4 { transition-delay: 0.4s; }
+.reveal .delay-5, .reveal-stagger .delay-5 { transition-delay: 0.5s; }
+.reveal .delay-6, .reveal-stagger .delay-6 { transition-delay: 0.6s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal.js-reveal,
+  .reveal-stagger.js-reveal,
+  .reveal.js-reveal .anim-fade-up,
+  .reveal.js-reveal .anim-fade-left,
+  .reveal.js-reveal .anim-fade-right,
+  .reveal.js-reveal .anim-scale-up,
+  .reveal-stagger.js-reveal .anim-fade-up,
+  .reveal-stagger.js-reveal .anim-fade-left,
+  .reveal-stagger.js-reveal .anim-fade-right,
+  .reveal-stagger.js-reveal .anim-scale-up,
+  .reveal-stagger.js-reveal > * {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}
+
 /* Steps vertical line (mobile) */
 .steps-line-v {
   position: relative;
