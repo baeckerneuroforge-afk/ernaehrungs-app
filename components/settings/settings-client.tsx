@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   Bell,
@@ -15,6 +16,7 @@ import {
   ArrowUpRight,
   Check,
   Loader2,
+  RotateCcw,
 } from "lucide-react";
 
 type Theme = "light" | "dark" | "system";
@@ -33,10 +35,23 @@ interface Props {
 const TIME_PRESETS = ["08:00", "12:00", "18:00", "20:00"];
 
 export function SettingsClient({ initialPreferences, initialTheme }: Props) {
+  const router = useRouter();
   const [prefs, setPrefs] = useState<NotificationPreferences>(initialPreferences);
   const [theme, setTheme] = useState<Theme>(initialTheme);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [tourReset, setTourReset] = useState(false);
+
+  async function replayTour() {
+    await fetch("/api/profile/tour-done", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reset: true }),
+    });
+    setTourReset(true);
+    // Bounce to /chat so the tour actually runs
+    router.push("/chat");
+  }
 
   // Apply theme to <html> immediately and persist to localStorage
   useEffect(() => {
@@ -256,6 +271,26 @@ export function SettingsClient({ initialPreferences, initialTheme }: Props) {
             label="Hilfe & Support"
             description="Kontakt aufnehmen und häufige Fragen"
           />
+          <button
+            type="button"
+            onClick={replayTour}
+            className="w-full flex items-center gap-3 p-3 rounded-xl border border-border hover:border-primary/40 hover:bg-primary-faint transition group text-left"
+          >
+            <div className="w-9 h-9 rounded-full bg-primary-pale flex items-center justify-center flex-shrink-0">
+              <RotateCcw className="w-4 h-4 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium text-ink">
+                Onboarding-Tour nochmal anzeigen
+              </div>
+              <div className="text-xs text-ink-muted truncate">
+                {tourReset
+                  ? "Wird beim nächsten Chat-Besuch gestartet…"
+                  : "Zurück zum Walkthrough mit den wichtigsten Features"}
+              </div>
+            </div>
+            <ArrowUpRight className="w-4 h-4 text-ink-faint group-hover:text-primary group-hover:translate-x-0.5 transition" />
+          </button>
         </div>
         <p className="text-xs text-ink-faint mt-4 leading-relaxed">
           Konto löschen? Das findest du in deinem{" "}

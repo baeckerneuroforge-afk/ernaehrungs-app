@@ -66,11 +66,12 @@ export function NavbarShell() {
     label: string;
     icon: typeof MessageCircle;
     feature?: Feature;
+    tour?: string;
   }[] = [
     { href: "/chat", label: "Chat", icon: MessageCircle, feature: "chat" },
-    { href: "/ernaehrungsplan", label: "Plan", icon: CalendarDays, feature: "plan" },
-    { href: "/tagebuch", label: "Tagebuch", icon: BookOpen, feature: "tagebuch" },
-    { href: "/tracker", label: "Tracker", icon: LineChart, feature: "tracker" },
+    { href: "/ernaehrungsplan", label: "Plan", icon: CalendarDays, feature: "plan", tour: "plan" },
+    { href: "/tagebuch", label: "Tagebuch", icon: BookOpen, feature: "tagebuch", tour: "tagebuch" },
+    { href: "/tracker", label: "Tracker", icon: LineChart, feature: "tracker", tour: "tracker" },
     { href: "/profil", label: "Profil", icon: UserIcon },
   ];
 
@@ -115,6 +116,7 @@ export function NavbarShell() {
                         <Link
                           key={link.href}
                           href={link.href}
+                          data-tour={link.tour}
                           className={`px-3.5 py-1.5 rounded-full text-sm transition-all duration-200 inline-flex items-center gap-1.5 ${
                             active
                               ? "bg-primary-pale text-primary font-medium"
