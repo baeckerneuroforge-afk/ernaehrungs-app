@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { SignedIn, SignedOut, useUser, useAuth, useClerk } from "@clerk/nextjs";
 import {
@@ -30,14 +30,15 @@ export function NavbarShell() {
   const [userPlan, setUserPlan] = useState<string>("free");
   const [menuOpen, setMenuOpen] = useState(false);
   const pathname = usePathname();
-  const router = useRouter();
 
-  // Sign out + force Server Components cache refresh so the landing
-  // navbar doesn't briefly show stale signed-in state.
+  // Sign out + hard navigation. router.replace("/") war ein Soft-Nav —
+  // der Next.js Router-Cache servierte dann die im signed-in Zustand
+  // gerenderte Landing-Page (mit App-Nav) statt frisch vom Server zu
+  // rendern. window.location.assign erzwingt full roundtrip → neue
+  // Server-Render ohne Clerk-Session → korrekte Landing-Navbar.
   const handleSignOut = async () => {
     await signOut();
-    router.refresh();
-    router.replace("/");
+    window.location.assign("/");
   };
 
   // Fetch plan + admin status whenever the signed-in user changes
