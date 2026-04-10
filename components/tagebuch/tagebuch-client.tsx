@@ -79,6 +79,21 @@ export function TagebuchClient({ initialEntries, today }: Props) {
   const [formTyp, setFormTyp] = useState<MealTyp>("fruehstueck");
   const [formBeschreibung, setFormBeschreibung] = useState("");
   const [formKcal, setFormKcal] = useState("");
+  const [formUhrzeit, setFormUhrzeit] = useState("");
+
+  function openForm() {
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2, "0");
+    const mm = String(now.getMinutes()).padStart(2, "0");
+    setFormUhrzeit(`${hh}:${mm}`);
+    // Smart default based on time of day
+    const h = now.getHours();
+    if (h < 11) setFormTyp("fruehstueck");
+    else if (h < 15) setFormTyp("mittag");
+    else if (h < 20) setFormTyp("abend");
+    else setFormTyp("snack");
+    setShowForm(true);
+  }
 
   const dateInputRef = useRef<HTMLInputElement>(null);
 
@@ -104,6 +119,7 @@ export function TagebuchClient({ initialEntries, today }: Props) {
         mahlzeit_typ: formTyp,
         beschreibung: formBeschreibung.trim(),
         kalorien_geschaetzt: formKcal ? parseInt(formKcal) : null,
+        uhrzeit: formUhrzeit || null,
         datum,
       }),
     });
@@ -227,6 +243,15 @@ export function TagebuchClient({ initialEntries, today }: Props) {
         </div>
       </div>
 
+      {/* Desktop primary CTA — full width under the macro bar */}
+      <button
+        onClick={openForm}
+        className="hidden md:flex w-full items-center justify-center gap-2 bg-primary hover:bg-primary-hover text-white text-sm font-medium py-3.5 rounded-full shadow-card transition"
+      >
+        <Plus className="w-4 h-4" />
+        Mahlzeit eintragen
+      </button>
+
       {loading ? (
         <div className="flex justify-center py-12">
           <Loader2 className="w-5 h-5 animate-spin text-ink-faint" />
@@ -239,9 +264,16 @@ export function TagebuchClient({ initialEntries, today }: Props) {
           <h3 className="font-serif text-lg text-ink mb-1">
             Noch keine Einträge
           </h3>
-          <p className="text-sm text-ink-muted">
+          <p className="text-sm text-ink-muted mb-5">
             Trage ein, was du heute gegessen hast.
           </p>
+          <button
+            onClick={openForm}
+            className="inline-flex items-center gap-2 bg-primary hover:bg-primary-hover text-white text-sm font-medium px-6 py-2.5 rounded-full shadow-card transition"
+          >
+            Erste Mahlzeit eintragen
+            <span aria-hidden>→</span>
+          </button>
         </div>
       ) : (
         <div className="space-y-6 animate-fade-in">
@@ -310,18 +342,18 @@ export function TagebuchClient({ initialEntries, today }: Props) {
         </div>
       )}
 
-      {/* FAB — lifted above the mobile bottom nav */}
+      {/* Mobile FAB — 56px, above bottom nav, z-50 */}
       <button
-        onClick={() => setShowForm(true)}
-        className="fixed right-5 bottom-[calc(5rem+env(safe-area-inset-bottom,0))] md:bottom-6 md:right-6 z-30 bg-primary hover:bg-primary-hover text-white rounded-full shadow-lg p-4 transition hover:scale-105 active:scale-95"
-        aria-label="Eintrag hinzufügen"
+        onClick={openForm}
+        className="md:hidden fixed right-5 bottom-[calc(5rem+env(safe-area-inset-bottom,0))] z-50 w-14 h-14 bg-primary hover:bg-primary-hover text-white rounded-full shadow-pop flex items-center justify-center transition hover:scale-105 active:scale-95"
+        aria-label="Mahlzeit eintragen"
       >
         <Plus className="w-6 h-6" />
       </button>
 
       {/* Add entry sheet / modal */}
       {showForm && (
-        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
           <div
             className="absolute inset-0 bg-ink/40 animate-fade-in"
             onClick={() => !saving && setShowForm(false)}
@@ -380,17 +412,30 @@ export function TagebuchClient({ initialEntries, today }: Props) {
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-ink-muted mb-2">
-                  Kalorien (optional)
-                </label>
-                <input
-                  type="number"
-                  value={formKcal}
-                  onChange={(e) => setFormKcal(e.target.value)}
-                  className="w-full border border-border rounded-2xl px-4 py-3 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface-bg"
-                  placeholder="ca. 350"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-ink-muted mb-2">
+                    Kalorien (optional)
+                  </label>
+                  <input
+                    type="number"
+                    value={formKcal}
+                    onChange={(e) => setFormKcal(e.target.value)}
+                    className="w-full border border-border rounded-2xl px-4 py-3 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface-bg"
+                    placeholder="ca. 350"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-ink-muted mb-2">
+                    Uhrzeit
+                  </label>
+                  <input
+                    type="time"
+                    value={formUhrzeit}
+                    onChange={(e) => setFormUhrzeit(e.target.value)}
+                    className="w-full border border-border rounded-2xl px-4 py-3 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface-bg"
+                  />
+                </div>
               </div>
 
               <div className="flex gap-2 pt-2">
