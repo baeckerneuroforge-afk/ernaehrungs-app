@@ -587,7 +587,6 @@ export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
                   ref={photoInputRef}
                   type="file"
                   accept="image/*"
-                  capture="environment"
                   className="sr-only"
                   onChange={handlePhotoSelected}
                   aria-hidden
