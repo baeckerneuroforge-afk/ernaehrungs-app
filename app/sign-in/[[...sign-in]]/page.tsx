@@ -24,7 +24,10 @@ export default function SignInPage() {
             },
           }}
           forceRedirectUrl="/auth-callback"
+          fallbackRedirectUrl="/auth-callback"
           signUpUrl="/sign-up"
+          signUpFallbackRedirectUrl="/onboarding"
+          signUpForceRedirectUrl="/onboarding"
         />
       </main>
       <Footer />
