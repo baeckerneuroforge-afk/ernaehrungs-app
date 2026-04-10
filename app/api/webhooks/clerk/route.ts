@@ -52,20 +52,40 @@ export async function POST(request: Request) {
     const name = [first_name, last_name].filter(Boolean).join(" ") || null;
 
     const now = new Date().toISOString();
-    await supabase.from("ea_users").upsert(
-      {
+
+    // Zwei-Query-Pattern: credits_subscription darf NUR beim INSERT gesetzt
+    // werden. Ein blindes UPSERT mit credits_subscription im Payload würde
+    // bezahlende Bestandsuser auf 15 zurücksetzen.
+    const { data: existing } = await supabase
+      .from("ea_users")
+      .select("clerk_id")
+      .eq("clerk_id", id)
+      .maybeSingle();
+
+    if (existing) {
+      await supabase
+        .from("ea_users")
+        .update({
+          email,
+          name,
+          image_url: image_url || null,
+          updated_at: now,
+          last_active_at: now,
+        })
+        .eq("clerk_id", id);
+    } else {
+      await supabase.from("ea_users").insert({
         clerk_id: id,
         email,
         name,
         image_url: image_url || null,
+        subscription_plan: "free",
+        credits_subscription: 15,
+        credits_topup: 0,
         updated_at: now,
-        // Treat any user.created/user.updated event as activity so the
-        // inactive-account cron has a fresh signal even for users who don't
-        // hit the chat APIs (e.g. just login).
         last_active_at: now,
-      },
-      { onConflict: "clerk_id" }
-    );
+      });
+    }
   }
 
   if (evt.type === "user.deleted") {

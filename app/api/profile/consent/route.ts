@@ -32,17 +32,36 @@ export async function POST(request: Request) {
       [clerkUser?.firstName, clerkUser?.lastName].filter(Boolean).join(" ") ||
       null;
 
-    const { error } = await supabase.from("ea_users").upsert(
-      {
-        clerk_id: userId,
-        email,
-        name: fullName,
-        image_url: clerkUser?.imageUrl || null,
-        ki_consent: consent,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "clerk_id" }
-    );
+    // Zwei-Query-Pattern: credits_subscription nur beim INSERT setzen,
+    // sonst würden bezahlende User auf 15 zurückgesetzt.
+    const { data: existing } = await supabase
+      .from("ea_users")
+      .select("clerk_id")
+      .eq("clerk_id", userId)
+      .maybeSingle();
+
+    const { error } = existing
+      ? await supabase
+          .from("ea_users")
+          .update({
+            email,
+            name: fullName,
+            image_url: clerkUser?.imageUrl || null,
+            ki_consent: consent,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("clerk_id", userId)
+      : await supabase.from("ea_users").insert({
+          clerk_id: userId,
+          email,
+          name: fullName,
+          image_url: clerkUser?.imageUrl || null,
+          subscription_plan: "free",
+          credits_subscription: 15,
+          credits_topup: 0,
+          ki_consent: consent,
+          updated_at: new Date().toISOString(),
+        });
 
     if (error) {
       console.error("ki_consent upsert error:", {
