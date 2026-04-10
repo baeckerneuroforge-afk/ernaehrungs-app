@@ -1285,6 +1285,8 @@ function PricingSection() {
             }}
             accent="amber"
             features={[
+              { text: "Alles aus Basis" },
+              { text: "Prioritäts-Support" },
               {
                 text: "400 Credits · Sonnet KI-Modell (Premium-Qualität)",
                 highlight: true,
@@ -1305,7 +1307,6 @@ function PricingSection() {
                 highlight: true,
                 accent: "amber",
               },
-              { text: "Alles aus Basis" },
               {
                 text: "Wöchentliche Reviews von Janine",
                 highlight: true,
@@ -1316,7 +1317,6 @@ function PricingSection() {
                 highlight: true,
                 accent: "amber",
               },
-              { text: "Prioritäts-Support" },
             ]}
             ctaLabel="Premium wählen"
             ctaVariant="amber"
