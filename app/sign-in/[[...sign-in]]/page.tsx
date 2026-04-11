@@ -23,11 +23,9 @@ export default function SignInPage() {
               footerActionLink: "text-primary hover:text-primary-light",
             },
           }}
-          forceRedirectUrl="/auth-callback"
           fallbackRedirectUrl="/auth-callback"
           signUpUrl="/sign-up"
           signUpFallbackRedirectUrl="/onboarding"
-          signUpForceRedirectUrl="/onboarding"
         />
       </main>
       <Footer />
