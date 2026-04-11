@@ -45,14 +45,23 @@ export async function POST(request: Request) {
 
       // Zwei-Query-Pattern: credits_subscription nur beim INSERT setzen,
       // sonst würden bezahlende User auf 15 zurückgesetzt.
-      const { data: existing } = await supabase
+      const { data: existing, error: selectError } = await supabase
         .from("ea_users")
         .select("clerk_id")
         .eq("clerk_id", userId)
         .maybeSingle();
 
+      if (selectError) {
+        console.error("[profile POST] ea_users self-heal failed", {
+          stage: "select",
+          code: selectError.code,
+          message: selectError.message,
+          details: selectError.details,
+        });
+      }
+
       if (existing) {
-        await supabase
+        const { error: updateError } = await supabase
           .from("ea_users")
           .update({
             email,
@@ -61,8 +70,17 @@ export async function POST(request: Request) {
             updated_at: new Date().toISOString(),
           })
           .eq("clerk_id", userId);
+
+        if (updateError) {
+          console.error("[profile POST] ea_users self-heal failed", {
+            stage: "update",
+            code: updateError.code,
+            message: updateError.message,
+            details: updateError.details,
+          });
+        }
       } else {
-        await supabase.from("ea_users").insert({
+        const { error: insertError } = await supabase.from("ea_users").insert({
           clerk_id: userId,
           email,
           name: fullName,
@@ -72,9 +90,19 @@ export async function POST(request: Request) {
           credits_topup: 0,
           updated_at: new Date().toISOString(),
         });
+
+        if (insertError) {
+          console.error("[profile POST] ea_users self-heal failed", {
+            stage: "insert",
+            code: insertError.code,
+            message: insertError.message,
+            details: insertError.details,
+          });
+        }
       }
     }
-  } catch {
+  } catch (e) {
+    console.error("[profile POST] ea_users self-heal threw", e);
     // Non-fatal — profile save should still proceed
   }
 
@@ -88,6 +116,12 @@ export async function POST(request: Request) {
     .upsert(profileData, { onConflict: "user_id" });
 
   if (error) {
+    console.error("[profile POST] upsert failed", {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+    });
     return new Response(JSON.stringify({ error: error.message }), { status: 500 });
   }
 
