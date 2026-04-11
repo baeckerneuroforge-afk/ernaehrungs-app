@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { validateBody, weightLogSchema } from "@/lib/validations";
 
 export async function GET() {
   const { userId } = await auth();
@@ -24,11 +25,15 @@ export async function POST(request: Request) {
 
   const supabase = createSupabaseAdmin();
 
-  const { gewicht_kg, notiz, gemessen_am } = await request.json();
-
-  if (!gewicht_kg) {
-    return NextResponse.json({ error: "gewicht_kg required" }, { status: 400 });
+  const rawBody = await request.json();
+  const validation = validateBody(weightLogSchema, rawBody);
+  if (!validation.success) {
+    return NextResponse.json(
+      { error: "invalid_input", message: validation.error },
+      { status: 400 }
+    );
   }
+  const { gewicht_kg, notiz, gemessen_am } = validation.data;
 
   const { data, error } = await supabase
     .from("ea_weight_logs")

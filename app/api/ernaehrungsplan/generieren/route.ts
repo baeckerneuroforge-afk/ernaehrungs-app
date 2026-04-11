@@ -9,6 +9,8 @@ import { touchLastActive } from "@/lib/last-active";
 import { planLimiter, checkRateLimit } from "@/lib/rate-limit";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
+import * as Sentry from "@sentry/nextjs";
+import { validateBody, mealPlanRequestSchema } from "@/lib/validations";
 import type { PlanParameters } from "@/types/meal-plan";
 import { MEAL_LABELS } from "@/types/meal-plan";
 import { calculateTDEE, type TDEEResult } from "@/lib/tdee";
@@ -208,9 +210,15 @@ function streamStaticResponse(text: string): Response {
 // ---------------------------------------------------------------------------
 export async function POST(request: Request) {
   try {
-    const { planParameters } = (await request.json()) as {
-      planParameters: PlanParameters;
-    };
+    const rawBody = await request.json();
+    const validation = validateBody(mealPlanRequestSchema, rawBody);
+    if (!validation.success) {
+      return new Response(
+        JSON.stringify({ error: "invalid_input", message: validation.error }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    const planParameters = validation.data.planParameters as PlanParameters;
 
     // Escalation check on user message
     if (
@@ -422,6 +430,9 @@ export async function POST(request: Request) {
           controller.close();
         } catch (err) {
           console.error("Stream error:", err);
+          Sentry.captureException(err, {
+            extra: { userId, action: "plan_generation" },
+          });
           // Refund the 5 credits we debited pre-stream — the user shouldn't
           // pay for an Anthropic outage.
           void refundCredits(userId, CREDIT_COSTS.plan_generation, "API-Fehler");
@@ -444,6 +455,7 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("Meal plan error:", error);
+    Sentry.captureException(error);
     return new Response(JSON.stringify({ error: "Server-Fehler" }), {
       status: 500,
     });

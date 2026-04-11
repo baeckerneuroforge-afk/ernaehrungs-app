@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { validateBody, foodLogSchema } from "@/lib/validations";
 
 export async function GET(request: Request) {
   const { userId } = await auth();
@@ -28,48 +29,32 @@ export async function POST(request: Request) {
 
   const supabase = createSupabaseAdmin();
 
-  const body = await request.json();
-  const {
-    mahlzeit_typ,
-    beschreibung,
-    kalorien_geschaetzt,
-    protein_g,
-    carbs_g,
-    fat_g,
-    uhrzeit,
-    source,
-    photo_url,
-    photo_tip,
-    photo_daily_budget_percent,
-    datum,
-  } = body;
-
-  if (!mahlzeit_typ || !beschreibung) {
-    return NextResponse.json({ error: "mahlzeit_typ und beschreibung erforderlich" }, { status: 400 });
+  const rawBody = await request.json();
+  const validation = validateBody(foodLogSchema, rawBody);
+  if (!validation.success) {
+    return NextResponse.json(
+      { error: "invalid_input", message: validation.error },
+      { status: 400 }
+    );
   }
-
-  const toNum = (v: unknown) =>
-    v === null || v === undefined || v === "" ? null : Number(v);
+  const body = validation.data;
 
   const { data, error } = await supabase
     .from("ea_food_log")
     .insert({
       user_id: userId,
-      mahlzeit_typ,
-      beschreibung,
-      kalorien_geschaetzt: toNum(kalorien_geschaetzt),
-      protein_g: toNum(protein_g),
-      carbs_g: toNum(carbs_g),
-      fat_g: toNum(fat_g),
-      uhrzeit: uhrzeit || null,
-      source: source === "photo" ? "photo" : "manual",
-      photo_url: photo_url || null,
-      photo_tip: photo_tip || null,
-      photo_daily_budget_percent:
-        typeof photo_daily_budget_percent === "number"
-          ? photo_daily_budget_percent
-          : null,
-      datum: datum || new Date().toISOString().split("T")[0],
+      mahlzeit_typ: body.mahlzeit_typ,
+      beschreibung: body.beschreibung,
+      kalorien_geschaetzt: body.kalorien_geschaetzt ?? null,
+      protein_g: body.protein_g ?? null,
+      carbs_g: body.carbs_g ?? null,
+      fat_g: body.fat_g ?? null,
+      uhrzeit: body.uhrzeit ?? null,
+      source: body.source === "photo" ? "photo" : "manual",
+      photo_url: body.photo_url ?? null,
+      photo_tip: body.photo_tip ?? null,
+      photo_daily_budget_percent: body.photo_daily_budget_percent ?? null,
+      datum: body.datum || new Date().toISOString().split("T")[0],
     })
     .select()
     .single();

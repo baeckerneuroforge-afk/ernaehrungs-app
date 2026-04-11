@@ -1,5 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
+import { validateBody, settingsSchema } from "@/lib/validations";
 
 type Theme = "light" | "dark" | "system";
 
@@ -44,27 +45,36 @@ export async function PUT(request: Request) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
   }
 
-  const body = await request.json();
+  const rawBody = await request.json();
+  const validation = validateBody(settingsSchema, rawBody);
+  if (!validation.success) {
+    return new Response(
+      JSON.stringify({ error: "invalid_input", message: validation.error }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
+  const body = validation.data;
   const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
 
   if (body.notification_preferences) {
-    // Minimal validation — ensure the shape matches what we expect
-    const p = body.notification_preferences as Partial<NotificationPreferences>;
+    const p = body.notification_preferences;
     const sanitized: NotificationPreferences = {
       tagebuch_reminder: {
         enabled: !!p.tagebuch_reminder?.enabled,
-        time: typeof p.tagebuch_reminder?.time === "string" ? p.tagebuch_reminder.time : "20:00",
+        time:
+          typeof p.tagebuch_reminder?.time === "string"
+            ? p.tagebuch_reminder.time
+            : "20:00",
       },
       review_reminder: { enabled: !!p.review_reminder?.enabled },
-      credit_warning_email: { enabled: p.credit_warning_email?.enabled ?? true },
+      credit_warning_email: {
+        enabled: p.credit_warning_email?.enabled ?? true,
+      },
     };
     update.notification_preferences = sanitized;
   }
 
   if (body.theme) {
-    if (!["light", "dark", "system"].includes(body.theme)) {
-      return new Response(JSON.stringify({ error: "Invalid theme" }), { status: 400 });
-    }
     update.theme = body.theme;
   }
 

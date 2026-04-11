@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { validateBody, supportTicketSchema } from "@/lib/validations";
 
 const ALLOWED_SUBJECTS = [
   "Technisches Problem",
@@ -16,31 +17,21 @@ const SUPPORT_EMAIL = "kontakt@nutriva-ai.de";
 export async function POST(request: Request) {
   try {
     const { userId } = await auth();
-    const body = await request.json();
-    const { name, email, subject, message } = body as Record<string, string>;
+    const rawBody = await request.json();
+    const validation = validateBody(supportTicketSchema, rawBody);
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: "invalid_input", message: validation.error },
+        { status: 400 }
+      );
+    }
+    const { name, email, subject, message } = validation.data;
 
-    // Validation
-    if (!name?.trim() || name.trim().length < 2) {
-      return NextResponse.json(
-        { error: "Bitte gib deinen Namen an." },
-        { status: 400 }
-      );
-    }
-    if (!email?.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      return NextResponse.json(
-        { error: "Bitte gib eine gültige E-Mail-Adresse an." },
-        { status: 400 }
-      );
-    }
-    if (!subject || !ALLOWED_SUBJECTS.includes(subject as typeof ALLOWED_SUBJECTS[number])) {
+    // Belt-and-suspenders: zod enforces length, but only the curated subject
+    // list is allowed here — a free-text subject would leak into the inbox.
+    if (!ALLOWED_SUBJECTS.includes(subject as typeof ALLOWED_SUBJECTS[number])) {
       return NextResponse.json(
         { error: "Bitte wähle einen gültigen Betreff." },
-        { status: 400 }
-      );
-    }
-    if (!message?.trim() || message.trim().length < 20) {
-      return NextResponse.json(
-        { error: "Bitte beschreibe dein Anliegen in mindestens 20 Zeichen." },
         { status: 400 }
       );
     }

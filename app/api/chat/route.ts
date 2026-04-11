@@ -10,6 +10,8 @@ import { chatLimiter, checkRateLimit } from "@/lib/rate-limit";
 import { classifyAction } from "@/lib/classify-action";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
+import * as Sentry from "@sentry/nextjs";
+import { validateBody, chatMessageSchema } from "@/lib/validations";
 
 // ---------------------------------------------------------------------------
 // 1. SYSTEM PROMPT – strikt RAG-basiert, keine Halluzination
@@ -211,19 +213,24 @@ type ChatImagePayload = {
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const { history = [] } = body as {
-      history?: { role: string; content: string }[];
-    };
-    const rawImage = body?.image as ChatImagePayload | undefined;
+    const rawBody = await request.json();
+    const validation = validateBody(chatMessageSchema, rawBody);
+    if (!validation.success) {
+      return new Response(
+        JSON.stringify({ error: "invalid_input", message: validation.error }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    const body = validation.data;
+    const history = body.history ?? [];
+    const rawImage = body.image as ChatImagePayload | undefined;
     const hasImage = !!(rawImage?.base64 && rawImage?.mediaType);
     // Bei Bild-Nachrichten darf die Text-Message leer sein → Default
-    const message: string =
-      typeof body?.message === "string" && body.message.trim()
-        ? body.message
-        : hasImage
-        ? "Analysiere dieses Bild"
-        : "";
+    const message: string = body.message?.trim()
+      ? body.message
+      : hasImage
+      ? "Analysiere dieses Bild"
+      : "";
 
     if (!message) {
       return new Response(JSON.stringify({ error: "message required" }), {
@@ -657,6 +664,7 @@ export async function POST(request: Request) {
           controller.close();
         } catch (err) {
           console.error("Stream error:", err);
+          Sentry.captureException(err, { extra: { userId, action, creditCost } });
           // Refund the credits we debited pre-stream so the user isn't charged
           // for an Anthropic outage. Fire-and-forget: if the refund itself
           // fails, we still want to close the stream cleanly.
@@ -680,6 +688,7 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("Chat API error:", error);
+    Sentry.captureException(error);
     return new Response(JSON.stringify({ error: "Server-Fehler" }), {
       status: 500,
     });

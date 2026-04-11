@@ -1,6 +1,7 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { validateBody, consentSchema } from "@/lib/validations";
 
 export async function POST(request: Request) {
   const { userId } = await auth();
@@ -8,12 +9,15 @@ export async function POST(request: Request) {
 
   const supabase = createSupabaseAdmin();
 
-  const body = await request.json();
-  const { consent, type } = body;
-
-  if (typeof consent !== "boolean") {
-    return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+  const rawBody = await request.json();
+  const validation = validateBody(consentSchema, rawBody);
+  if (!validation.success) {
+    return NextResponse.json(
+      { error: "invalid_input", message: validation.error },
+      { status: 400 }
+    );
   }
+  const { consent, type } = validation.data;
 
   // type === "ki" → ea_users.ki_consent
   // type === "review" (or undefined for backwards compat) → ea_profiles.review_consent

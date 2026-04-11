@@ -1,6 +1,7 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { logAdminAction } from "@/lib/admin-audit";
+import { validateBody, profileSchema } from "@/lib/validations";
 
 type SupabaseAdminClient = ReturnType<typeof createSupabaseAdmin>;
 
@@ -28,15 +29,20 @@ export async function POST(request: Request) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
   }
 
-  const body = await request.json();
+  const rawBody = await request.json();
+  const validation = validateBody(profileSchema, rawBody);
+  if (!validation.success) {
+    return new Response(
+      JSON.stringify({ error: "invalid_input", message: validation.error }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
+  const body = validation.data;
   const supabase = createSupabaseAdmin();
 
   // Strip meta flags out of the body so they don't land in ea_profiles
   // (which has no matching columns and would reject the upsert).
-  const { agb_accepted, ...profileBody } = body as {
-    agb_accepted?: boolean;
-    [k: string]: unknown;
-  };
+  const { agb_accepted, ...profileBody } = body;
   const agbAcceptedAt =
     agb_accepted === true ? new Date().toISOString() : null;
 

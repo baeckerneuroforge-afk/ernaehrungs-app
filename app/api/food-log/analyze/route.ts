@@ -9,6 +9,7 @@ import { hasKiConsent } from "@/lib/consent";
 import { fotoLimiter, checkRateLimit } from "@/lib/rate-limit";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { calculateTDEE } from "@/lib/tdee";
+import * as Sentry from "@sentry/nextjs";
 
 console.log("[foto-analyze] MODULE LOADED");
 
@@ -408,6 +409,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ analysis, photo_url, photo_path: path });
   } catch (err) {
     const e = err as Error & { status?: number; error?: unknown };
+    Sentry.captureException(err, {
+      extra: { userId, action: "foto_analysis" },
+    });
     console.error("[foto-analyze] CAUGHT ERROR:", {
       name: e?.name,
       message: e?.message,
