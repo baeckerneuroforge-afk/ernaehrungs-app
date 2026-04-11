@@ -40,7 +40,6 @@ export default function RootLayout({
   const shell = (
     <html lang="de">
       <head>
-        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
         {/* Theme boot — run before paint to avoid flash of wrong theme.
             Reads 'theme' from localStorage ('light' | 'dark' | 'system'),
             falls back to 'system' which honors prefers-color-scheme. */}
