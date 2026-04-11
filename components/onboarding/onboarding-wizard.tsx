@@ -44,12 +44,49 @@ export function OnboardingWizard({ userId: _userId, existingProfile, initialStep
     );
   }
 
-  async function handleSaveProfile() {
-    setSaving(true);
-    const res = await fetch("/api/profile", {
+  /**
+   * Wraps fetch with two safety nets for the onboarding flow:
+   *  1. `credentials: "same-origin"` — guarantees the Clerk __session cookie
+   *     is sent even when a browser/extension defaults to "omit".
+   *  2. 404 handling — the middleware redirects unauth'd API calls via
+   *     Clerk's `auth.protect()`, which returns 404/_not-found. That's the
+   *     classic signal that the session expired mid-onboarding. We reload so
+   *     Clerk's client can re-run the handshake and restore the session.
+   *
+   * Returns true on success, false on "handled" errors (caller should abort).
+   */
+  async function postJson(url: string, payload: unknown, errorLabel: string): Promise<boolean> {
+    const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+      credentials: "same-origin",
+      body: JSON.stringify(payload),
+    });
+    if (res.status === 404) {
+      alert(
+        "Deine Sitzung ist abgelaufen. Die Seite wird jetzt neu geladen — danach kannst du fortfahren."
+      );
+      window.location.reload();
+      return false;
+    }
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({} as { error?: string }));
+      alert(
+        `${errorLabel}: ${
+          (errorData as { error?: string }).error ||
+          "Bitte versuche es erneut."
+        }`
+      );
+      return false;
+    }
+    return true;
+  }
+
+  async function handleSaveProfile() {
+    setSaving(true);
+    const ok = await postJson(
+      "/api/profile",
+      {
         name: name.trim(),
         alter_jahre: Number(alterJahre),
         geschlecht,
@@ -61,43 +98,35 @@ export function OnboardingWizard({ userId: _userId, existingProfile, initialStep
         aktivitaet,
         krankheiten: krankheiten.trim() || null,
         onboarding_done: true,
-      }),
-    });
+      },
+      "Dein Profil konnte nicht gespeichert werden"
+    );
     setSaving(false);
-    if (!res.ok) {
-      alert("Dein Profil konnte nicht gespeichert werden. Bitte versuche es erneut.");
-      return;
-    }
+    if (!ok) return;
     setStep(4);
   }
 
   async function handleKiConsent(consent: boolean) {
     setSaving(true);
-    const res = await fetch("/api/profile/consent", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ consent, type: "ki" }),
-    });
+    const ok = await postJson(
+      "/api/profile/consent",
+      { consent, type: "ki" },
+      "Einstellung konnte nicht gespeichert werden"
+    );
     setSaving(false);
-    if (!res.ok) {
-      alert("Einstellung konnte nicht gespeichert werden. Bitte versuche es erneut.");
-      return;
-    }
+    if (!ok) return;
     setStep(5);
   }
 
   async function handleReviewConsent(consent: boolean) {
     setSaving(true);
-    const res = await fetch("/api/profile/consent", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ consent, type: "review" }),
-    });
+    const ok = await postJson(
+      "/api/profile/consent",
+      { consent, type: "review" },
+      "Einstellung konnte nicht gespeichert werden"
+    );
     setSaving(false);
-    if (!res.ok) {
-      alert("Einstellung konnte nicht gespeichert werden. Bitte versuche es erneut.");
-      return;
-    }
+    if (!ok) return;
     // Router-Cache invalidieren, damit /chat den frischen DB-State liest
     // (sonst kann der SC-Cache review_consent noch als null sehen → Redirect-Loop).
     router.refresh();
