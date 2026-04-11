@@ -1,6 +1,8 @@
 import { Webhook } from "svix";
 import { headers } from "next/headers";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
+import { sendEmail } from "@/lib/email";
+import { emailTemplates } from "@/lib/email-templates";
 
 interface ClerkWebhookEvent {
   type: string;
@@ -85,6 +87,14 @@ export async function POST(request: Request) {
         updated_at: now,
         last_active_at: now,
       });
+
+      // Welcome email only on fresh insert, and only for user.created
+      // (user.updated arriving before any INSERT would be an odd edge case
+      // but we still guard against sending a welcome for it).
+      if (evt.type === "user.created" && email) {
+        const template = emailTemplates.welcome(first_name || "dort");
+        void sendEmail({ to: email, subject: template.subject, html: template.html });
+      }
     }
   }
 

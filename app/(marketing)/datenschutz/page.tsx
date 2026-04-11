@@ -153,6 +153,13 @@ export default function DatenschutzPage() {
                   automatisch mit entfernt.
                 </li>
                 <li>
+                  <strong>Resend (USA):</strong> Versand transaktionaler
+                  E-Mails (Willkommen, Abo-Bestätigung, Credit-Warnungen,
+                  Erinnerungen, Monatsberichte, Account-Löschung).
+                  Verarbeitet werden nur E-Mail-Adresse und Versandzeitpunkt.
+                  EU-Standardvertragsklauseln.
+                </li>
+                <li>
                   <strong>Vercel (USA):</strong> Hosting. Speichert
                   Request-Logs. EU-Standardvertragsklauseln.
                 </li>

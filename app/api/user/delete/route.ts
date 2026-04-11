@@ -1,5 +1,7 @@
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
+import { sendEmail } from "@/lib/email";
+import { emailTemplates } from "@/lib/email-templates";
 import { NextResponse } from "next/server";
 
 export async function POST() {
@@ -9,6 +11,24 @@ export async function POST() {
   }
 
   const supabase = createSupabaseAdmin();
+
+  // Fetch identity BEFORE the wipe — after the row is gone we no longer have
+  // an email to send the farewell to. We block on the send (no fire-and-forget)
+  // because we're about to delete the only record of this user.
+  const { data: userRow } = await supabase
+    .from("ea_users")
+    .select("email, name")
+    .eq("clerk_id", userId)
+    .maybeSingle();
+
+  if (userRow?.email) {
+    const template = emailTemplates.accountDeleted(userRow.name || "dort");
+    await sendEmail({
+      to: userRow.email,
+      subject: template.subject,
+      html: template.html,
+    });
+  }
 
   // ---- Storage cleanup: remove every food photo owned by this user.
   // DSGVO Art. 17 — the "right to be forgotten" covers binary data too, not

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { clerkClient } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { logAdminAction } from "@/lib/admin-audit";
+import { sendEmail } from "@/lib/email";
+import { emailTemplates } from "@/lib/email-templates";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
@@ -113,10 +115,18 @@ export async function GET(request: Request) {
   }
 
   // ---- Warnings (11 months inactive) ----
-  // Email delivery (Resend) is not wired up yet — we audit-log the warning so
-  // we have a paper trail and can backfill the actual send later.
   let warned = 0;
   for (const u of toWarn) {
+    let emailSent = false;
+    if (u.email) {
+      const template = emailTemplates.inactiveWarning(u.name || "dort");
+      const result = await sendEmail({
+        to: u.email,
+        subject: template.subject,
+        html: template.html,
+      });
+      emailSent = result.success;
+    }
     await logAdminAction({
       adminId: "system:cron",
       action: "inactive_warning_sent",
@@ -127,8 +137,7 @@ export async function GET(request: Request) {
         email: u.email,
         last_active_at: u.last_active_at,
         scheduled_deletion_in_days: 30,
-        // TODO: send Resend email when integration is live
-        email_sent: false,
+        email_sent: emailSent,
       },
     });
     warned++;

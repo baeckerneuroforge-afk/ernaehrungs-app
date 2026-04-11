@@ -1,5 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
+import { sendEmail } from "@/lib/email";
+import { emailTemplates } from "@/lib/email-templates";
 
 export type MonthlyReportData = {
   summary: string;
@@ -228,13 +230,21 @@ export async function runMonthlyReportsForAllPremium(month: string): Promise<{
 
   const { data: users, error } = await supabase
     .from("ea_users")
-    .select("clerk_id")
+    .select("clerk_id, email, name")
     .in("subscription_plan", ["pro_plus", "admin"]);
 
   if (error || !users) {
     console.error("Could not load premium users:", error);
     return { processed: 0, failed: 0 };
   }
+
+  // Format "2026-03" → "März 2026" for the email subject line.
+  const [yearStr, monthStr] = month.split("-");
+  const monthLabel = new Date(
+    Number(yearStr),
+    Number(monthStr) - 1,
+    1
+  ).toLocaleDateString("de-DE", { month: "long", year: "numeric" });
 
   let processed = 0;
   let failed = 0;
@@ -260,6 +270,17 @@ export async function runMonthlyReportsForAllPremium(month: string): Promise<{
         failed++;
       } else {
         processed++;
+        if (user.email) {
+          const template = emailTemplates.monthlyReportReady(
+            user.name || "dort",
+            monthLabel
+          );
+          void sendEmail({
+            to: user.email,
+            subject: template.subject,
+            html: template.html,
+          });
+        }
       }
     } catch (e) {
       console.error(`Report generation failed for ${user.clerk_id}:`, e);

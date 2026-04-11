@@ -1,4 +1,6 @@
 import { createSupabaseAdmin } from "@/lib/supabase/server";
+import { sendEmail } from "@/lib/email";
+import { emailTemplates } from "@/lib/email-templates";
 
 // Credit costs per action
 export const CREDIT_COSTS = {
@@ -41,7 +43,8 @@ export type CreditActionType =
   | "review"
   | "foto_analysis"
   | "manual_adjustment"
-  | "expiry_reset";
+  | "expiry_reset"
+  | "refund";
 
 interface CreditBalance {
   credits_subscription: number;
@@ -95,7 +98,7 @@ export async function deductCredits(
 
   const { data: user } = await supabase
     .from("ea_users")
-    .select("credits_subscription, credits_topup")
+    .select("credits_subscription, credits_topup, email, name, last_credit_warning_at")
     .eq("clerk_id", userId)
     .single();
 
@@ -134,7 +137,66 @@ export async function deductCredits(
     balance_after: newSub + newTopup,
   });
 
+  // Low-credit warning email, throttled to at most once per 24h via
+  // ea_users.last_credit_warning_at. Fire-and-forget so we never block chat.
+  const remaining = newSub + newTopup;
+  if (remaining <= 3 && remaining >= 0 && user.email) {
+    const lastWarn = user.last_credit_warning_at
+      ? new Date(user.last_credit_warning_at).getTime()
+      : 0;
+    const dayMs = 24 * 60 * 60 * 1000;
+    if (Date.now() - lastWarn > dayMs) {
+      const template = emailTemplates.creditsLow(user.name || "dort", remaining);
+      void sendEmail({ to: user.email, subject: template.subject, html: template.html });
+      void supabase
+        .from("ea_users")
+        .update({ last_credit_warning_at: new Date().toISOString() })
+        .eq("clerk_id", userId);
+    }
+  }
+
   return true;
+}
+
+/**
+ * Refund credits after a failed LLM call. Credits go back to the subscription
+ * bucket (simpler than tracking which bucket was debited) and are logged as a
+ * "refund" transaction so the ledger remains accurate.
+ */
+export async function refundCredits(
+  userId: string,
+  amount: number,
+  reason: string
+): Promise<void> {
+  const supabase = createSupabaseAdmin();
+
+  // Admins were never charged — nothing to refund.
+  if (await isAdminUser(userId)) return;
+
+  const { data: user } = await supabase
+    .from("ea_users")
+    .select("credits_subscription, credits_topup")
+    .eq("clerk_id", userId)
+    .single();
+
+  if (!user) return;
+
+  const sub = user.credits_subscription ?? 0;
+  const topup = user.credits_topup ?? 0;
+  const newSub = sub + amount;
+
+  await supabase
+    .from("ea_users")
+    .update({ credits_subscription: newSub, updated_at: new Date().toISOString() })
+    .eq("clerk_id", userId);
+
+  await supabase.from("ea_credit_transactions").insert({
+    user_id: userId,
+    amount,
+    type: "refund",
+    description: `Erstattung: ${reason}`,
+    balance_after: newSub + topup,
+  });
 }
 
 /**

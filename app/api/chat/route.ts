@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { loadUserBehaviorContext } from "@/lib/utils/user-context";
-import { deductCredits, CREDIT_COSTS } from "@/lib/credits";
+import { deductCredits, refundCredits, CREDIT_COSTS } from "@/lib/credits";
 import { hasFeatureAccess } from "@/lib/feature-gates";
 import { getUserPlan } from "@/lib/feature-gates-server";
 import { hasKiConsent, KI_CONSENT_MISSING_RESPONSE } from "@/lib/consent";
@@ -657,9 +657,13 @@ export async function POST(request: Request) {
           controller.close();
         } catch (err) {
           console.error("Stream error:", err);
+          // Refund the credits we debited pre-stream so the user isn't charged
+          // for an Anthropic outage. Fire-and-forget: if the refund itself
+          // fails, we still want to close the stream cleanly.
+          void refundCredits(userId, creditCost, "API-Fehler");
           controller.enqueue(
             encoder.encode(
-              `data: ${JSON.stringify({ type: "error", error: "Stream fehlgeschlagen" })}\n\n`
+              `data: ${JSON.stringify({ type: "error", error: "Stream fehlgeschlagen — Credits wurden zurückerstattet." })}\n\n`
             )
           );
           controller.close();

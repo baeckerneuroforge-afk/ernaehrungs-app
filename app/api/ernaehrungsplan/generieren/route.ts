@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { loadUserBehaviorContext } from "@/lib/utils/user-context";
-import { deductCredits, CREDIT_COSTS } from "@/lib/credits";
+import { deductCredits, refundCredits, CREDIT_COSTS } from "@/lib/credits";
 import { hasFeatureAccess, getUpgradeMessage } from "@/lib/feature-gates";
 import { getUserPlan } from "@/lib/feature-gates-server";
 import { hasKiConsent, KI_CONSENT_MISSING_RESPONSE } from "@/lib/consent";
@@ -422,9 +422,12 @@ export async function POST(request: Request) {
           controller.close();
         } catch (err) {
           console.error("Stream error:", err);
+          // Refund the 5 credits we debited pre-stream — the user shouldn't
+          // pay for an Anthropic outage.
+          void refundCredits(userId, CREDIT_COSTS.plan_generation, "API-Fehler");
           controller.enqueue(
             encoder.encode(
-              `data: ${JSON.stringify({ type: "error", error: "Generierung fehlgeschlagen" })}\n\n`
+              `data: ${JSON.stringify({ type: "error", error: "Generierung fehlgeschlagen — Credits wurden zurückerstattet." })}\n\n`
             )
           );
           controller.close();

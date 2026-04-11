@@ -1,6 +1,8 @@
 import { stripe } from "@/lib/stripe";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
-import { addCredits, resetSubscriptionCredits, PLAN_CREDITS } from "@/lib/credits";
+import { addCredits, resetSubscriptionCredits, PLAN_CREDITS, PLAN_LABELS, PLAN_PRICES } from "@/lib/credits";
+import { sendEmail } from "@/lib/email";
+import { emailTemplates } from "@/lib/email-templates";
 import type { PlanType, SubscriptionStatus } from "@/lib/stripe";
 
 export async function POST(request: Request) {
@@ -86,6 +88,23 @@ export async function POST(request: Request) {
         // Grant initial credits for the plan
         const planCredits = PLAN_CREDITS[plan] ?? PLAN_CREDITS.free;
         await resetSubscriptionCredits(clerkId, planCredits);
+
+        // Confirmation email — fire-and-forget so a mail outage can't block Stripe
+        const { data: userRow } = await supabase
+          .from("ea_users")
+          .select("email, name")
+          .eq("clerk_id", clerkId)
+          .maybeSingle();
+        if (userRow?.email) {
+          const planLabel = PLAN_LABELS[plan] ?? plan;
+          const price = `${(PLAN_PRICES[plan] ?? 0).toFixed(2).replace(".", ",")} €`;
+          const template = emailTemplates.subscriptionConfirmed(
+            userRow.name || "dort",
+            planLabel,
+            price
+          );
+          void sendEmail({ to: userRow.email, subject: template.subject, html: template.html });
+        }
       }
       break;
     }
@@ -154,12 +173,22 @@ export async function POST(request: Request) {
       // Reset to free tier credits
       const { data: user } = await supabase
         .from("ea_users")
-        .select("clerk_id")
+        .select("clerk_id, email, name")
         .eq("stripe_customer_id", customerId)
         .single();
 
       if (user) {
         await resetSubscriptionCredits(user.clerk_id, PLAN_CREDITS.free);
+
+        if (user.email) {
+          // Stripe's cancel_at_period_end timestamp would be ideal here but
+          // isn't present on this event; "Ende der Laufzeit" reads fine.
+          const template = emailTemplates.subscriptionCancelled(
+            user.name || "dort",
+            "Ende der Laufzeit"
+          );
+          void sendEmail({ to: user.email, subject: template.subject, html: template.html });
+        }
       }
       break;
     }
