@@ -6,6 +6,7 @@ import { hasFeatureAccess, getUpgradeMessage } from "@/lib/feature-gates";
 import { getUserPlan } from "@/lib/feature-gates-server";
 import { hasKiConsent, KI_CONSENT_MISSING_RESPONSE } from "@/lib/consent";
 import { touchLastActive } from "@/lib/last-active";
+import { planLimiter, checkRateLimit } from "@/lib/rate-limit";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import type { PlanParameters } from "@/types/meal-plan";
@@ -234,6 +235,19 @@ export async function POST(request: Request) {
         status: 403,
         headers: { "Content-Type": "application/json" },
       });
+    }
+
+    // ---- Rate limit (Cost-Attack-Schutz) ----
+    const rateLimit = await checkRateLimit(planLimiter, userId);
+    if (!rateLimit.success) {
+      return new Response(
+        JSON.stringify({
+          error: "rate_limited",
+          message:
+            "Zu viele Plan-Anfragen. Bitte versuche es später erneut.",
+        }),
+        { status: 429, headers: { "Content-Type": "application/json" } }
+      );
     }
 
     // ---- Activity ping (for inactive-account auto-deletion cron) ----

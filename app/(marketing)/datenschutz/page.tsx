@@ -121,6 +121,14 @@ export default function DatenschutzPage() {
                   API-Daten werden nicht für KI-Training verwendet.
                 </li>
                 <li>
+                  <strong>Anthropic Claude Vision (USA):</strong> Fotos von
+                  Mahlzeiten werden über Claude Vision analysiert, um
+                  Kaloriengehalt und Nährwerte zu schätzen. Es gelten die
+                  gleichen EU-Standardvertragsklauseln wie für die
+                  Chat-Verarbeitung. Bilder werden nicht für KI-Training
+                  verwendet.
+                </li>
+                <li>
                   <strong>OpenAI (Embedding API, USA):</strong> User-Nachrichten
                   und Profilmerkmale werden für die Vektor-Suche in der
                   Wissensbasis verarbeitet. EU-Standardvertragsklauseln.
@@ -138,6 +146,13 @@ export default function DatenschutzPage() {
                   Alle Nutzerdaten werden in der EU gespeichert.
                 </li>
                 <li>
+                  <strong>Supabase Storage (EU, Frankfurt):</strong> Fotos von
+                  Mahlzeiten werden in einem privaten, verschlüsselten Bucket
+                  innerhalb der EU gespeichert und sind ausschließlich für den
+                  jeweiligen Nutzer zugänglich. Bei Kontolöschung werden sie
+                  automatisch mit entfernt.
+                </li>
+                <li>
                   <strong>Vercel (USA):</strong> Hosting. Speichert
                   Request-Logs. EU-Standardvertragsklauseln.
                 </li>
@@ -150,8 +165,13 @@ export default function DatenschutzPage() {
                   Profil-, Nutzungs- und Chat-Daten: Solange der Account besteht
                 </li>
                 <li>
-                  Bei Kontolöschung: Alle personenbezogenen Daten werden
-                  innerhalb von 30 Tagen gelöscht
+                  Fotos von Mahlzeiten: Solange der Account besteht. Bei
+                  Kontolöschung werden sie innerhalb von 30 Tagen aus dem
+                  Supabase Storage entfernt.
+                </li>
+                <li>
+                  Bei Kontolöschung: Alle personenbezogenen Daten — inklusive
+                  Fotos im Storage — werden innerhalb von 30 Tagen gelöscht.
                 </li>
                 <li>
                   Zahlungsdaten bei Stripe: Gemäß gesetzlicher

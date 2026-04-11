@@ -2,6 +2,55 @@ import { NextResponse } from "next/server";
 import { clerkClient } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { logAdminAction } from "@/lib/admin-audit";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+/**
+ * Remove every food photo owned by `clerkId` from Supabase Storage.
+ * DSGVO Art. 17 — binary data must be wiped alongside DB rows.
+ * Errors are logged but non-fatal so a single bad user doesn't poison the batch.
+ */
+async function wipeUserPhotos(
+  supabase: SupabaseClient,
+  clerkId: string
+): Promise<void> {
+  try {
+    const { data: topLevel } = await supabase.storage
+      .from("food-photos")
+      .list(clerkId);
+
+    if (!topLevel || topLevel.length === 0) return;
+
+    const allPaths: string[] = [];
+    for (const entry of topLevel) {
+      if (entry.metadata) {
+        allPaths.push(`${clerkId}/${entry.name}`);
+      } else {
+        const { data: subFiles } = await supabase.storage
+          .from("food-photos")
+          .list(`${clerkId}/${entry.name}`);
+        if (subFiles) {
+          for (const f of subFiles) {
+            allPaths.push(`${clerkId}/${entry.name}/${f.name}`);
+          }
+        }
+      }
+    }
+
+    if (allPaths.length > 0) {
+      const { error } = await supabase.storage
+        .from("food-photos")
+        .remove(allPaths);
+      if (error) {
+        console.error(
+          `[cron/inactive] storage cleanup partial failure for ${clerkId}:`,
+          error.message
+        );
+      }
+    }
+  } catch (err) {
+    console.error(`[cron/inactive] storage cleanup threw for ${clerkId}:`, err);
+  }
+}
 
 export const dynamic = "force-dynamic";
 // Vercel cron may exceed default 10s — give the loop room to breathe.
@@ -106,6 +155,10 @@ export async function GET(request: Request) {
 
   for (const u of toDelete) {
     try {
+      // Storage first — DB wipe is the "commit point", so if storage fails
+      // we'd rather have orphaned DB rows than orphaned photos.
+      await wipeUserPhotos(supabase, u.clerk_id);
+
       for (const table of userOwnedTables) {
         const { error } = await supabase
           .from(table)

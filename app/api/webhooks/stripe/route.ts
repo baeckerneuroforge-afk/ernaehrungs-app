@@ -24,6 +24,30 @@ export async function POST(request: Request) {
 
   const supabase = createSupabaseAdmin();
 
+  // ---- Idempotency guard ----
+  // Stripe retries webhooks on non-2xx. Without a dedupe check, a retried
+  // checkout.session.completed would grant credits twice. We INSERT the
+  // event_id first and rely on the PRIMARY KEY conflict as our atomic
+  // "has-this-been-processed" check — no read-then-write race.
+  const { error: dedupeErr } = await supabase
+    .from("ea_stripe_events")
+    .insert({ event_id: event.id, event_type: event.type });
+
+  if (dedupeErr) {
+    // Unique-violation (code 23505) == duplicate delivery; swallow and ack.
+    // Any other error means the dedupe table itself is broken — we still
+    // return 200 to avoid Stripe retry storms but log loudly.
+    if (dedupeErr.code === "23505") {
+      console.log("[stripe-webhook] duplicate event, skipping:", event.id);
+    } else {
+      console.error("[stripe-webhook] dedupe insert failed:", dedupeErr);
+    }
+    return new Response(
+      JSON.stringify({ received: true, duplicate: true }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
   switch (event.type) {
     // ---- Subscription checkout completed ----
     case "checkout.session.completed": {

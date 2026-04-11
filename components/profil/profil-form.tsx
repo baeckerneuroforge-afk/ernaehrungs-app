@@ -77,6 +77,7 @@ interface ProfilFormProps {
   credits?: { used: number; total: number };
   plan?: Plan;
   totalCredits?: number;
+  initialKiConsent?: boolean | null;
 }
 
 export function ProfilForm({
@@ -87,6 +88,7 @@ export function ProfilForm({
   credits,
   plan = "free",
   totalCredits = 0,
+  initialKiConsent = null,
 }: ProfilFormProps) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -96,6 +98,9 @@ export function ProfilForm({
   );
   const [consentSaving, setConsentSaving] = useState(false);
   const [consentDetailsOpen, setConsentDetailsOpen] = useState(false);
+
+  const [kiConsent, setKiConsent] = useState<boolean | null>(initialKiConsent);
+  const [kiConsentSaving, setKiConsentSaving] = useState(false);
 
   const [form, setForm] = useState({
     name: (existingProfile?.name as string) || "",
@@ -177,10 +182,32 @@ export function ProfilForm({
     await fetch("/api/profile/consent", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ consent: newConsent }),
+      body: JSON.stringify({ consent: newConsent, type: "review" }),
     });
     setConsent(newConsent);
     setConsentSaving(false);
+  }
+
+  async function handleKiConsentChange(newConsent: boolean) {
+    // Opt-out warning — without KI-consent the app's core features are dead.
+    // We don't block the action; the user has the right to withdraw (Art. 7
+    // Abs. 3 DSGVO) — we just make the consequences unambiguous.
+    if (!newConsent) {
+      const ok = window.confirm(
+        "Ohne KI-Verarbeitung sind Chat, Ernährungsplan, Wochenreview und Foto-Analyse nicht mehr nutzbar. Wirklich widerrufen?"
+      );
+      if (!ok) return;
+    }
+    setKiConsentSaving(true);
+    const res = await fetch("/api/profile/consent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ consent: newConsent, type: "ki" }),
+    });
+    if (res.ok) {
+      setKiConsent(newConsent);
+    }
+    setKiConsentSaving(false);
   }
 
   const initials =
@@ -597,6 +624,33 @@ export function ProfilForm({
         icon={<Settings className="w-4 h-4 text-primary" />}
       >
         <div className="space-y-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-primary" />
+                <h4 className="font-medium text-ink text-sm">
+                  KI-Verarbeitung meiner Gesundheitsdaten
+                </h4>
+              </div>
+              <p className="text-xs text-ink-muted leading-relaxed mt-1.5">
+                Erlaubst du uns, deine Profildaten und Chat-Eingaben an unsere
+                KI-Partner (Anthropic Claude, OpenAI) zu übermitteln, damit wir
+                dir personalisierte Ernährungsempfehlungen geben können?
+              </p>
+              <p className="text-xs text-amber-700 leading-relaxed mt-1.5">
+                Wenn deaktiviert, können Chat, Ernährungsplan, Wochenreview und
+                Foto-Analyse nicht genutzt werden.
+              </p>
+            </div>
+            <Switch
+              checked={kiConsent === true}
+              disabled={kiConsentSaving}
+              onChange={(v) => handleKiConsentChange(v)}
+            />
+          </div>
+
+          <div className="border-t border-border" />
+
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
               <div className="flex items-center gap-2">

@@ -6,6 +6,7 @@ import { hasFeatureAccess } from "@/lib/feature-gates";
 import { getUserPlan } from "@/lib/feature-gates-server";
 import { deductCredits, CREDIT_COSTS } from "@/lib/credits";
 import { hasKiConsent } from "@/lib/consent";
+import { fotoLimiter, checkRateLimit } from "@/lib/rate-limit";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { calculateTDEE } from "@/lib/tdee";
 
@@ -156,6 +157,20 @@ export async function POST(request: Request) {
     );
   }
   console.log("[foto-analyze] step: consent ok");
+
+  // Rate limit (Cost-Attack-Schutz): Claude Vision ist teuer und hat klar
+  // definierten Alltagsbedarf — 10 Bilder/Tag sollten echten Nutzern reichen.
+  const rateLimit = await checkRateLimit(fotoLimiter, userId);
+  if (!rateLimit.success) {
+    console.warn("[foto-analyze] 429 rate_limited", { userId });
+    return NextResponse.json(
+      {
+        error: "rate_limited",
+        message: "Tägliches Limit für Foto-Analysen erreicht.",
+      },
+      { status: 429 }
+    );
+  }
 
   // Premium-Gate: Foto-Tracking ist pro_plus/admin only
   const plan = await getUserPlan(userId);

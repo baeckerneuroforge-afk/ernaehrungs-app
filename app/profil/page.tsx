@@ -25,7 +25,7 @@ export default async function ProfilPage() {
 
   const { data: userRow } = await supabase
     .from("ea_users")
-    .select("subscription_plan, credits_subscription, credits_topup")
+    .select("subscription_plan, credits_subscription, credits_topup, ki_consent")
     .eq("clerk_id", userId)
     .limit(1);
 
@@ -71,6 +71,7 @@ export default async function ProfilPage() {
           credits={credits}
           plan={plan}
           totalCredits={total}
+          initialKiConsent={(userRow?.[0]?.ki_consent as boolean | null) ?? null}
         />
 
         <div className="mt-12 mb-3 flex items-center gap-2">

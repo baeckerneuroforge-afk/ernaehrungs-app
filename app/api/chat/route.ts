@@ -6,6 +6,7 @@ import { hasFeatureAccess } from "@/lib/feature-gates";
 import { getUserPlan } from "@/lib/feature-gates-server";
 import { hasKiConsent, KI_CONSENT_MISSING_RESPONSE } from "@/lib/consent";
 import { touchLastActive } from "@/lib/last-active";
+import { chatLimiter, checkRateLimit } from "@/lib/rate-limit";
 import { classifyAction } from "@/lib/classify-action";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
@@ -255,6 +256,18 @@ export async function POST(request: Request) {
         status: 403,
         headers: { "Content-Type": "application/json" },
       });
+    }
+
+    // ---- Rate limit (Cost-Attack-Schutz) ----
+    const rateLimit = await checkRateLimit(chatLimiter, userId);
+    if (!rateLimit.success) {
+      return new Response(
+        JSON.stringify({
+          error: "rate_limited",
+          message: "Zu viele Anfragen. Bitte warte einen Moment.",
+        }),
+        { status: 429, headers: { "Content-Type": "application/json" } }
+      );
     }
 
     // ---- Activity ping (for inactive-account auto-deletion cron) ----

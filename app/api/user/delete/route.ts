@@ -10,6 +10,52 @@ export async function POST() {
 
   const supabase = createSupabaseAdmin();
 
+  // ---- Storage cleanup: remove every food photo owned by this user.
+  // DSGVO Art. 17 — the "right to be forgotten" covers binary data too, not
+  // just database rows. Photos live under food-photos/{userId}/{yyyy-mm-dd}/*.
+  // We traverse the top-level listing, descend into each date folder, and
+  // batch-remove. Errors are logged but non-fatal so the DB wipe still runs.
+  try {
+    const { data: topLevel } = await supabase.storage
+      .from("food-photos")
+      .list(userId);
+
+    if (topLevel && topLevel.length > 0) {
+      const allPaths: string[] = [];
+      for (const entry of topLevel) {
+        // Supabase marks "real" files with non-null metadata; folders have
+        // metadata === null. We only expect date-folders at this level, but
+        // handle either case defensively.
+        if (entry.metadata) {
+          allPaths.push(`${userId}/${entry.name}`);
+        } else {
+          const { data: subFiles } = await supabase.storage
+            .from("food-photos")
+            .list(`${userId}/${entry.name}`);
+          if (subFiles) {
+            for (const f of subFiles) {
+              allPaths.push(`${userId}/${entry.name}/${f.name}`);
+            }
+          }
+        }
+      }
+      if (allPaths.length > 0) {
+        const { error: removeErr } = await supabase.storage
+          .from("food-photos")
+          .remove(allPaths);
+        if (removeErr) {
+          console.error(
+            `[user/delete] storage cleanup partial failure for ${userId}:`,
+            removeErr.message
+          );
+        }
+      }
+    }
+  } catch (err) {
+    console.error(`[user/delete] storage cleanup threw for ${userId}:`, err);
+    // Non-fatal — continue with DB wipe.
+  }
+
   // Delete all user-owned rows. CASCADE handles most child rows via ea_profiles,
   // but we explicitly clear every table to be safe (and because not all tables
   // necessarily cascade).
