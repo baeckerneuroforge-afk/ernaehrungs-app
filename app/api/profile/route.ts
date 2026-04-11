@@ -28,6 +28,15 @@ export async function POST(request: Request) {
   const body = await request.json();
   const supabase = createSupabaseAdmin();
 
+  // Strip meta flags out of the body so they don't land in ea_profiles
+  // (which has no matching columns and would reject the upsert).
+  const { agb_accepted, ...profileBody } = body as {
+    agb_accepted?: boolean;
+    [k: string]: unknown;
+  };
+  const agbAcceptedAt =
+    agb_accepted === true ? new Date().toISOString() : null;
+
   // Self-heal ea_users: ensure a row exists for this Clerk user even if the
   // Clerk webhook never fired. Pull email/name/image from Clerk directly.
   try {
@@ -68,6 +77,9 @@ export async function POST(request: Request) {
             name: fullName,
             image_url: user.imageUrl || null,
             updated_at: new Date().toISOString(),
+            // Only stamp on first acceptance — don't overwrite an earlier
+            // timestamp on subsequent profile edits.
+            ...(agbAcceptedAt ? { agb_accepted_at: agbAcceptedAt } : {}),
           })
           .eq("clerk_id", userId);
 
@@ -89,6 +101,7 @@ export async function POST(request: Request) {
           credits_subscription: 15,
           credits_topup: 0,
           updated_at: new Date().toISOString(),
+          agb_accepted_at: agbAcceptedAt,
         });
 
         if (insertError) {
@@ -108,7 +121,7 @@ export async function POST(request: Request) {
 
   const profileData = {
     user_id: userId,
-    ...body,
+    ...profileBody,
   };
 
   const { error } = await supabase

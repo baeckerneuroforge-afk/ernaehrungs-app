@@ -30,11 +30,12 @@ export function OnboardingWizard({ userId: _userId, existingProfile, initialStep
   const [allergien, setAllergien] = useState<string[]>((existingProfile?.allergien as string[]) || []);
   const [aktivitaet, setAktivitaet] = useState((existingProfile?.aktivitaet as string) || "");
   const [krankheiten, setKrankheiten] = useState((existingProfile?.krankheiten as string) || "");
+  const [agbAccepted, setAgbAccepted] = useState(false);
 
   function canProceed(): boolean {
     if (step === 1) return !!name.trim() && !!alterJahre && !!geschlecht;
     if (step === 2) return !!ziel && !!ernaehrungsform;
-    if (step === 3) return !!aktivitaet;
+    if (step === 3) return !!aktivitaet && agbAccepted;
     return true;
   }
 
@@ -98,6 +99,9 @@ export function OnboardingWizard({ userId: _userId, existingProfile, initialStep
         aktivitaet,
         krankheiten: krankheiten.trim() || null,
         onboarding_done: true,
+        // Gets stripped from the ea_profiles payload server-side and written
+        // as agb_accepted_at on ea_users. See app/api/profile/route.ts.
+        agb_accepted: agbAccepted,
       },
       "Dein Profil konnte nicht gespeichert werden"
     );
@@ -354,6 +358,37 @@ export function OnboardingWizard({ userId: _userId, existingProfile, initialStep
                   placeholder="z.B. Diabetes Typ 2, Hashimoto..."
                 />
               </div>
+
+              {/* AGB / Datenschutz — PFLICHT */}
+              <label className="flex items-start gap-3 mt-6 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={agbAccepted}
+                  onChange={(e) => setAgbAccepted(e.target.checked)}
+                  className="mt-1 h-4 w-4 rounded border-stone-300 text-primary focus:ring-primary"
+                />
+                <span className="text-sm text-stone-600">
+                  Ich akzeptiere die{" "}
+                  <a
+                    href="/agb"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline hover:text-primary/80"
+                  >
+                    Nutzungsbedingungen
+                  </a>{" "}
+                  und habe die{" "}
+                  <a
+                    href="/datenschutz"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline hover:text-primary/80"
+                  >
+                    Datenschutzerklärung
+                  </a>{" "}
+                  gelesen.
+                </span>
+              </label>
             </div>
           )}
 
