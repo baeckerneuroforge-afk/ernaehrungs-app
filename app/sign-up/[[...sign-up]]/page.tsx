@@ -23,7 +23,7 @@ export default function SignUpPage() {
               footerActionLink: "text-primary hover:text-primary-light",
             },
           }}
-          fallbackRedirectUrl="/onboarding"
+          fallbackRedirectUrl="/auth-callback?next=/onboarding"
           signInUrl="/sign-in"
           signInFallbackRedirectUrl="/auth-callback"
         />
