@@ -19,13 +19,15 @@ export default async function OnboardingPage() {
 
   const p = profile?.[0];
 
-  // Onboarding complete + consent answered → go to chat
-  if (p?.onboarding_done && p?.review_consent !== null) {
+  // Onboarding complete → go to chat. Consent questions (steps 4-5) are
+  // only shown during the initial onboarding flow — returning users who
+  // missed consent are NOT forced back here. Consent can be managed in
+  // settings or asked as a non-blocking prompt in the app later.
+  if (p?.onboarding_done) {
     redirect("/chat");
   }
 
-  // Onboarding complete but consent not yet answered → show only consent step
-  const initialStep = p?.onboarding_done && p?.review_consent === null ? 4 : 1;
+  const initialStep = 1;
 
   return (
     <OnboardingWizard
