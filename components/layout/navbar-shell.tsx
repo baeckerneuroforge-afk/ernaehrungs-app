@@ -32,14 +32,13 @@ export function NavbarShell() {
   const [menuOpen, setMenuOpen] = useState(false);
   const pathname = usePathname();
 
-  // Sign out + hard navigation. router.replace("/") war ein Soft-Nav —
-  // der Next.js Router-Cache servierte dann die im signed-in Zustand
-  // gerenderte Landing-Page (mit App-Nav) statt frisch vom Server zu
-  // rendern. window.location.assign erzwingt full roundtrip → neue
-  // Server-Render ohne Clerk-Session → korrekte Landing-Navbar.
-  const handleSignOut = async () => {
-    await signOut();
-    window.location.assign("/");
+  // Let Clerk handle the redirect after signOut so the session cookie
+  // is fully cleared before the browser navigates. The old approach
+  // (await signOut() + window.location.assign) had a race where the
+  // navigation fired before the cookie was deleted, causing the server
+  // to render a stale signed-in Navbar.
+  const handleSignOut = () => {
+    signOut({ redirectUrl: "/" });
   };
 
   // Fetch plan + admin status whenever the signed-in user changes

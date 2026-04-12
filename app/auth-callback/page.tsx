@@ -21,6 +21,10 @@ function AuthCallbackContent() {
 
     if (isSignedIn) {
       const next = searchParams.get("next") || "/chat";
+      // Invalidate the RSC cache so the destination page (incl. Navbar)
+      // sees the fresh auth state on the server. Without this, Next.js
+      // may serve a cached payload that was rendered unauthenticated.
+      router.refresh();
       router.replace(next);
       return;
     }
