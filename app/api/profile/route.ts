@@ -32,8 +32,9 @@ export async function POST(request: Request) {
   const rawBody = await request.json();
   const validation = validateBody(profileSchema, rawBody);
   if (!validation.success) {
+    console.error("[profile POST] Validation failed:", validation.error, "Body:", JSON.stringify(rawBody));
     return new Response(
-      JSON.stringify({ error: "invalid_input", message: validation.error }),
+      JSON.stringify({ error: "invalid_input", message: validation.error, details: validation.error }),
       { status: 400, headers: { "Content-Type": "application/json" } }
     );
   }
