@@ -84,6 +84,15 @@ Du hast drei klar getrennte Wissensquellen. Die Reihenfolge ist bindend.
 - Nutze NIEMALS "ich denke", "ich glaube", "möglicherweise", "vermutlich" für Empfehlungen.
 - Für MEDIZINISCHE Fragen: immer Verweis auf **Arzt**. Keine Diagnosen, keine Medikamente, keine Supplemente.
 
+## GESUNDHEITSSENSIBLE THEMEN — EXTRA VORSICHT
+
+Bei Fragen zu Krankheiten, Medikamenten, Intoleranzen, Schwangerschaft und psychischen Erkrankungen:
+- Antworte NUR wenn die Wissensbasis konkrete Informationen dazu hat
+- Sage NIEMALS "Das ist allgemein bekannt" bei medizinischen Themen
+- Verweise IMMER zusätzlich auf einen **Arzt** oder eine Fachberatung
+- Wenn du nicht sicher bist ob eine Empfehlung bei dieser Krankheit sicher ist: GIB SIE NICHT
+- Im Zweifel lieber zu vorsichtig als zu mutig
+
 ### Medizinische Grenze – HART
 - Gib KEINE medizinischen Diagnosen, Medikamenten-Empfehlungen oder Therapievorschläge.
 - Gib KEINE Empfehlungen zu Nahrungsergänzungsmitteln, Dosierungen oder Supplementen.
@@ -202,6 +211,38 @@ Ich möchte dir keine ungenauen oder falschen Informationen geben. Für diese Fr
 - Bei gesundheitlichen Fragen wende dich an deinen **Hausarzt**.
 
 Gerne helfe ich dir bei anderen Ernährungsthemen – frag mich nach einem **Ernährungsplan**, nutze das **Tagebuch** für deine Mahlzeiten oder den **Tracker** für dein Gewicht.
+
+💚 *Hinweis: Diese Informationen ersetzen keine ärztliche Beratung.*`;
+
+// ---------------------------------------------------------------------------
+// 4b. HEALTH-SENSITIVE TOPIC DETECTOR
+// Conservative keyword list — false positives are fine (we just answer
+// more carefully); false negatives are NOT fine (someone gets bad advice).
+// ---------------------------------------------------------------------------
+const HEALTH_SENSITIVE_KEYWORDS = [
+  "diabetes", "hashimoto", "schilddrüse", "insulin", "blutzucker",
+  "essstörung", "magersucht", "bulimie", "anorexie", "binge",
+  "schwanger", "schwangerschaft", "stillen", "stillzeit",
+  "nierenkrank", "niereninsuffizienz", "dialyse",
+  "krebs", "chemotherapie", "bestrahlung",
+  "herzerkrankung", "herzkrank", "bluthochdruck",
+  "medikament", "medikamente", "wechselwirkung",
+  "allergie", "allergisch", "anaphylax",
+  "intolerant", "intoleranz", "unverträglichkeit",
+  "zöliakie", "morbus crohn", "colitis",
+  "gicht", "rheuma", "arthritis",
+  "depression", "angststörung",
+  "cortison", "metformin",
+];
+
+function detectHealthSensitive(text: string): { sensitive: boolean; keyword: string | null } {
+  const lc = text.toLowerCase();
+  const hit = HEALTH_SENSITIVE_KEYWORDS.find((kw) => lc.includes(kw));
+  return { sensitive: !!hit, keyword: hit ?? null };
+}
+
+const HEALTH_NO_KNOWLEDGE_RESPONSE = (keyword: string) =>
+  `⚠️ Bei gesundheitlichen Themen wie **${keyword}** möchte ich besonders vorsichtig sein. Zu diesem spezifischen Thema habe ich keine ausreichend fundierten Informationen in meiner Wissensbasis. Bitte besprich das mit deinem **Arzt** oder deiner Ärztin. Im **Premium-Plan** kannst du auch direkt **Janine** fragen — sie kann dir hier fundiert weiterhelfen.
 
 💚 *Hinweis: Diese Informationen ersetzen keine ärztliche Beratung.*`;
 
@@ -491,6 +532,11 @@ export async function POST(request: Request) {
       profileContext = parts.join("\n");
     }
 
+    // ---- Health-sensitive topic detection ----
+    const healthCheck = detectHealthSensitive(message);
+    const isHealthSensitive = healthCheck.sensitive;
+    const healthMatchThreshold = isHealthSensitive ? 0.55 : 0.5;
+
     // ---- RAG: Vektor-Suche mit Follow-up-Kontext ----
     // Folgefragen wie "womit fange ich an?" enthalten keine Keywords.
     // Strategie: erst aktuelle Nachricht, bei <3 Treffern mit letzten User-
@@ -515,7 +561,7 @@ export async function POST(request: Request) {
 
       const { data } = await supabase.rpc("ea_match_documents", {
         query_embedding: JSON.stringify(queryEmbedding),
-        match_threshold: 0.5,
+        match_threshold: healthMatchThreshold,
         match_count: 5,
       });
       const docs = (data ?? []) as RagDoc[];
@@ -552,7 +598,7 @@ export async function POST(request: Request) {
 
       if (best.docs.length > 0) {
         if (best.avgSimilarity >= 0.65) ragConfidence = "high";
-        else if (best.avgSimilarity >= 0.5) ragConfidence = "low";
+        else if (best.avgSimilarity >= healthMatchThreshold) ragConfidence = "low";
 
         knowledgeContext = best.docs
           .map(
@@ -575,6 +621,8 @@ export async function POST(request: Request) {
       confidence: ragConfidence,
       avgSimilarity: Number(ragAvgSimilarity.toFixed(3)),
       topSources: ragTopSources,
+      healthSensitive: isHealthSensitive,
+      healthKeyword: healthCheck.keyword,
     });
 
     // ---- Fallback: Keine Wissensbasis-Treffer ----
@@ -587,8 +635,17 @@ export async function POST(request: Request) {
 
     // Bei Bild-Nachrichten nicht hart ablehnen — das Bild ist der primäre
     // Input, und der Restaurant-Guide Modus arbeitet auf dem Bild selbst.
-    if (ragConfidence === "none" && !hasConversationHistory && !hasImage) {
-      return streamStaticResponse(NO_KNOWLEDGE_RESPONSE);
+    if (ragConfidence === "none" && !hasImage) {
+      // Gesundheitssensible Themen: harte Ablehnung auch bei Follow-ups —
+      // wir wollen hier NIEMALS aus dem Gesprächsverlauf weiter-raten.
+      if (isHealthSensitive) {
+        return streamStaticResponse(
+          HEALTH_NO_KNOWLEDGE_RESPONSE(healthCheck.keyword ?? "diesem Thema"),
+        );
+      }
+      if (!hasConversationHistory) {
+        return streamStaticResponse(NO_KNOWLEDGE_RESPONSE);
+      }
     }
 
     // ---- System Prompt bauen ----
@@ -596,6 +653,10 @@ export async function POST(request: Request) {
 
     if (profileContext) {
       fullSystemPrompt += `\n\nNUTZERPROFIL:\n${profileContext}`;
+      const krankheiten = profile?.[0]?.krankheiten as string | null | undefined;
+      if (krankheiten && krankheiten.trim()) {
+        fullSystemPrompt += `\n\n⚠️ WICHTIG — GESUNDHEITLICHE BESONDERHEITEN: Dieser User hat folgende gesundheitliche Besonderheiten: **${krankheiten}**. Berücksichtige das bei JEDER Empfehlung. Prüfe bei jeder Ernährungsempfehlung explizit, ob sie mit dieser Besonderheit kompatibel ist. Im Zweifel sage das ehrlich und verweise auf einen Arzt.`;
+      }
     }
 
     if (mealPlanContext) {
@@ -615,6 +676,14 @@ export async function POST(request: Request) {
 
     if (ragConfidence === "low") {
       fullSystemPrompt += `\n\n⚠️ ACHTUNG: Die Relevanz der gefundenen Dokumente ist NIEDRIG. Sei besonders vorsichtig. Wenn die Dokumente die Frage nicht direkt beantworten, sage ehrlich, dass du dazu keine ausreichenden Informationen hast. Erfinde NICHTS.`;
+    }
+
+    if (isHealthSensitive) {
+      if (ragConfidence === "low") {
+        fullSystemPrompt += `\n\n⚠️ ACHTUNG — GESUNDHEITSSENSIBLES THEMA (${healthCheck.keyword}): Sei BESONDERS vorsichtig. Gib NUR Informationen die DIREKT in den Wissensbasis-Chunks stehen. Ergänze NICHTS aus eigenem Wissen. Wenn die Chunks das Thema nicht ausreichend abdecken, sage das ehrlich und verweise auf einen **Arzt**.`;
+      } else if (ragConfidence === "high") {
+        fullSystemPrompt += `\n\nHINWEIS — GESUNDHEITSSENSIBLES THEMA (${healthCheck.keyword}): Auch wenn die Wissensbasis Treffer liefert, betone am Ende der Antwort deutlich, dass individuelle Fragen zu diesem Thema immer mit einem **Arzt** oder einer Fachberatung geklärt werden sollten.`;
+      }
     }
 
     if (ragConfidence === "none" && hasConversationHistory) {
