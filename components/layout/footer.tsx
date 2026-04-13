@@ -11,12 +11,13 @@ export function Footer() {
         <div className="grid grid-cols-2 md:grid-cols-5 gap-8 md:gap-10">
           {/* Brand */}
           <div className="col-span-2 md:col-span-2 pr-4">
-            <div className="flex items-center gap-2.5 mb-4">
+            <div className="flex items-center gap-2 mb-4">
               <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
                 <Leaf className="w-5 h-5 text-white" />
               </div>
-              <span className="font-serif text-lg font-semibold text-white tracking-tight">
-                Ernährungsberatung
+              <span className="font-serif text-xl tracking-tight flex items-baseline">
+                <span className="font-bold text-white">Nutriva</span>
+                <span className="font-normal text-sage">-AI</span>
               </span>
             </div>
             <p className="text-sm text-stone-400 leading-relaxed max-w-xs mb-5">
@@ -85,7 +86,7 @@ export function Footer() {
         {/* Bottom strip */}
         <div className="mt-14 pt-6 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-xs text-stone-500">
-            © {year} Ernährungsberatung by Janine · Made with 🌱 in Deutschland
+            © {year} Nutriva-AI · Made with 🌱 in Deutschland
           </p>
           <p className="text-[11px] text-stone-600 text-center sm:text-right max-w-md leading-relaxed">
             Diese App ersetzt keine ärztliche Beratung. Bei gesundheitlichen

@@ -100,12 +100,13 @@ export function NavbarShell() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
-            <Link href="/" className="flex items-center gap-2.5 group">
+            <Link href="/" className="flex items-center gap-2 group">
               <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center shadow-card group-hover:shadow-card-hover transition-all duration-200">
                 <Leaf className="w-[18px] h-[18px] text-white" />
               </div>
-              <span className="font-serif text-[17px] font-semibold text-ink hidden sm:block tracking-tight">
-                Ernährungsberatung
+              <span className="font-serif text-[19px] hidden sm:flex items-baseline tracking-tight">
+                <span className="font-bold text-primary">Nutriva</span>
+                <span className="font-normal text-sage">-AI</span>
               </span>
             </Link>
 
