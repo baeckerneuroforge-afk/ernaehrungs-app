@@ -43,7 +43,8 @@ export const chatMessageSchema = z.object({
       base64: z.string().max(15000000),
       mediaType: z.enum(["image/jpeg", "image/png", "image/webp"]),
     })
-    .optional(),
+    .optional()
+    .nullable(),
 });
 
 // Ernährungsplan — actual wire format is { planParameters: {...} } where
