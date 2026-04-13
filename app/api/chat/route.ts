@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { loadUserBehaviorContext } from "@/lib/utils/user-context";
-import { deductCredits, refundCredits, CREDIT_COSTS } from "@/lib/credits";
+import { deductCredits, refundCredits, isAdminUser, CREDIT_COSTS } from "@/lib/credits";
 import { hasFeatureAccess } from "@/lib/feature-gates";
 import { getUserPlan } from "@/lib/feature-gates-server";
 import { hasKiConsent, KI_CONSENT_MISSING_RESPONSE } from "@/lib/consent";
@@ -55,23 +55,34 @@ Weise dazu hin, dass die Zahl eine Schätzung ist und je nach individuellem Stof
 
 ## ABSOLUTE REGELN (NIEMALS brechen):
 
-## WISSENSQUELLEN — KLARE TRENNUNG
+## WISSENSQUELLEN — STRIKTE REGELN
 
-Du hast drei Wissensquellen:
+Du hast drei klar getrennte Wissensquellen. Die Reihenfolge ist bindend.
 
-1. **Wissensbasis (PRIORITÄT 1):** Janines fachliche Einordnungen, Empfehlungen, Ernährungsphilosophie. Nutze diese IMMER als erstes für Empfehlungen, Bewertungen und Einordnungen.
+1. **Wissensbasis (ABSOLUTE PRIORITÄT):** Janines fachliche Einordnungen, Empfehlungen, Ernährungsphilosophie. **Empfehlungen, Bewertungen, Einordnungen, Prinzipien, Janines Meinung** darfst du NUR geben, wenn die Wissensbasis unten Informationen dazu enthält. Steht nichts dort → sage ehrlich: "Dazu habe ich in meiner Wissensbasis keine spezifische Information." Danach darfst du auf **Janine direkt** (Premium) verweisen.
 
-2. **Allgemeines Ernährungswissen (PRIORITÄT 2):** Nährwerte, Kalorienangaben, Makronährstoffe, Standardformeln (BMR, TDEE, Mifflin-St Jeor). Du darfst dein Trainingswissen für faktische Nährwert-Angaben nutzen — diese sind allgemein verfügbar und unstrittig.
+2. **Allgemeines Ernährungswissen (NUR FÜR FAKTEN):** Nährwerte, Kalorienangaben, Makroverteilungen einzelner Lebensmittel, Standardformeln (BMR, TDEE, Mifflin-St-Jeor), einfache Mathematik. Diese Kategorie ist **eng** — sie deckt nur unstrittige faktische Zahlen ab, KEINE Empfehlungen, KEINE "ist gesund/ungesund"-Einordnungen, KEINE Ernährungsphilosophie.
 
-3. **User-Daten (IMMER EINBEZIEHEN):** Profil, Tagebuch, Gewichtsverlauf, Ziele, Allergien, Ernährungsform. Diese fließen in JEDE Antwort ein.
+3. **User-Daten (IMMER EINBEZIEHEN):** Profil, Tagebuch, Gewichtsverlauf, Ziele, Allergien, Ernährungsform. Fließen in JEDE Antwort ein.
 
-### Regeln:
-- Für EMPFEHLUNGEN und EINORDNUNGEN: Wissensbasis hat Vorrang. Sage was Janine empfehlen würde.
-- Für NÄHRWERTE und BERECHNUNGEN: Eigenes Wissen ist erlaubt (Kalorien, Protein, Makros).
-- Für MEDIZINISCHE Fragen: Verweise IMMER auf Fachpersonal. Keine Diagnosen, keine Medikamente.
-- Wenn die Wissensbasis zu einer Empfehlungsfrage KEINE Information hat: Sage ehrlich "Dazu habe ich keine spezifische Information in meiner Wissensbasis. Allgemein gilt: ..." und gib eine vorsichtige Einordnung.
-- Erfinde NIEMALS Studien, Quellen oder spezifische Empfehlungen die nicht in der Wissensbasis stehen.
-- Nährwert-Schätzungen sind Schätzungen — kennzeichne sie als solche (~620 kcal, ca. 25g Protein).
+### Was du OHNE Wissensbasis-Chunks tun darfst:
+- Kalorien/Makros eines Lebensmittels schätzen (als Schätzung gekennzeichnet: ~620 kcal, ca. 25g Protein)
+- BMR/TDEE/Defizit mit Mifflin-St-Jeor rechnen
+- Foto-Analysen (Restaurant-Guide, Teller-Analyse)
+- Ja/Nein-Fragen auf reine User-Daten beantworten ("Habe ich heute schon genug Protein?")
+- Auf App-Tools verweisen (**Tagebuch**, **Tracker**, **Ernährungsplan**, **Wochenreview**)
+
+### Was du OHNE Wissensbasis-Chunks NICHT tun darfst:
+- Empfehlungen geben ("du solltest...", "ich empfehle...", "besser ist...")
+- Lebensmittel, Diäten, Ernährungsformen bewerten ("ist gesund", "ist schlecht", "ist optimal")
+- Janines Philosophie, Prinzipien oder Meinung wiedergeben
+- Allgemeine Ernährungsprinzipien behaupten ("generell gilt...", "die Forschung zeigt...")
+- Studien oder Quellen erfinden oder zitieren
+
+### Absolute No-Gos:
+- Erfinde NIEMALS Studien, Prozentzahlen, Quellen oder spezifische Empfehlungen.
+- Nutze NIEMALS "ich denke", "ich glaube", "möglicherweise", "vermutlich" für Empfehlungen.
+- Für MEDIZINISCHE Fragen: immer Verweis auf **Arzt**. Keine Diagnosen, keine Medikamente, keine Supplemente.
 
 ### Medizinische Grenze – HART
 - Gib KEINE medizinischen Diagnosen, Medikamenten-Empfehlungen oder Therapievorschläge.
@@ -486,6 +497,9 @@ export async function POST(request: Request) {
     // Nachrichten kombiniert nochmal suchen. Beste Treffer gewinnen.
     let knowledgeContext = "";
     let ragConfidence: "high" | "low" | "none" = "none";
+    let ragChunkCount = 0;
+    let ragTopSources: string[] = [];
+    let ragAvgSimilarity = 0;
 
     type RagDoc = { title: string; content: string; similarity: number };
     type RagResult = { docs: RagDoc[]; avgSimilarity: number };
@@ -547,9 +561,21 @@ export async function POST(request: Request) {
           )
           .join("\n\n---\n\n");
       }
+      ragChunkCount = best.docs.length;
+      ragAvgSimilarity = best.avgSimilarity;
+      ragTopSources = best.docs.slice(0, 3).map((d) => d.title);
     } catch (e) {
       console.error("RAG search error:", e);
     }
+
+    console.log("[chat] RAG", {
+      userId,
+      query: message.slice(0, 80),
+      chunks: ragChunkCount,
+      confidence: ragConfidence,
+      avgSimilarity: Number(ragAvgSimilarity.toFixed(3)),
+      topSources: ragTopSources,
+    });
 
     // ---- Fallback: Keine Wissensbasis-Treffer ----
     // Nur hart ablehnen wenn es KEINE Vorgeschichte gibt. Bei Folgefragen
@@ -592,7 +618,7 @@ export async function POST(request: Request) {
     }
 
     if (ragConfidence === "none" && hasConversationHistory) {
-      fullSystemPrompt += `\n\nHINWEIS (Folgefrage): Für diese Frage wurden keine neuen Dokumente in der Wissensbasis gefunden. Die Nachricht ist eine Folgefrage auf das bisherige Gespräch. Antworte basierend auf den Fakten, die du in vorherigen Turns bereits aus der Wissensbasis zitiert hast. Erfinde KEINE neuen Fakten, Zahlen oder Empfehlungen. Wenn die Folgefrage inhaltlich über das bisher Besprochene hinausgeht, sage ehrlich, dass du dazu mehr Kontext brauchst oder an die Ernährungsberaterin verweisen möchtest.`;
+      fullSystemPrompt += `\n\n⚠️ ACHTUNG — KEINE WISSENSBASIS-TREFFER: Für diese Nachricht wurden KEINE relevanten Dokumente in der Wissensbasis gefunden. Du darfst NUR auf Fakten zurückgreifen, die du in vorherigen Turns dieses Gesprächs bereits aus der Wissensbasis zitiert hast. Gib KEINE neuen Empfehlungen, KEINE neuen Studien, KEINE neuen Ernährungsprinzipien, KEINE neuen Bewertungen. Erlaubt sind: kurze Rückfragen zur Klärung, reine Berechnungen auf Basis der User-Daten, Verweise auf App-Tools. Wenn die Folgefrage inhaltlich über das bisher Besprochene hinausgeht, sage ehrlich: "Dazu habe ich in meiner Wissensbasis keine spezifische Information — möchtest du die Frage an Janine direkt (Premium) stellen?"`;
     }
 
     // ---- Messages bauen ----
@@ -649,6 +675,12 @@ export async function POST(request: Request) {
       ? MODEL_SONNET
       : getModelForAction(action, userPlanEarly);
 
+    // ---- Admin RAG marker ----
+    const isAdmin = await isAdminUser(userId);
+    const ragMarker = isAdmin
+      ? `[RAG: ${ragChunkCount} chunks, ${ragConfidence}, ${ragTopSources.join(" | ") || "–"}]\n`
+      : "";
+
     // ---- Stream Response ----
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -664,6 +696,13 @@ export async function POST(request: Request) {
     const readableStream = new ReadableStream({
       async start(controller) {
         try {
+          if (ragMarker) {
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({ type: "text", text: ragMarker })}\n\n`
+              )
+            );
+          }
           const messageStream = await stream;
           for await (const event of messageStream) {
             if (
