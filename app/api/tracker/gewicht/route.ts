@@ -50,5 +50,23 @@ export async function POST(request: Request) {
     .limit(1);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Sync profile.gewicht_kg to the most recent weight log so TDEE
+  // calculations (Mifflin-St-Jeor) stay accurate as the user loses/gains.
+  const { data: latest } = await supabase
+    .from("ea_weight_logs")
+    .select("gewicht_kg, gemessen_am")
+    .eq("user_id", userId)
+    .order("gemessen_am", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (latest?.gewicht_kg) {
+    await supabase
+      .from("ea_profiles")
+      .update({ gewicht_kg: latest.gewicht_kg })
+      .eq("user_id", userId);
+  }
+
   return NextResponse.json(data?.[0], { status: 201 });
 }

@@ -498,6 +498,7 @@ export async function POST(request: Request) {
         .from("ea_meal_plans")
         .select("plan_data, parameters, created_at, titel")
         .eq("user_id", userId)
+        .eq("status", "active")
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle(),

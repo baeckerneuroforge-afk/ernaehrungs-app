@@ -11,7 +11,7 @@ export async function loadUserBehaviorContext(
   const parts: string[] = [];
 
   // Run all queries in parallel
-  const [foodLogResult, weightResult, goalsResult] = await Promise.all([
+  const [foodLogResult, weightResult, goalsResult, profileResult] = await Promise.all([
     // Last 7 days of food diary
     supabase
       .from("ea_food_log")
@@ -38,7 +38,18 @@ export async function loadUserBehaviorContext(
       .eq("user_id", userId)
       .eq("erreicht", false)
       .limit(10),
+
+    // Profile — for start weight / goal progress
+    supabase
+      .from("ea_profiles")
+      .select("gewicht_kg, groesse_cm, ziel")
+      .eq("user_id", userId)
+      .maybeSingle(),
   ]);
+
+  const profile = profileResult.data as
+    | { gewicht_kg: number | null; groesse_cm: number | null; ziel: string | null }
+    | null;
 
   // --- Food diary context ---
   if (foodLogResult.data?.length) {
@@ -79,6 +90,41 @@ export async function loadUserBehaviorContext(
     }
 
     parts.push(`ERNÄHRUNGSTAGEBUCH (letzte 7 Tage):\n${dayLines.join("\n\n")}`);
+
+    // --- Macro averages (7-day) ---
+    const logsWithMacros = entries.filter(
+      (f) => f.protein_g != null || f.carbs_g != null || f.fat_g != null
+    );
+    if (logsWithMacros.length >= 3) {
+      const days = Object.keys(byDay).length || 1;
+      const totalP = logsWithMacros.reduce((s, f) => s + (f.protein_g || 0), 0);
+      const totalC = logsWithMacros.reduce((s, f) => s + (f.carbs_g || 0), 0);
+      const totalF = logsWithMacros.reduce((s, f) => s + (f.fat_g || 0), 0);
+      const totalKcal = entries.reduce((s, f) => s + (f.kalorien_geschaetzt || 0), 0);
+      const avgP = Math.round(totalP / days);
+      const avgC = Math.round(totalC / days);
+      const avgF = Math.round(totalF / days);
+      const avgKcal = Math.round(totalKcal / days);
+
+      const macroLines = [
+        `  - Ø Kalorien: ~${avgKcal} kcal/Tag`,
+        `  - Ø Protein: ~${avgP} g/Tag`,
+        `  - Ø Kohlenhydrate: ~${avgC} g/Tag`,
+        `  - Ø Fett: ~${avgF} g/Tag`,
+      ];
+
+      // Protein minimum warning (1.2 g/kg Körpergewicht als untere Richtlinie)
+      if (profile?.gewicht_kg) {
+        const proteinMin = Math.round(profile.gewicht_kg * 1.2);
+        if (avgP < proteinMin) {
+          macroLines.push(
+            `  - ⚠️ Protein unter Richtwert (${proteinMin} g/Tag bei ${profile.gewicht_kg} kg Körpergewicht)`
+          );
+        }
+      }
+
+      parts.push(`MAKRO-DURCHSCHNITT (7 Tage):\n${macroLines.join("\n")}`);
+    }
   }
 
   // --- Weight trend context ---
@@ -115,6 +161,53 @@ export async function loadUserBehaviorContext(
       .join("\n");
 
     parts.push(`AKTIVE ZIELE:\n${goalLines}`);
+  }
+
+  // --- Goal progress tracker (weight goals) ---
+  if (weightResult.data?.length && goalsResult.data?.length) {
+    const weightGoal = goalsResult.data.find(
+      (g) =>
+        g.typ === "gewicht" ||
+        (typeof g.beschreibung === "string" && /gewicht|kg|abnehm|zunehm/i.test(g.beschreibung))
+    );
+    if (weightGoal?.zielwert) {
+      const weights = weightResult.data;
+      const currentWeight = weights[0].gewicht_kg;
+      const startWeight =
+        weightGoal.startwert ?? profile?.gewicht_kg ?? weights[weights.length - 1].gewicht_kg;
+      const targetWeight = weightGoal.zielwert;
+
+      const totalDelta = targetWeight - startWeight;
+      const currentDelta = currentWeight - startWeight;
+      const progressPercent =
+        Math.abs(totalDelta) > 0.01
+          ? Math.round((currentDelta / totalDelta) * 100)
+          : 0;
+
+      const progressLines = [
+        `  - Start: ${startWeight} kg → Aktuell: ${currentWeight} kg → Ziel: ${targetWeight} kg`,
+        `  - Fortschritt: ${progressPercent}% (${currentDelta > 0 ? "+" : ""}${currentDelta.toFixed(1)} kg von ${totalDelta > 0 ? "+" : ""}${totalDelta.toFixed(1)} kg)`,
+      ];
+
+      // Weekly rate check — warn if >1.0 kg/week (zu aggressiv)
+      if (weights.length >= 2) {
+        const oldest = weights[weights.length - 1].gewicht_kg;
+        const days = daysBetween(
+          weights[weights.length - 1].gemessen_am,
+          weights[0].gemessen_am
+        );
+        if (days >= 7) {
+          const weeklyRate = ((currentWeight - oldest) / days) * 7;
+          if (Math.abs(weeklyRate) > 1.0) {
+            progressLines.push(
+              `  - ⚠️ Aktuelles Tempo: ${weeklyRate > 0 ? "+" : ""}${weeklyRate.toFixed(1)} kg/Woche (über gesundem Richtwert von max. 1 kg/Woche)`
+            );
+          }
+        }
+      }
+
+      parts.push(`ZIEL-FORTSCHRITT:\n${progressLines.join("\n")}`);
+    }
   }
 
   return parts.join("\n\n");
