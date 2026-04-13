@@ -1,6 +1,6 @@
 {
-  "name": "Ernährungsberatung",
-  "short_name": "Ernährung",
+  "name": "Nutriva-AI",
+  "short_name": "Nutriva-AI",
   "description": "Deine persönliche KI-Ernährungsberaterin",
   "start_url": "/chat",
   "display": "standalone",

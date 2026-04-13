@@ -7,14 +7,14 @@ import { PageTransition } from "@/components/layout/page-transition";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Ernährungsberatung – Deine persönliche KI-Beraterin",
+  title: "Nutriva-AI – Deine persönliche KI-Ernährungsberaterin",
   description:
-    "Personalisierte Ernährungsberatung mit KI. Stelle Fragen, erhalte fundierte Antworten und individuelle Ernährungspläne.",
+    "Nutriva-AI: Personalisierte Ernährungsberatung mit KI. Basierend auf dem Wissen einer Ernährungswissenschaftlerin.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Ernährungsberatung",
+    title: "Nutriva-AI",
   },
   other: {
     "mobile-web-app-capable": "yes",
