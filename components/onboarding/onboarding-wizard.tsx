@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Leaf, ChevronRight, ChevronLeft, Check, Loader2, ShieldCheck, Eye, EyeOff, ChevronDown, ChevronUp, Sparkles, Ban } from "lucide-react";
+import { Leaf, ChevronRight, ChevronLeft, Check, Loader2, ShieldCheck, Eye, EyeOff, ChevronDown, ChevronUp, Sparkles, Ban, AlertCircle } from "lucide-react";
 import { GESCHLECHT, ZIELE, ERNAEHRUNGSFORMEN, ALLERGIEN, AKTIVITAET } from "@/types";
 
 interface Props {
@@ -18,6 +18,45 @@ export function OnboardingWizard({ userId: _userId, existingProfile, initialStep
   const [saving, setSaving] = useState(false);
   const [consentDetailsOpen, setConsentDetailsOpen] = useState(false);
   const [kiConsentDetailsOpen, setKiConsentDetailsOpen] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [lastAction, setLastAction] = useState<null | (() => void)>(null);
+  const [sessionReady, setSessionReady] = useState(false);
+
+  // Wait for the Clerk session cookie to be fully propagated before letting
+  // the user submit anything. Right after sign-up the session is set via
+  // setActive() but the middleware sometimes doesn't see the cookie on the
+  // first couple of requests (classic race with GET /api/profile returning
+  // 404 via auth.protect()). We poll until a real response comes back.
+  useEffect(() => {
+    let cancelled = false;
+    let attempts = 0;
+    const check = async () => {
+      try {
+        const res = await fetch("/api/profile", { credentials: "same-origin" });
+        // 200 = existing profile; 204/404-json are also fine — any non-auth
+        // response means the session is reaching our API route.
+        if (!cancelled && res.status !== 401 && res.status !== 403) {
+          setSessionReady(true);
+          return;
+        }
+      } catch {
+        // network hiccup — fall through to retry
+      }
+      attempts++;
+      if (cancelled) return;
+      if (attempts < 5) {
+        setTimeout(check, 1000);
+      } else {
+        // Give up waiting — let the user try anyway, the retry helper
+        // inside postJson will handle any remaining races.
+        setSessionReady(true);
+      }
+    };
+    check();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Form state
   const [name, setName] = useState((existingProfile?.name as string) || "");
@@ -57,33 +96,58 @@ export function OnboardingWizard({ userId: _userId, existingProfile, initialStep
    * Returns true on success, false on "handled" errors (caller should abort).
    */
   async function postJson(url: string, payload: unknown, errorLabel: string): Promise<boolean> {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "same-origin",
-      body: JSON.stringify(payload),
-    });
-    if (res.status === 404) {
-      alert(
-        "Deine Sitzung ist abgelaufen. Die Seite wird jetzt neu geladen — danach kannst du fortfahren."
-      );
-      window.location.reload();
-      return false;
+    setSaveError(null);
+    const maxRetries = 2;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      let res: Response;
+      try {
+        res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify(payload),
+        });
+      } catch {
+        // Network error — treat like a transient failure and retry.
+        if (attempt < maxRetries) {
+          await new Promise((r) => setTimeout(r, 1500));
+          continue;
+        }
+        setSaveError(`${errorLabel}: Netzwerkfehler. Bitte versuche es erneut.`);
+        return false;
+      }
+
+      // 401/403/404 right after sign-up usually means the Clerk session
+      // cookie isn't fully propagated yet — retry after a short delay.
+      if (
+        (res.status === 401 || res.status === 403 || res.status === 404) &&
+        attempt < maxRetries
+      ) {
+        await new Promise((r) => setTimeout(r, 1500));
+        continue;
+      }
+
+      if (!res.ok) {
+        const errorData = await res
+          .json()
+          .catch(() => ({} as { error?: string }));
+        setSaveError(
+          `${errorLabel}: ${
+            (errorData as { error?: string }).error ||
+            "Bitte versuche es erneut."
+          }`
+        );
+        return false;
+      }
+      return true;
     }
-    if (!res.ok) {
-      const errorData = await res.json().catch(() => ({} as { error?: string }));
-      alert(
-        `${errorLabel}: ${
-          (errorData as { error?: string }).error ||
-          "Bitte versuche es erneut."
-        }`
-      );
-      return false;
-    }
-    return true;
+    setSaveError(`${errorLabel}: Bitte versuche es erneut.`);
+    return false;
   }
 
   async function handleSaveProfile() {
+    setLastAction(() => handleSaveProfile);
     setSaving(true);
     const ok = await postJson(
       "/api/profile",
@@ -111,6 +175,7 @@ export function OnboardingWizard({ userId: _userId, existingProfile, initialStep
   }
 
   async function handleKiConsent(consent: boolean) {
+    setLastAction(() => () => handleKiConsent(consent));
     setSaving(true);
     const ok = await postJson(
       "/api/profile/consent",
@@ -123,6 +188,7 @@ export function OnboardingWizard({ userId: _userId, existingProfile, initialStep
   }
 
   async function handleReviewConsent(consent: boolean) {
+    setLastAction(() => () => handleReviewConsent(consent));
     setSaving(true);
     const ok = await postJson(
       "/api/profile/consent",
@@ -139,6 +205,22 @@ export function OnboardingWizard({ userId: _userId, existingProfile, initialStep
 
   // Steps 1–5 shown in progress bar (4 = KI consent, 5 = review consent), step 6 = done
   const progressPct = step <= 5 ? (step / 5) * 100 : 100;
+
+  if (!sessionReady) {
+    return (
+      <div className="min-h-screen bg-surface-bg flex flex-col items-center justify-center px-4">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center">
+            <Leaf className="w-7 h-7 text-white" />
+          </div>
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <Loader2 className="w-4 h-4 animate-spin text-primary" />
+            Wird vorbereitet…
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-surface-bg flex flex-col">
@@ -158,6 +240,32 @@ export function OnboardingWizard({ userId: _userId, existingProfile, initialStep
               <Leaf className="w-7 h-7 text-white" />
             </div>
           </div>
+
+          {saveError && (
+            <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 flex items-start gap-3">
+              <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-red-700 leading-relaxed">
+                  {saveError}
+                </p>
+                {lastAction && (
+                  <button
+                    onClick={() => {
+                      setSaveError(null);
+                      lastAction();
+                    }}
+                    disabled={saving}
+                    className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-red-700 hover:text-red-800 disabled:opacity-50"
+                  >
+                    {saving ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : null}
+                    Nochmal versuchen
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Step 1: Basics */}
           {step === 1 && (
