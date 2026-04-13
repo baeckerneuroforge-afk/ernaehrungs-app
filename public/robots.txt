@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /chat
+Disallow: /tagebuch
+Disallow: /profil
+Disallow: /ernaehrungsplan
+Disallow: /onboarding
+Disallow: /auth-callback
+
+Sitemap: https://www.nutriva-ai.de/sitemap.xml

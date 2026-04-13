@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import { validateBody, supportTicketSchema } from "@/lib/validations";
+import { sendEmail } from "@/lib/email";
 
 const ALLOWED_SUBJECTS = [
   "Technisches Problem",
@@ -54,19 +55,29 @@ export async function POST(request: Request) {
       );
     }
 
-    // TODO: When Resend is configured (RESEND_API_KEY), send a notification
-    // email to SUPPORT_EMAIL with the ticket details. Pattern:
-    //
-    //   import { Resend } from "resend";
-    //   const resend = new Resend(process.env.RESEND_API_KEY);
-    //   await resend.emails.send({
-    //     from: "Nutriva Support <no-reply@nutriva-ai.de>",
-    //     to: SUPPORT_EMAIL,
-    //     replyTo: email.trim(),
-    //     subject: `[Support] ${subject} — ${name}`,
-    //     text: message.trim(),
-    //   });
-    void SUPPORT_EMAIL;
+    // Benachrichtigung an Support-Postfach. sendEmail degradiert graceful
+    // wenn RESEND_API_KEY fehlt, deshalb fire-and-forget ohne await — das
+    // Ticket ist bereits in der DB, die Mail ist nur Notification.
+    const escapedMessage = message
+      .trim()
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/\n/g, "<br>");
+    void sendEmail({
+      to: SUPPORT_EMAIL,
+      subject: `[Support] ${subject} — ${name}`,
+      html: `
+        <div style="font-family: -apple-system, sans-serif; max-width: 600px;">
+          <h2 style="color: #2D6A4F;">Neues Support-Ticket</h2>
+          <p><strong>Von:</strong> ${name} &lt;${email.trim()}&gt;</p>
+          <p><strong>User-ID:</strong> ${userId || "(anonym)"}</p>
+          <p><strong>Betreff:</strong> ${subject}</p>
+          <hr style="border: none; border-top: 1px solid #E7E5E4;">
+          <p style="white-space: pre-wrap; color: #1C1917;">${escapedMessage}</p>
+        </div>
+      `,
+    });
 
     return NextResponse.json({
       success: true,

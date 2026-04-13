@@ -11,6 +11,20 @@ export const metadata: Metadata = {
   description:
     "Nutriva-AI: Personalisierte Ernährungsberatung mit KI. Basierend auf dem Wissen einer Ernährungswissenschaftlerin.",
   manifest: "/manifest.json",
+  openGraph: {
+    title: "Nutriva-AI – Deine persönliche KI-Ernährungsberaterin",
+    description:
+      "Personalisierte Ernährungsberatung mit KI. Basierend auf dem Wissen einer Ernährungswissenschaftlerin.",
+    url: "https://www.nutriva-ai.de",
+    siteName: "Nutriva-AI",
+    locale: "de_DE",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Nutriva-AI – KI-Ernährungsberatung",
+    description: "Personalisierte Ernährungsberatung mit KI.",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

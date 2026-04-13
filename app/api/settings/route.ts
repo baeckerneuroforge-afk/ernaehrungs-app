@@ -88,8 +88,9 @@ export async function PUT(request: Request) {
     return new Response(JSON.stringify({ error: error.message }), { status: 500 });
   }
 
-  // TODO: When Resend is wired up, trigger email-preference sync here
-  // (e.g. subscribe/unsubscribe user from reminder + credit-warning lists).
+  // Email preferences are read from ea_users at send-time by the cron jobs
+  // (weekly-reminder, inactive-accounts) and by deductCredits(), so a DB
+  // update is the sync — no Resend audience list to maintain.
 
   return new Response(JSON.stringify({ ok: true }), {
     headers: { "Content-Type": "application/json" },
