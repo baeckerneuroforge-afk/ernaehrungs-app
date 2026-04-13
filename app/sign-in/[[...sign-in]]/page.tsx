@@ -1,8 +1,25 @@
-import { SignIn } from "@clerk/nextjs";
+"use client";
+
+import { SignIn, useAuth } from "@clerk/nextjs";
+import { useEffect, useRef } from "react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 
 export default function SignInPage() {
+  const { isLoaded, isSignedIn } = useAuth();
+  const hasRedirected = useRef(false);
+
+  // Same pattern as sign-up: once Clerk reports a valid session, do a
+  // hard navigation so the browser ships the new __session cookie with
+  // the next request. /auth-callback then decides whether to send the
+  // user to /chat or /onboarding.
+  useEffect(() => {
+    if (isLoaded && isSignedIn && !hasRedirected.current) {
+      hasRedirected.current = true;
+      window.location.href = "/auth-callback";
+    }
+  }, [isLoaded, isSignedIn]);
+
   return (
     <div className="min-h-screen flex flex-col bg-surface-bg">
       <Navbar />
@@ -23,9 +40,7 @@ export default function SignInPage() {
               footerActionLink: "text-primary hover:text-primary-light",
             },
           }}
-          fallbackRedirectUrl="/auth-callback"
           signUpUrl="/sign-up"
-          signUpFallbackRedirectUrl="/onboarding"
         />
       </main>
       <Footer />
