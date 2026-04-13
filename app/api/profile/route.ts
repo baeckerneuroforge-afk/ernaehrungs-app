@@ -46,6 +46,12 @@ export async function POST(request: Request) {
   const { agb_accepted, ...profileBody } = body;
   const agbAcceptedAt =
     agb_accepted === true ? new Date().toISOString() : null;
+  console.log("[profile POST]", {
+    userId,
+    agb_accepted,
+    agbAcceptedAt,
+    onboarding_done: profileBody.onboarding_done,
+  });
 
   // Self-heal ea_users: ensure a row exists for this Clerk user even if the
   // Clerk webhook never fired. Pull email/name/image from Clerk directly.
@@ -66,7 +72,7 @@ export async function POST(request: Request) {
       // sonst würden bezahlende User auf 15 zurückgesetzt.
       const { data: existing, error: selectError } = await supabase
         .from("ea_users")
-        .select("clerk_id")
+        .select("clerk_id, agb_accepted_at")
         .eq("clerk_id", userId)
         .maybeSingle();
 
@@ -80,6 +86,13 @@ export async function POST(request: Request) {
       }
 
       if (existing) {
+        // Stamp agb_accepted_at when the request brings a fresh acceptance
+        // AND the DB doesn't already have one (first-acceptance rule).
+        // This guards against the case where another code path (e.g. the
+        // consent endpoint or a Clerk webhook) created the row earlier
+        // without a timestamp.
+        const shouldStampAgb =
+          !!agbAcceptedAt && !existing.agb_accepted_at;
         const { error: updateError } = await supabase
           .from("ea_users")
           .update({
@@ -87,11 +100,15 @@ export async function POST(request: Request) {
             name: fullName,
             image_url: user.imageUrl || null,
             updated_at: new Date().toISOString(),
-            // Only stamp on first acceptance — don't overwrite an earlier
-            // timestamp on subsequent profile edits.
-            ...(agbAcceptedAt ? { agb_accepted_at: agbAcceptedAt } : {}),
+            ...(shouldStampAgb ? { agb_accepted_at: agbAcceptedAt } : {}),
           })
           .eq("clerk_id", userId);
+
+        console.log("[profile POST] ea_users update", {
+          userId,
+          stamped_agb: shouldStampAgb,
+          already_had_agb: !!existing.agb_accepted_at,
+        });
 
         if (updateError) {
           console.error("[profile POST] ea_users self-heal failed", {
@@ -176,7 +193,13 @@ export async function POST(request: Request) {
             message: insertError.message,
             details: insertError.details,
           });
-        } else if (duplicate) {
+        } else {
+          console.log("[profile POST] ea_users insert ok", {
+            userId,
+            stamped_agb: !!agbAcceptedAt,
+          });
+        }
+        if (!insertError && duplicate) {
           // Only migrate after the new ea_users row was created successfully.
           await mergeAccountData(supabase, duplicate.clerk_id, userId, email);
         }
