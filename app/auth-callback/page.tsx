@@ -12,9 +12,11 @@ function AuthCallbackContent() {
   const [waited, setWaited] = useState(false);
   const navigating = useRef(false);
 
-  // Safety timeout: if still not signed in after 3s, bail to /sign-in
+  // Safety timeout: if still not signed in after 8s, bail to /sign-in.
+  // Email+Password flows via setActive() can take a moment before the
+  // Clerk session cookie is fully propagated to the browser.
   useEffect(() => {
-    const timer = setTimeout(() => setWaited(true), 3000);
+    const timer = setTimeout(() => setWaited(true), 8000);
     return () => clearTimeout(timer);
   }, []);
 
@@ -25,6 +27,20 @@ function AuthCallbackContent() {
       navigating.current = true;
       const next = searchParams.get("next");
 
+      // Use a hard navigation (window.location.replace) instead of
+      // router.replace so the browser sends the freshly-set Clerk session
+      // cookie with the new request.  Client-side Next.js navigation can
+      // race the middleware when the cookie was just set via setActive()
+      // in the Email+Password flow, which would then bounce the user back
+      // to /sign-in.
+      const go = (url: string) => {
+        if (typeof window !== "undefined") {
+          window.location.replace(url);
+        } else {
+          router.replace(url);
+        }
+      };
+
       // If targeting /onboarding, check whether the user already completed
       // it.  Returning users who sign in via Google on the /sign-up page
       // still carry ?next=/onboarding — without this check they'd be
@@ -33,27 +49,20 @@ function AuthCallbackContent() {
         fetch("/api/profile", { credentials: "same-origin" })
           .then((r) => (r.ok ? r.json() : null))
           .then((profile) => {
-            router.refresh();
-            if (profile?.onboarding_done) {
-              router.replace("/chat");
-            } else {
-              router.replace("/onboarding");
-            }
+            go(profile?.onboarding_done ? "/chat" : "/onboarding");
           })
           .catch(() => {
-            router.refresh();
-            router.replace("/onboarding");
+            go("/onboarding");
           });
         return;
       }
 
       // Normal post-sign-in flow: go straight to the requested page
-      router.refresh();
-      router.replace(next || "/chat");
+      go(next || "/chat");
       return;
     }
 
-    // Only redirect to /sign-in after the 3s grace period
+    // Only redirect to /sign-in after the grace period
     if (waited && !isSignedIn) {
       router.replace("/sign-in");
     }
