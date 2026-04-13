@@ -1,10 +1,19 @@
 import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { checkRateLimit, feedbackLimiter } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const rl = await checkRateLimit(feedbackLimiter, userId);
+  if (!rl.success) {
+    return NextResponse.json(
+      { error: "rate_limited", message: "Zu viele Anfragen. Bitte warte einen Moment." },
+      { status: 429 }
+    );
+  }
 
   const supabase = createSupabaseAdmin();
 

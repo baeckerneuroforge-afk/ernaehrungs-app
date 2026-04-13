@@ -42,6 +42,38 @@ export const exportLimiter = redis
     })
   : null;
 
+export const messagesLimiter = redis
+  ? new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(60, "1 m"),
+      prefix: "rl:messages",
+    })
+  : null;
+
+export const tagebuchLimiter = redis
+  ? new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(30, "1 m"),
+      prefix: "rl:tagebuch",
+    })
+  : null;
+
+export const trackerLimiter = redis
+  ? new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(30, "1 m"),
+      prefix: "rl:tracker",
+    })
+  : null;
+
+export const feedbackLimiter = redis
+  ? new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(10, "1 m"),
+      prefix: "rl:feedback",
+    })
+  : null;
+
 export async function checkRateLimit(
   limiter: Ratelimit | null,
   identifier: string

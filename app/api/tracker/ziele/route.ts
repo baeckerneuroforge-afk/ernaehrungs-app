@@ -1,10 +1,18 @@
 import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { checkRateLimit, trackerLimiter } from "@/lib/rate-limit";
+
+const RATE_LIMIT_MSG = "Zu viele Anfragen. Bitte warte einen Moment.";
 
 export async function GET() {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const rl = await checkRateLimit(trackerLimiter, userId);
+  if (!rl.success) {
+    return NextResponse.json({ error: "rate_limited", message: RATE_LIMIT_MSG }, { status: 429 });
+  }
 
   const supabase = createSupabaseAdmin();
 
@@ -21,6 +29,11 @@ export async function GET() {
 export async function POST(request: Request) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const rl = await checkRateLimit(trackerLimiter, userId);
+  if (!rl.success) {
+    return NextResponse.json({ error: "rate_limited", message: RATE_LIMIT_MSG }, { status: 429 });
+  }
 
   const supabase = createSupabaseAdmin();
 

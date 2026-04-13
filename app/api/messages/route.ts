@@ -2,12 +2,20 @@ import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { hasFeatureAccess, getUpgradeMessage } from "@/lib/feature-gates";
 import { getUserPlan } from "@/lib/feature-gates-server";
+import { checkRateLimit, messagesLimiter } from "@/lib/rate-limit";
 import { NextResponse } from "next/server";
+
+const RATE_LIMIT_MSG = "Zu viele Anfragen. Bitte warte einen Moment.";
 
 // GET: user fetches their own messages + replies
 export async function GET() {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const rl = await checkRateLimit(messagesLimiter, userId);
+  if (!rl.success) {
+    return NextResponse.json({ error: "rate_limited", message: RATE_LIMIT_MSG }, { status: 429 });
+  }
 
   const supabase = createSupabaseAdmin();
 
@@ -26,6 +34,11 @@ export async function GET() {
 export async function POST(request: Request) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const rl = await checkRateLimit(messagesLimiter, userId);
+  if (!rl.success) {
+    return NextResponse.json({ error: "rate_limited", message: RATE_LIMIT_MSG }, { status: 429 });
+  }
 
   // Feature gate: Janine direkt is Premium only
   const plan = await getUserPlan(userId);
