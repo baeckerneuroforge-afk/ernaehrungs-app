@@ -2,12 +2,22 @@ import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { OnboardingWizard } from "@/components/onboarding/onboarding-wizard";
+import { OnboardingSessionGate } from "@/components/onboarding/session-gate";
 
 export const dynamic = "force-dynamic";
 
 export default async function OnboardingPage() {
   const { userId } = await auth();
-  if (!userId) redirect("/sign-in");
+
+  // Fresh sign-ups (especially email+code flow) can land here before the
+  // Clerk session cookie is fully propagated to the server. Instead of
+  // immediately bouncing to /sign-in we render a client-side gate that
+  // waits a few seconds and does a hard reload — usually enough for the
+  // cookie to catch up. If it really is a logged-out user, the gate
+  // eventually sends them to /sign-in.
+  if (!userId) {
+    return <OnboardingSessionGate />;
+  }
 
   const supabase = createSupabaseAdmin();
 
