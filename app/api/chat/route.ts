@@ -212,6 +212,13 @@ type ChatImagePayload = {
 };
 
 export async function POST(request: Request) {
+  console.log("[chat] ENV CHECK:", {
+    hasAnthropicKey: !!process.env.ANTHROPIC_API_KEY,
+    anthropicKeyPrefix: process.env.ANTHROPIC_API_KEY?.substring(0, 10),
+    hasOpenAiKey: !!process.env.OPENAI_API_KEY,
+    hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+    hasSupabaseKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+  });
   try {
     const rawBody = await request.json();
     const validation = validateBody(chatMessageSchema, rawBody);
@@ -687,11 +694,20 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
-    console.error("Chat API error:", error);
-    Sentry.captureException(error);
-    return new Response(JSON.stringify({ error: "Server-Fehler" }), {
-      status: 500,
+    const err = error as Error;
+    console.error("[chat] UNHANDLED ERROR:", {
+      message: err?.message,
+      name: err?.name,
+      stack: err?.stack,
     });
+    Sentry.captureException(error);
+    return new Response(
+      JSON.stringify({
+        error: "Server-Fehler",
+        message: err?.message,
+      }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
   }
 }
 
