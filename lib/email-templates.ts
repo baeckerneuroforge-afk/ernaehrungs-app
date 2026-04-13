@@ -4,13 +4,13 @@
 
 const HEADER = `
   <div style="background-color: #2D6A4F; padding: 24px; text-align: center; border-radius: 12px 12px 0 0;">
-    <span style="color: white; font-size: 20px; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">🌿 Ernährungsberatung by Janine</span>
+    <span style="color: white; font-size: 20px; font-weight: 600; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">🌿 Nutriva-AI</span>
   </div>
 `;
 
 const FOOTER = `
   <div style="padding: 16px; text-align: center; color: #A8A29E; font-size: 12px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
-    <p style="margin: 4px 0;">Ernährungsberatung by Janine · Hephaistos Systems · Alicenstraße 48 · 35390 Gießen</p>
+    <p style="margin: 4px 0;">Nutriva-AI · Hephaistos Systems · Alicenstraße 48 · 35390 Gießen</p>
     <p style="margin: 4px 0;"><a href="https://www.nutriva-ai.de/datenschutz" style="color: #A8A29E;">Datenschutz</a> · <a href="https://www.nutriva-ai.de/impressum" style="color: #A8A29E;">Impressum</a></p>
   </div>
 `;

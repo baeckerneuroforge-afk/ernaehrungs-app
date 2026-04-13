@@ -570,7 +570,10 @@ export async function POST(request: Request) {
     // ---- Health-sensitive topic detection ----
     const healthCheck = detectHealthSensitive(message);
     const isHealthSensitive = healthCheck.sensitive;
-    const healthMatchThreshold = isHealthSensitive ? 0.55 : 0.5;
+    // Threshold bleibt einheitlich bei 0.5 — die Extra-Vorsicht bei
+    // Gesundheitsthemen kommt über den System-Prompt, nicht über einen
+    // höheren Cutoff (der würde relevante Chunks bei 0.50–0.55 rauswerfen).
+    const healthMatchThreshold = 0.5;
 
     // ---- RAG: Vektor-Suche mit Follow-up-Kontext ----
     // Folgefragen wie "womit fange ich an?" enthalten keine Keywords.

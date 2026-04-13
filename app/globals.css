@@ -120,6 +120,30 @@ html.dark .to-surface-bg { --tw-gradient-to: #1C1917 var(--tw-gradient-to-positi
 /* Reduce hero/janine organic blob opacity in dark mode */
 html.dark .dark-blob-dim { opacity: 0.35 !important; }
 
+/* Chat markdown (.prose) — the react-markdown bubbles hardcode gray
+   text colors that get swallowed by the dark bubble background. Force
+   readable light colors inside assistant bubbles in dark mode. */
+html.dark .prose,
+html.dark .prose p,
+html.dark .prose li,
+html.dark .prose td,
+html.dark .prose h3 {
+  color: #E7E5E4 !important;
+}
+html.dark .prose strong {
+  color: #FAFAF5 !important;
+}
+html.dark .prose em {
+  color: #A8A29E !important;
+}
+html.dark .prose th {
+  color: #A8C99B !important;
+}
+
+/* Chat input textarea — was bg-stone-50 / focus:bg-white which wasn't
+   mapped for dark mode, leaving light text on a light focus background. */
+html.dark .bg-stone-50 { background-color: #1C1917 !important; }
+
 /* Paper background in dark */
 html.dark .bg-paper {
   background-color: #1C1917;

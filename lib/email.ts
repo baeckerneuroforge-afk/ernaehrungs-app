@@ -6,7 +6,7 @@ const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
   : null;
 
-const FROM_EMAIL = "Ernährungsberatung by Janine <kontakt@nutriva-ai.de>";
+const FROM_EMAIL = "Nutriva-AI <kontakt@nutriva-ai.de>";
 
 export interface SendEmailParams {
   to: string;

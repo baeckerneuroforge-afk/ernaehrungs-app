@@ -70,6 +70,8 @@ export function OnboardingWizard({ userId: _userId, existingProfile, initialStep
   const [aktivitaet, setAktivitaet] = useState((existingProfile?.aktivitaet as string) || "");
   const [krankheiten, setKrankheiten] = useState((existingProfile?.krankheiten as string) || "");
   const [agbAccepted, setAgbAccepted] = useState(false);
+  const [kiConsentChecked, setKiConsentChecked] = useState(false);
+  const [reviewConsentChecked, setReviewConsentChecked] = useState(false);
 
   function canProceed(): boolean {
     if (step === 1) return !!name.trim() && !!alterJahre && !!geschlecht;
@@ -554,31 +556,36 @@ export function OnboardingWizard({ userId: _userId, existingProfile, initialStep
                 )}
               </div>
 
+              {/* Checkbox + Weiter-Button: erst nach Haken klickbar,
+                  damit der User nicht denkt die Zustimmung sei vorausgewählt. */}
+              <label className="flex items-start gap-3 mt-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={kiConsentChecked}
+                  onChange={(e) => setKiConsentChecked(e.target.checked)}
+                  className="mt-1 h-4 w-4 rounded border-stone-300 text-primary focus:ring-primary"
+                />
+                <span className="text-sm text-stone-700">
+                  Ich stimme der KI-gestützten Verarbeitung meiner Gesundheitsdaten gem. Art. 9 Abs. 2 lit. a DSGVO zu.
+                </span>
+              </label>
+
               <div className="space-y-2 pt-1">
                 <button
                   onClick={() => handleKiConsent(true)}
-                  className="w-full flex items-center gap-3 px-4 py-4 rounded-xl border-2 border-primary bg-primary-bg/30 text-left hover:bg-primary-bg/50 transition"
+                  disabled={!kiConsentChecked}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-4 rounded-xl bg-primary text-white font-semibold text-sm transition hover:bg-primary/90 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed"
                 >
-                  <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center flex-shrink-0">
-                    <Check className="w-4 h-4 text-white" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-gray-800">Ja, ich stimme zu</p>
-                    <p className="text-xs text-gray-500 mt-0.5">Chat, Ernährungsplan und Wochenreview nutzen</p>
-                  </div>
+                  <Check className="w-4 h-4" />
+                  Weiter mit KI-Beratung
                 </button>
 
                 <button
                   onClick={() => handleKiConsent(false)}
-                  className="w-full flex items-center gap-3 px-4 py-4 rounded-xl border border-gray-200 bg-white text-left hover:border-gray-300 transition"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-600 text-sm hover:border-gray-300 transition"
                 >
-                  <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0">
-                    <Ban className="w-4 h-4 text-gray-400" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">Ohne KI nutzen</p>
-                    <p className="text-xs text-gray-400 mt-0.5">Nur Tagebuch, Tracking und &bdquo;Janine direkt fragen&ldquo; (Premium)</p>
-                  </div>
+                  <Ban className="w-4 h-4 text-gray-400" />
+                  Ohne KI nutzen (nur Tagebuch & Tracking)
                 </button>
               </div>
 
@@ -677,32 +684,35 @@ export function OnboardingWizard({ userId: _userId, existingProfile, initialStep
                 )}
               </div>
 
-              {/* Consent buttons */}
+              {/* Checkbox + Weiter-Button: erst nach Haken klickbar */}
+              <label className="flex items-start gap-3 mt-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={reviewConsentChecked}
+                  onChange={(e) => setReviewConsentChecked(e.target.checked)}
+                  className="mt-1 h-4 w-4 rounded border-stone-300 text-primary focus:ring-primary"
+                />
+                <span className="text-sm text-stone-700">
+                  Ich stimme zu, dass Janine ausgewählte Gespräche zur Qualitätssicherung einsehen darf (Art. 9 Abs. 2 lit. a DSGVO).
+                </span>
+              </label>
+
               <div className="space-y-2 pt-1">
                 <button
                   onClick={() => handleReviewConsent(true)}
-                  className="w-full flex items-center gap-3 px-4 py-4 rounded-xl border-2 border-primary bg-primary-bg/30 text-left hover:bg-primary-bg/50 transition"
+                  disabled={!reviewConsentChecked}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-4 rounded-xl bg-primary text-white font-semibold text-sm transition hover:bg-primary/90 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed"
                 >
-                  <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center flex-shrink-0">
-                    <Eye className="w-4 h-4 text-white" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-gray-800">Ja, ich helfe mit</p>
-                    <p className="text-xs text-gray-500 mt-0.5">Ausdrückliche Einwilligung gem. Art. 9 Abs. 2 lit. a DSGVO</p>
-                  </div>
+                  <Eye className="w-4 h-4" />
+                  Ja, ich helfe mit
                 </button>
 
                 <button
                   onClick={() => handleReviewConsent(false)}
-                  className="w-full flex items-center gap-3 px-4 py-4 rounded-xl border border-gray-200 bg-white text-left hover:border-gray-300 transition"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-600 text-sm hover:border-gray-300 transition"
                 >
-                  <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0">
-                    <EyeOff className="w-4 h-4 text-gray-400" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">Nein danke</p>
-                    <p className="text-xs text-gray-400 mt-0.5">Meine Gespräche bleiben vollständig privat</p>
-                  </div>
+                  <EyeOff className="w-4 h-4 text-gray-400" />
+                  Nein danke, Gespräche bleiben privat
                 </button>
               </div>
 
