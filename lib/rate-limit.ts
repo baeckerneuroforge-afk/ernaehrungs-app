@@ -34,6 +34,14 @@ export const fotoLimiter = redis
     })
   : null;
 
+export const exportLimiter = redis
+  ? new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(1, "1 h"),
+      prefix: "rl:export",
+    })
+  : null;
+
 export async function checkRateLimit(
   limiter: Ratelimit | null,
   identifier: string

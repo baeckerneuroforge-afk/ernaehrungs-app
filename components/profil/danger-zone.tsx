@@ -14,12 +14,20 @@ export function DangerZone() {
     setExporting(true);
     try {
       const res = await fetch("/api/user/export");
+      if (res.status === 429) {
+        const json = await res.json().catch(() => ({}));
+        alert(
+          json.message ||
+            "Du kannst deine Daten nur einmal pro Stunde exportieren."
+        );
+        return;
+      }
       if (!res.ok) throw new Error("Export fehlgeschlagen");
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `ernaehrungsberatung-export-${new Date()
+      a.download = `nutriva-datenexport-${new Date()
         .toISOString()
         .slice(0, 10)}.json`;
       document.body.appendChild(a);
