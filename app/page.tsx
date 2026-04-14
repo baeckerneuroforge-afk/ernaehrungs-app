@@ -83,12 +83,12 @@ export default function LandingPage() {
    ═══════════════════════════════════════════════════════════════ */
 function HeroSection() {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const phoneRef = useRef<HTMLDivElement>(null);
+  const videoContainerRef = useRef<HTMLDivElement>(null);
   const revealRef = useScrollReveal();
   const [videoFailed, setVideoFailed] = useState(false);
 
   useEffect(() => {
-    const el = phoneRef.current;
+    const el = videoContainerRef.current;
     const video = videoRef.current;
     if (!el || !video) return;
     const observer = new IntersectionObserver(
@@ -131,89 +131,73 @@ function HeroSection() {
         }}
       />
 
-      <div ref={revealRef} className="reveal relative w-full max-w-6xl mx-auto px-5 sm:px-6 pt-24 pb-16 lg:pt-28 lg:pb-24">
-        <div className="grid lg:grid-cols-[1.1fr_1fr] gap-10 lg:gap-20 items-center">
-          {/* Left — Copy */}
-          <div className="relative z-10 max-w-full lg:max-w-xl">
-            <div className="anim-fade-up inline-flex items-center gap-2 bg-white/70 backdrop-blur-sm border border-sage-light/60 rounded-full px-4 py-1.5 mb-7 shadow-sm">
-              <Sparkles className="w-3.5 h-3.5 text-primary" />
-              <span className="text-xs font-medium text-primary tracking-wide">
-                Fundierte Ernährungsberatung
-              </span>
-            </div>
+      <div ref={revealRef} className="reveal relative w-full max-w-5xl mx-auto px-5 sm:px-6 pt-24 pb-16 lg:pt-28 lg:pb-24">
+        <div className="flex flex-col items-center text-center">
+          <div className="anim-fade-up inline-flex items-center gap-2 bg-white/70 backdrop-blur-sm border border-sage-light/60 rounded-full px-4 py-1.5 mb-7 shadow-sm">
+            <Sparkles className="w-3.5 h-3.5 text-primary" />
+            <span className="text-xs font-medium text-primary tracking-wide">
+              Fundierte Ernährungsberatung
+            </span>
+          </div>
 
-            <h1
-              lang="de"
-              className="font-serif font-semibold text-warm-dark leading-[1.05] tracking-tight mb-6 text-[2rem] sm:text-5xl md:text-6xl lg:text-7xl [hyphens:manual] anim-fade-up delay-1"
+          <h1
+            lang="de"
+            className="font-serif font-semibold text-warm-dark leading-[1.05] tracking-tight mb-6 text-[2rem] sm:text-5xl md:text-6xl lg:text-7xl [hyphens:manual] anim-fade-up delay-1 max-w-4xl"
+          >
+            Deine Ernährungs&shy;beraterin.
+            <br />
+            <span
+              className="inline-block bg-gradient-to-r from-primary via-primary-light to-sage bg-clip-text text-transparent italic pr-2"
+              style={{ fontFeatureSettings: "'ss01'" }}
             >
-              Deine Ernährungs&shy;beraterin.
-              <br />
-              <span
-                className="inline-block bg-gradient-to-r from-primary via-primary-light to-sage bg-clip-text text-transparent italic pr-2"
-                style={{ fontFeatureSettings: "'ss01'" }}
-              >
-                Immer dabei.
+              Immer dabei.
+            </span>
+          </h1>
+
+          <p className="anim-fade-up delay-2 text-base sm:text-xl text-warm-muted leading-relaxed mb-8 sm:mb-10 max-w-2xl font-light">
+            Frag was dich bewegt. Die Antwort kennt dein Ziel, deine Allergien
+            und deinen Alltag.
+          </p>
+
+          <div className="anim-fade-up delay-3 flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-5 mb-14 lg:mb-16">
+            <Link
+              href="/sign-up"
+              className="group inline-flex items-center gap-2.5 bg-primary text-white px-8 sm:px-9 py-3.5 sm:py-4 rounded-full font-medium text-base hover:bg-primary-hover hover:scale-[1.03] active:scale-95 transition-all duration-200 shadow-xl shadow-primary/25"
+            >
+              Kostenlos starten
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+            </Link>
+            <div className="inline-flex items-center gap-2 bg-white/60 backdrop-blur-sm border border-border rounded-full px-4 py-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+              <span className="text-xs text-warm-muted">
+                Kein Abo nötig · 15 Credits gratis
               </span>
-            </h1>
-
-            <p className="anim-fade-up delay-2 text-base sm:text-xl text-warm-muted leading-relaxed mb-8 sm:mb-10 max-w-full sm:max-w-lg font-light">
-              Frag was dich bewegt. Die Antwort kennt dein Ziel, deine Allergien
-              und deinen Alltag.
-            </p>
-
-            <div className="anim-fade-up delay-3 flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-5">
-              <Link
-                href="/sign-up"
-                className="group inline-flex items-center gap-2.5 bg-primary text-white px-8 sm:px-9 py-3.5 sm:py-4 rounded-full font-medium text-base hover:bg-primary-hover hover:scale-[1.03] active:scale-95 transition-all duration-200 shadow-xl shadow-primary/25"
-              >
-                Kostenlos starten
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-              </Link>
-              <div className="inline-flex items-center gap-2 bg-white/60 backdrop-blur-sm border border-border rounded-full px-4 py-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                <span className="text-xs text-warm-muted">
-                  Kein Abo nötig · 15 Credits gratis
-                </span>
-              </div>
             </div>
           </div>
 
-          {/* Right — Video (Remotion video already contains its own phone frame) */}
-          <div className="relative flex justify-center lg:justify-end mt-8 lg:mt-0">
-            <div
-              aria-hidden
-              className="absolute -top-10 -right-10 w-80 h-80 border border-sage-light/60 rounded-full hidden lg:block"
-            />
-            <div
-              aria-hidden
-              className="absolute -bottom-6 -left-6 w-40 h-40 border border-accent-warmLight/40 rounded-full hidden lg:block"
-            />
-
-            <div
-              ref={phoneRef}
-              className="anim-scale-up delay-2 relative w-full max-w-[250px] sm:max-w-[300px] lg:max-w-[360px]"
-            >
-            <div className="relative motion-safe:[transform:rotate(-2deg)]">
-              {!videoFailed ? (
-                <video
-                  ref={videoRef}
-                  src="/videos/nutriva-landing-hero-v2.mp4"
-                  poster="/video-poster.svg"
-                  preload="metadata"
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
-                  onError={() => setVideoFailed(true)}
-                  className="w-full aspect-[9/19.5] object-cover rounded-3xl shadow-2xl shadow-black/25 dark:shadow-black/60"
-                />
-              ) : (
-                <div className="rounded-3xl overflow-hidden shadow-2xl shadow-black/25 dark:shadow-black/60 bg-[#F0F7EC]">
-                  <HeroFallback />
-                </div>
-              )}
-            </div>
-            </div>
+          {/* Hero video — 16:9, full width */}
+          <div
+            ref={videoContainerRef}
+            className="anim-scale-up delay-3 relative w-full max-w-5xl"
+          >
+            {!videoFailed ? (
+              <video
+                ref={videoRef}
+                src="/videos/nutriva-landing-hero-v2.mp4"
+                poster="/video-poster.svg"
+                preload="metadata"
+                autoPlay
+                muted
+                loop
+                playsInline
+                onError={() => setVideoFailed(true)}
+                className="w-full aspect-video object-cover rounded-2xl shadow-2xl border border-white/10"
+              />
+            ) : (
+              <div className="w-full aspect-video rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-[#F0F7EC]">
+                <HeroFallback />
+              </div>
+            )}
           </div>
         </div>
       </div>
