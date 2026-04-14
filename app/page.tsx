@@ -6,7 +6,9 @@ import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import {
   ArrowRight,
+  AlertTriangle,
   Check,
+  X,
   ChevronDown,
   MessageCircle,
   CalendarDays,
@@ -68,6 +70,7 @@ export default function LandingPage() {
         <PhotoAiSection />
         <ClosedLoopSection />
         <ExampleQuestionsSection />
+        <ChatGptComparisonSection />
         <PricingSection />
         <JanineSection />
         <FaqSection />
@@ -1182,6 +1185,112 @@ function ExampleQuestionsSection() {
             </Link>
           ))}
         </div>
+      </div>
+    </section>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   6.5 CHATGPT COMPARISON
+   ═══════════════════════════════════════════════════════════════ */
+function ChatGptComparisonSection() {
+  const revealRef = useScrollReveal();
+
+  const chatgptPoints: { icon: "x" | "warn"; text: string }[] = [
+    { icon: "x", text: "Kennt dich nicht — jedes Gespräch startet bei null" },
+    { icon: "x", text: "Keine Ahnung, was du heute gegessen hast" },
+    { icon: "warn", text: "Gibt generische Internet-Tipps" },
+    { icon: "warn", text: "Kann Kalorien nur grob schätzen" },
+    { icon: "x", text: "Vergisst deine Allergien und Ziele" },
+    { icon: "x", text: "Kein Ernährungsplan, kein Tracking, kein Review" },
+  ];
+
+  const nutrivaPoints = [
+    "Kennt dein Profil, deine Ziele, deine Allergien",
+    "Sieht dein Tagebuch und weiß, was du heute gegessen hast",
+    "Empfehlungen basieren auf einer Ernährungswissenschaftlerin",
+    "Berechnet dein Defizit mit deinen echten Daten",
+    "Erstellt personalisierte 7-Tage-Ernährungspläne",
+    "Foto-Analyse, Wochenreview, Monatsreport — alles verbunden",
+  ];
+
+  return (
+    <section className="relative py-20 lg:py-28 bg-surface-bg">
+      <div
+        ref={revealRef}
+        className="reveal relative w-full max-w-5xl mx-auto px-5 sm:px-6"
+      >
+        <div className="text-center mb-12 lg:mb-14">
+          <h2 className="anim-fade-up font-serif font-semibold text-warm-dark text-3xl sm:text-4xl lg:text-[32px] leading-tight tracking-tight mb-4">
+            Warum nicht einfach ChatGPT fragen?
+          </h2>
+          <p className="anim-fade-up delay-1 text-warm-muted text-lg">
+            Kannst du. Aber hier ist der Unterschied.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* ChatGPT card */}
+          <div className="anim-fade-up delay-1 rounded-xl shadow-lg bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="bg-gray-200/70 dark:bg-gray-700/70 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="font-serif font-semibold text-xl text-gray-700 dark:text-gray-200">
+                ChatGPT
+              </h3>
+            </div>
+            <ul className="p-6 space-y-4">
+              {chatgptPoints.map((p, i) => (
+                <li key={i} className="flex items-start gap-3">
+                  {p.icon === "x" ? (
+                    <div className="mt-0.5 flex-shrink-0 w-5 h-5 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                      <X className="w-3.5 h-3.5 text-red-500" strokeWidth={3} />
+                    </div>
+                  ) : (
+                    <div className="mt-0.5 flex-shrink-0 w-5 h-5 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                      <AlertTriangle className="w-3 h-3 text-amber-600" strokeWidth={2.5} />
+                    </div>
+                  )}
+                  <span className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+                    {p.text}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Nutriva card */}
+          <div
+            className="anim-fade-up delay-2 rounded-xl shadow-lg border border-primary/30 overflow-hidden relative"
+            style={{
+              background:
+                "linear-gradient(135deg, rgba(45,106,79,0.05) 0%, rgba(168,201,155,0.10) 100%)",
+              boxShadow: "0 10px 30px rgba(45,106,79,0.12)",
+            }}
+          >
+            <div className="bg-primary px-6 py-4 border-b border-primary/30">
+              <h3 className="font-serif font-semibold text-xl text-white flex items-baseline">
+                <span>Nutriva</span>
+                <span className="text-sage font-normal">-AI</span>
+              </h3>
+            </div>
+            <ul className="p-6 space-y-4">
+              {nutrivaPoints.map((text, i) => (
+                <li key={i} className="flex items-start gap-3">
+                  <div className="mt-0.5 flex-shrink-0 w-5 h-5 rounded-full bg-primary/15 flex items-center justify-center">
+                    <Check className="w-3.5 h-3.5 text-primary" strokeWidth={3} />
+                  </div>
+                  <span className="text-sm text-warm-dark dark:text-stone-200 leading-relaxed">
+                    {text}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        <p className="anim-fade-up delay-3 text-center text-warm-muted italic text-sm sm:text-base mt-10 max-w-2xl mx-auto">
+          ChatGPT ist ein Alleskönner. Nutriva ist deine persönliche
+          Ernährungsberaterin.
+        </p>
       </div>
     </section>
   );
