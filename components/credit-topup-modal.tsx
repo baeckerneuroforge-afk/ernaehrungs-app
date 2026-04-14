@@ -19,8 +19,11 @@ export function CreditTopupModal({ open, onClose }: Props) {
 
   if (!open) return null;
 
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
   async function handleBuy(pkg: string) {
     setLoading(pkg);
+    setErrorMsg(null);
     try {
       const res = await fetch("/api/stripe/topup", {
         method: "POST",
@@ -30,8 +33,18 @@ export function CreditTopupModal({ open, onClose }: Props) {
       const data = await res.json();
       if (data.url) {
         window.location.href = data.url;
+        return;
+      }
+      if (res.status === 503) {
+        setErrorMsg(
+          "Credit-Käufe sind gerade nicht verfügbar. Bitte versuche es später erneut.",
+        );
+      } else if (data?.message) {
+        setErrorMsg(data.message);
       }
     } catch {
+      setErrorMsg("Ein Fehler ist aufgetreten. Bitte versuche es erneut.");
+    } finally {
       setLoading(null);
     }
   }
@@ -92,6 +105,12 @@ export function CreditTopupModal({ open, onClose }: Props) {
             );
           })}
         </div>
+
+        {errorMsg && (
+          <div className="mt-4 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+            {errorMsg}
+          </div>
+        )}
 
         <p className="text-xs text-warm-light text-center mt-4">
           Top-Up Credits verfallen nicht und werden nach Abo-Credits verbraucht.

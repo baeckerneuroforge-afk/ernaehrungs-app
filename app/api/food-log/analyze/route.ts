@@ -125,7 +125,7 @@ export async function POST(request: Request) {
   const { userId } = await auth();
   if (!userId) {
     console.warn("[foto-analyze] 401 no userId");
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "unauthorized", message: "Bitte melde dich erneut an." }, { status: 401 });
   }
   console.log("[foto-analyze] step: auth ok", { userId });
 
@@ -202,7 +202,7 @@ export async function POST(request: Request) {
   const image = formData.get("image");
   if (!image || !(image instanceof File)) {
     console.warn("[foto-analyze] 400 no image", { hasImage: !!image, type: typeof image });
-    return NextResponse.json({ error: "Kein Bild übergeben" }, { status: 400 });
+    return NextResponse.json({ error: "no_image", message: "Kein Bild übergeben." }, { status: 400 });
   }
   console.log("[foto-analyze] step: image received", {
     size: image.size,
@@ -215,7 +215,7 @@ export async function POST(request: Request) {
   if (!allowed.includes(image.type as AllowedMedia)) {
     console.warn("[foto-analyze] 400 invalid mime", { type: image.type });
     return NextResponse.json(
-      { error: `Nur JPEG, PNG oder WEBP erlaubt. (erhalten: ${image.type || "leer"})` },
+      { error: "invalid_mime", message: `Nur JPEG, PNG oder WEBP erlaubt. (erhalten: ${image.type || "leer"})` },
       { status: 400 }
     );
   }
@@ -227,7 +227,7 @@ export async function POST(request: Request) {
   if (image.size > 10 * 1024 * 1024) {
     console.warn("[foto-analyze] Bild zu groß:", image.size, "bytes");
     return NextResponse.json(
-      { error: "Bild zu groß (max. 10 MB)." },
+      { error: "image_too_large", message: "Bild zu groß (max. 10 MB)." },
       { status: 400 }
     );
   }

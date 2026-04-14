@@ -8,7 +8,7 @@ const RATE_LIMIT_MSG = "Zu viele Anfragen. Bitte warte einen Moment.";
 
 export async function GET() {
   const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!userId) return NextResponse.json({ error: "unauthorized", message: "Bitte melde dich erneut an." }, { status: 401 });
 
   const rl = await checkRateLimit(trackerLimiter, userId);
   if (!rl.success) {
@@ -29,7 +29,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!userId) return NextResponse.json({ error: "unauthorized", message: "Bitte melde dich erneut an." }, { status: 401 });
 
   const rl = await checkRateLimit(trackerLimiter, userId);
   if (!rl.success) {

@@ -73,8 +73,41 @@ export function OnboardingWizard({ userId: _userId, existingProfile, initialStep
   const [kiConsentChecked, setKiConsentChecked] = useState(false);
   const [reviewConsentChecked, setReviewConsentChecked] = useState(false);
 
+  // ── Field-level validation ────────────────────────────────────
+  function alterError(): string | null {
+    if (!alterJahre) return null;
+    const n = Number(alterJahre);
+    if (!Number.isFinite(n)) return "Bitte gib eine gültige Zahl ein.";
+    if (n < 13) return "Du musst mindestens 13 Jahre alt sein, um Nutriva zu nutzen.";
+    if (n > 120) return "Bitte gib ein realistisches Alter an.";
+    return null;
+  }
+  function groesseError(): string | null {
+    if (!groesseCm) return null;
+    const n = Number(groesseCm);
+    if (!Number.isFinite(n)) return "Bitte gib eine gültige Zahl ein.";
+    if (n < 100 || n > 250) return "Bitte gib eine realistische Größe an (100–250 cm).";
+    return null;
+  }
+  function gewichtError(): string | null {
+    if (!gewichtKg) return null;
+    const n = Number(gewichtKg);
+    if (!Number.isFinite(n)) return "Bitte gib eine gültige Zahl ein.";
+    if (n < 30 || n > 300) return "Bitte gib ein realistisches Gewicht an (30–300 kg).";
+    return null;
+  }
+
   function canProceed(): boolean {
-    if (step === 1) return !!name.trim() && !!alterJahre && !!geschlecht;
+    if (step === 1) {
+      return (
+        !!name.trim() &&
+        !!alterJahre &&
+        !!geschlecht &&
+        !alterError() &&
+        !groesseError() &&
+        !gewichtError()
+      );
+    }
     if (step === 2) return !!ziel && !!ernaehrungsform;
     if (step === 3) return !!aktivitaet && agbAccepted;
     return true;
@@ -297,11 +330,18 @@ export function OnboardingWizard({ userId: _userId, existingProfile, initialStep
                 <label className="block text-sm text-gray-500 mb-1">Alter</label>
                 <input
                   type="number"
+                  min={13}
+                  max={120}
                   value={alterJahre}
                   onChange={(e) => setAlterJahre(e.target.value)}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                  className={`w-full border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary ${
+                    alterError() ? "border-red-300" : "border-gray-200"
+                  }`}
                   placeholder="z.B. 30"
                 />
+                {alterError() && (
+                  <p className="mt-1 text-xs text-red-600">{alterError()}</p>
+                )}
               </div>
 
               <div>
@@ -328,21 +368,35 @@ export function OnboardingWizard({ userId: _userId, existingProfile, initialStep
                   <label className="block text-sm text-gray-500 mb-1">Größe (cm)</label>
                   <input
                     type="number"
+                    min={100}
+                    max={250}
                     value={groesseCm}
                     onChange={(e) => setGroesseCm(e.target.value)}
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                    className={`w-full border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary ${
+                      groesseError() ? "border-red-300" : "border-gray-200"
+                    }`}
                     placeholder="170"
                   />
+                  {groesseError() && (
+                    <p className="mt-1 text-xs text-red-600">{groesseError()}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm text-gray-500 mb-1">Gewicht (kg)</label>
                   <input
                     type="number"
+                    min={30}
+                    max={300}
                     value={gewichtKg}
                     onChange={(e) => setGewichtKg(e.target.value)}
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                    className={`w-full border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary ${
+                      gewichtError() ? "border-red-300" : "border-gray-200"
+                    }`}
                     placeholder="70"
                   />
+                  {gewichtError() && (
+                    <p className="mt-1 text-xs text-red-600">{gewichtError()}</p>
+                  )}
                 </div>
               </div>
             </div>

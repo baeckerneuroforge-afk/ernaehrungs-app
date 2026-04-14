@@ -3,9 +3,23 @@ import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { stripe, PLANS } from "@/lib/stripe";
 
 export async function POST(request: Request) {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return new Response(
+      JSON.stringify({
+        error: "payment_not_configured",
+        message:
+          "Das Zahlungssystem wird gerade eingerichtet. Bitte versuche es später erneut.",
+      }),
+      { status: 503, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
   const { userId } = await auth();
   if (!userId) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+    return new Response(
+      JSON.stringify({ error: "unauthorized", message: "Bitte melde dich erneut an." }),
+      { status: 401, headers: { "Content-Type": "application/json" } },
+    );
   }
 
   const { plan, interval } = await request.json();
@@ -17,7 +31,10 @@ export async function POST(request: Request) {
   else if (plan === "pro_plus" && interval === "monthly") priceId = PLANS.pro_plus.monthly;
   else if (plan === "pro_plus" && interval === "quarterly") priceId = PLANS.pro_plus.quarterly;
   else {
-    return new Response(JSON.stringify({ error: "Invalid plan" }), { status: 400 });
+    return new Response(
+      JSON.stringify({ error: "invalid_plan", message: "Ungültiger Plan." }),
+      { status: 400, headers: { "Content-Type": "application/json" } },
+    );
   }
 
   const supabase = createSupabaseAdmin();

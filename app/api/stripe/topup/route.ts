@@ -10,16 +10,33 @@ const TOPUP_PACKAGES: Record<string, { credits: number; price_cents: number; lab
 };
 
 export async function POST(request: Request) {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return new Response(
+      JSON.stringify({
+        error: "payment_not_configured",
+        message:
+          "Das Zahlungssystem wird gerade eingerichtet. Bitte versuche es später erneut.",
+      }),
+      { status: 503, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
   const { userId } = await auth();
   if (!userId) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+    return new Response(
+      JSON.stringify({ error: "unauthorized", message: "Bitte melde dich erneut an." }),
+      { status: 401, headers: { "Content-Type": "application/json" } },
+    );
   }
 
   const { package: pkg } = await request.json();
   const topup = TOPUP_PACKAGES[pkg];
 
   if (!topup) {
-    return new Response(JSON.stringify({ error: "Invalid package" }), { status: 400 });
+    return new Response(
+      JSON.stringify({ error: "invalid_package", message: "Ungültiges Credit-Paket." }),
+      { status: 400, headers: { "Content-Type": "application/json" } },
+    );
   }
 
   const supabase = createSupabaseAdmin();

@@ -131,8 +131,18 @@ export function BillingClient({
         body: JSON.stringify({ plan: target, interval: "monthly" }),
       });
       const data = await res.json();
-      if (data.url) window.location.href = data.url;
-      else setUpgrading(null);
+      if (data.url) {
+        window.location.href = data.url;
+        return;
+      }
+      if (res.status === 503) {
+        setCancelMessage(
+          "Premium wird in Kürze verfügbar sein. Wir benachrichtigen dich per E-Mail, sobald es soweit ist.",
+        );
+      } else if (data?.message) {
+        setCancelMessage(data.message);
+      }
+      setUpgrading(null);
     } catch {
       setUpgrading(null);
     }

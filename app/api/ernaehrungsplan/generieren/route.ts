@@ -237,9 +237,10 @@ export async function POST(request: Request) {
 
     const { userId } = await auth();
     if (!userId) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-      });
+      return new Response(
+        JSON.stringify({ error: "unauthorized", message: "Bitte melde dich erneut an." }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      );
     }
 
     const supabase = createSupabaseAdmin();
@@ -470,8 +471,8 @@ export async function POST(request: Request) {
     Sentry.captureException(error);
     return new Response(
       JSON.stringify({
-        error: "Server-Fehler",
-        message: err?.message,
+        error: "server_error",
+        message: "Es ist ein Fehler aufgetreten. Bitte versuche es erneut.",
       }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );

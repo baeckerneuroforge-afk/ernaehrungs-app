@@ -3,9 +3,23 @@ import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { stripe } from "@/lib/stripe";
 
 export async function POST() {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return new Response(
+      JSON.stringify({
+        error: "payment_not_configured",
+        message:
+          "Das Zahlungssystem wird gerade eingerichtet. Bitte versuche es später erneut.",
+      }),
+      { status: 503, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
   const { userId } = await auth();
   if (!userId) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+    return new Response(
+      JSON.stringify({ error: "unauthorized", message: "Bitte melde dich erneut an." }),
+      { status: 401, headers: { "Content-Type": "application/json" } },
+    );
   }
 
   const supabase = createSupabaseAdmin();
@@ -17,7 +31,13 @@ export async function POST() {
 
   const customerId = data?.[0]?.stripe_customer_id;
   if (!customerId) {
-    return new Response(JSON.stringify({ error: "No subscription found" }), { status: 404 });
+    return new Response(
+      JSON.stringify({
+        error: "no_subscription",
+        message: "Kein aktives Abo gefunden.",
+      }),
+      { status: 404, headers: { "Content-Type": "application/json" } },
+    );
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
