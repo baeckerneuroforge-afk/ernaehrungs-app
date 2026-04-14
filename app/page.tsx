@@ -197,7 +197,7 @@ function HeroSection() {
               {!videoFailed ? (
                 <video
                   ref={videoRef}
-                  src="/ernaehrungsapp-demo.mp4"
+                  src="/videos/nutriva-landing-hero-v2.mp4"
                   poster="/video-poster.svg"
                   preload="metadata"
                   autoPlay
@@ -284,7 +284,7 @@ function TrustBar() {
     },
     {
       icon: <FlaskConical className="w-5 h-5" />,
-      title: "12 kuratierte Quellen",
+      title: "Kuratierte Fachquellen",
       body: "Wissenschaftlich fundiert, laufend aktualisiert",
     },
     {
