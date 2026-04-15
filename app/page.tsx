@@ -32,6 +32,9 @@ import {
   Camera,
   ShoppingBasket,
   UtensilsCrossed,
+  Target,
+  Calculator,
+  RefreshCw,
 } from "lucide-react";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -71,6 +74,7 @@ export default function LandingPage() {
         <ClosedLoopSection />
         <ExampleQuestionsSection />
         <ChatGptComparisonSection />
+        <CalorieShowcaseSection />
         <PricingSection />
         <JanineSection />
         <FaqSection />
@@ -1291,6 +1295,181 @@ function ChatGptComparisonSection() {
           ChatGPT ist ein Alleskönner. Nutriva ist deine persönliche
           Ernährungsberaterin.
         </p>
+      </div>
+    </section>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   6.7 CALORIE SHOWCASE — Tracker/Kalorienrechner USP
+   ═══════════════════════════════════════════════════════════════ */
+function CalorieShowcaseSection() {
+  const ref = useScrollReveal();
+
+  const steps = [
+    {
+      icon: <Target className="w-6 h-6" />,
+      title: "Ziel definieren",
+      text: "Abnehmen, zunehmen oder halten — mit Zielgewicht und Wunschdatum.",
+      mockup: (
+        <div className="bg-primary/5 dark:bg-primary/10 rounded-xl p-3 mt-3 space-y-1.5 font-mono text-[11px]">
+          <div className="flex items-center justify-between">
+            <span className="text-warm-muted">Aktuell:</span>
+            <span className="font-semibold text-warm-dark">83 kg</span>
+          </div>
+          <div className="flex items-center justify-center text-primary text-lg">→</div>
+          <div className="flex items-center justify-between">
+            <span className="text-warm-muted">Ziel:</span>
+            <span className="font-semibold text-primary">75 kg</span>
+          </div>
+          <div className="border-t border-border/60 pt-1.5 flex items-center justify-between">
+            <span className="text-warm-muted">Bis:</span>
+            <span className="font-medium text-warm-dark">31. Juli 2026</span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      icon: <Calculator className="w-6 h-6" />,
+      title: "Intelligente Berechnung",
+      text: "Dein persönliches Defizit wird aus Grundumsatz, Aktivität und Zeitrahmen berechnet — mit Warnung wenn es zu aggressiv wird.",
+      mockup: (
+        <div className="bg-primary/5 dark:bg-primary/10 rounded-xl p-3 mt-3 space-y-1.5 font-mono text-[11px]">
+          <div className="flex items-center justify-between">
+            <span className="text-warm-muted">Gesamtumsatz:</span>
+            <span className="font-semibold text-warm-dark">3.100 kcal</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-warm-muted">Dein Defizit:</span>
+            <span className="font-semibold text-red-500">−500 kcal</span>
+          </div>
+          <div className="flex items-center justify-between border-t border-border/60 pt-1.5">
+            <span className="text-warm-muted">Tagesziel:</span>
+            <span className="font-bold text-primary text-sm">2.600 kcal</span>
+          </div>
+          <div className="flex items-center gap-1.5 bg-primary/10 rounded-lg px-2 py-1 mt-1">
+            <Check className="w-3 h-3 text-primary flex-shrink-0" />
+            <span className="text-primary text-[10px] font-medium">Nachhaltig: ~0,5 kg/Woche</span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      icon: <RefreshCw className="w-6 h-6" />,
+      title: "Closed Loop",
+      text: "Dein Ziel fließt in den Chat, den Ernährungsplan und den Wochenreview ein. Alles passt sich an — auch wenn sich dein Gewicht ändert.",
+      mockup: (
+        <div className="bg-primary/5 dark:bg-primary/10 rounded-xl p-3 mt-3">
+          <div className="flex items-center justify-center gap-1.5 text-[11px] font-medium flex-wrap">
+            <span className="bg-white dark:bg-white/10 border border-border rounded-lg px-2 py-1 text-warm-dark">Chat</span>
+            <ArrowRight className="w-3 h-3 text-primary flex-shrink-0" />
+            <span className="bg-white dark:bg-white/10 border border-border rounded-lg px-2 py-1 text-warm-dark">Plan</span>
+            <ArrowRight className="w-3 h-3 text-primary flex-shrink-0" />
+            <span className="bg-white dark:bg-white/10 border border-border rounded-lg px-2 py-1 text-warm-dark">Tagebuch</span>
+            <ArrowRight className="w-3 h-3 text-primary flex-shrink-0" />
+            <span className="bg-white dark:bg-white/10 border border-border rounded-lg px-2 py-1 text-warm-dark">Review</span>
+            <ArrowRight className="w-3 h-3 text-primary flex-shrink-0" />
+            <span className="text-primary text-base">🔁</span>
+          </div>
+        </div>
+      ),
+    },
+  ];
+
+  const pills = [
+    "📊 Dynamischer Slider — du bestimmst das Tempo",
+    "⚠️ Gesundheits-Warnungen bei zu aggressivem Defizit",
+    "📅 Live-Datum — siehst sofort wann du dein Ziel erreichst",
+    "🔄 Gewicht aktualisiert sich automatisch aus dem Tracker",
+    "🤖 Chat und Plan kennen dein Kalorienziel",
+  ];
+
+  return (
+    <section className="relative py-20 lg:py-28 bg-surface-muted/40 border-y border-border">
+      <div ref={ref} className="reveal relative max-w-5xl mx-auto px-4 sm:px-6">
+        {/* Header */}
+        <div className="text-center mb-14">
+          <h2 className="anim-fade-up font-serif font-semibold text-warm-dark text-3xl sm:text-4xl lg:text-5xl leading-tight tracking-tight mb-4">
+            Dein Ziel. Dein Tempo. Dein Plan.
+          </h2>
+          <p className="anim-fade-up delay-1 text-warm-muted text-lg font-light max-w-xl mx-auto">
+            Sag uns was du erreichen willst — wir rechnen den Rest.
+          </p>
+        </div>
+
+        {/* 3 Steps */}
+        <div className="grid md:grid-cols-3 gap-6 md:gap-4 mb-14 relative">
+          {steps.map((s, i) => (
+            <div key={s.title} className="relative">
+              <div className="anim-fade-up bg-white dark:bg-[#292524] rounded-xl border border-border shadow-sm p-6 h-full flex flex-col"
+                style={{ animationDelay: `${i * 120}ms` }}
+              >
+                <div className="w-12 h-12 rounded-2xl bg-primary-pale text-primary flex items-center justify-center mb-4">
+                  {s.icon}
+                </div>
+                <p className="text-[10px] text-warm-light uppercase tracking-wider font-semibold mb-1">
+                  Schritt {i + 1}
+                </p>
+                <h3 className="font-serif text-xl font-semibold text-warm-dark mb-2 leading-tight">
+                  {s.title}
+                </h3>
+                <p className="text-sm text-warm-muted leading-relaxed flex-1">
+                  {s.text}
+                </p>
+                {s.mockup}
+              </div>
+
+              {/* Connector arrow — desktop horizontal */}
+              {i < steps.length - 1 && (
+                <div
+                  aria-hidden
+                  className="hidden md:flex absolute top-1/2 -right-4 -translate-y-1/2 z-10 w-7 h-7 rounded-full bg-white border border-border items-center justify-center shadow-sm"
+                >
+                  <ArrowRight className="w-3.5 h-3.5 text-primary" />
+                </div>
+              )}
+              {/* Connector arrow — mobile vertical */}
+              {i < steps.length - 1 && (
+                <div
+                  aria-hidden
+                  className="md:hidden flex justify-center mt-4 -mb-2"
+                >
+                  <div className="w-7 h-7 rounded-full bg-white border border-border flex items-center justify-center shadow-sm">
+                    <ArrowRight className="w-3.5 h-3.5 text-primary rotate-90" />
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Feature Pills */}
+        <div className="anim-fade-up delay-3 flex gap-2.5 overflow-x-auto pb-2 mb-12 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap sm:justify-center">
+          {pills.map((pill) => (
+            <span
+              key={pill}
+              className="inline-flex items-center whitespace-nowrap bg-primary/10 dark:bg-primary/20 text-primary rounded-full px-3.5 py-1.5 text-xs font-medium flex-shrink-0"
+            >
+              {pill}
+            </span>
+          ))}
+        </div>
+
+        {/* Closer */}
+        <div className="text-center space-y-6">
+          <p className="anim-fade-up delay-4 text-warm-muted italic text-sm sm:text-base max-w-2xl mx-auto">
+            Kein starres Programm. Ein System das sich an dich anpasst.
+          </p>
+          <div className="anim-fade-up delay-4">
+            <Link
+              href="/sign-up"
+              className="group inline-flex items-center gap-2.5 bg-primary text-white px-8 py-3.5 rounded-full font-medium text-base hover:bg-primary-hover hover:scale-[1.03] active:scale-95 transition-all duration-200 shadow-xl shadow-primary/25"
+            >
+              Kostenlos ausprobieren
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+            </Link>
+          </div>
+        </div>
       </div>
     </section>
   );
