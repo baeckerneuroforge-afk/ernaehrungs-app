@@ -52,6 +52,7 @@ export const chatMessageSchema = z.object({
 // Ernährungsplan — actual wire format is { planParameters: {...} } where
 // planParameters matches types/meal-plan.ts#PlanParameters.
 export const planParametersSchema = z.object({
+  days: z.number().int().min(1).max(7).optional(),
   fasting: z.string().max(50),
   mealsPerDay: z.number().int().min(1).max(6),
   timing: z.record(z.string(), z.string().max(10)),
