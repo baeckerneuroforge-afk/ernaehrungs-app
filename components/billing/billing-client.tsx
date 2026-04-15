@@ -56,14 +56,14 @@ const PLAN_META: Record<
   pro: {
     label: "Basis",
     price: "15,99 € / Monat",
-    credits: 100,
+    credits: 60,
     badgeClass: "bg-primary-pale text-primary border-primary/30",
     icon: TrendingUp,
   },
   pro_plus: {
     label: "Premium",
     price: "49,99 € / Monat",
-    credits: 400,
+    credits: 250,
     badgeClass: "bg-amber-50 text-amber-700 border-amber-200",
     icon: Crown,
   },

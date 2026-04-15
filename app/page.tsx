@@ -1508,7 +1508,7 @@ function PricingSection() {
             price="0"
             suffix=""
             features={[
-              { text: "15 KI-Beratungen / Monat" },
+              { text: "15 Credits / Monat" },
               { text: "KI-Chat" },
               { text: "Ernährungsplan" },
               { text: "Tagebuch & Gewichtstracker" },
@@ -1530,7 +1530,7 @@ function PricingSection() {
             badge={{ label: "Beliebt", color: "bg-primary text-white" }}
             featured
             features={[
-              { text: "100 Credits · Haiku KI-Modell", highlight: true },
+              { text: "60 Credits · Haiku KI-Modell", highlight: true },
               { text: "Alles aus Kostenlos, plus:" },
               { text: "Individueller Kalorienrechner mit Slider", highlight: true },
               { text: "Zeitplan-Berechnung mit Zieldatum", highlight: true },
@@ -1563,7 +1563,7 @@ function PricingSection() {
             features={[
               { text: "Alles aus Basis" },
               {
-                text: "Unlimited Credits · Sonnet KI-Modell (Premium-Qualität)",
+                text: "250 Credits · Sonnet KI-Modell (Premium-Qualität)",
                 highlight: true,
                 accent: "amber",
               },
