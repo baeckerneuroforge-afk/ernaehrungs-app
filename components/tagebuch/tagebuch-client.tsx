@@ -493,6 +493,19 @@ export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
     (sum, e) => sum + (e.kalorien_geschaetzt || 0),
     0
   );
+  const totalProtein = entries.reduce(
+    (sum, e) => sum + (e.protein_g || 0),
+    0
+  );
+  const totalCarbs = entries.reduce(
+    (sum, e) => sum + (e.carbs_g || 0),
+    0
+  );
+  const totalFat = entries.reduce(
+    (sum, e) => sum + (e.fat_g || 0),
+    0
+  );
+  const hasMacros = totalProtein > 0 || totalCarbs > 0 || totalFat > 0;
 
   const weekDays = buildWeekStrip(datum);
 
@@ -570,21 +583,27 @@ export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
           <p className="text-[10px] uppercase tracking-wide text-ink-faint">
             Protein
           </p>
-          <p className="text-sm font-semibold text-ink-muted mt-0.5">—</p>
+          <p className={`text-sm font-semibold mt-0.5 ${hasMacros ? "text-ink" : "text-ink-muted"}`}>
+            {hasMacros ? `${Math.round(totalProtein)}g` : "—"}
+          </p>
         </div>
         <div className="w-px h-8 bg-border" />
         <div className="flex-1 text-center">
           <p className="text-[10px] uppercase tracking-wide text-ink-faint">
             Carbs
           </p>
-          <p className="text-sm font-semibold text-ink-muted mt-0.5">—</p>
+          <p className={`text-sm font-semibold mt-0.5 ${hasMacros ? "text-ink" : "text-ink-muted"}`}>
+            {hasMacros ? `${Math.round(totalCarbs)}g` : "—"}
+          </p>
         </div>
         <div className="w-px h-8 bg-border" />
         <div className="flex-1 text-center">
           <p className="text-[10px] uppercase tracking-wide text-ink-faint">
             Fett
           </p>
-          <p className="text-sm font-semibold text-ink-muted mt-0.5">—</p>
+          <p className={`text-sm font-semibold mt-0.5 ${hasMacros ? "text-ink" : "text-ink-muted"}`}>
+            {hasMacros ? `${Math.round(totalFat)}g` : "—"}
+          </p>
         </div>
       </div>
 
@@ -775,6 +794,19 @@ export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
                               ~{entry.kalorien_geschaetzt} kcal
                             </p>
                           )}
+                          {(entry.protein_g || entry.carbs_g || entry.fat_g) ? (
+                            <div className="flex gap-3 text-[11px] text-ink-faint mt-1">
+                              {entry.protein_g != null && entry.protein_g > 0 && (
+                                <span>P: {Math.round(entry.protein_g * 10) / 10}g</span>
+                              )}
+                              {entry.carbs_g != null && entry.carbs_g > 0 && (
+                                <span>KH: {Math.round(entry.carbs_g * 10) / 10}g</span>
+                              )}
+                              {entry.fat_g != null && entry.fat_g > 0 && (
+                                <span>F: {Math.round(entry.fat_g * 10) / 10}g</span>
+                              )}
+                            </div>
+                          ) : null}
                           {entry.source === "photo" && entry.photo_tip && (
                             <p className="text-xs text-stone-500 italic mt-1.5 leading-snug">
                               {entry.photo_tip}
@@ -997,6 +1029,53 @@ export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
                   />
                 </div>
               </div>
+
+              {/* Expandable macro fields */}
+              <details className="group">
+                <summary className="text-xs text-ink-faint cursor-pointer hover:text-ink-muted transition select-none flex items-center gap-1">
+                  <span className="group-open:hidden">▸</span>
+                  <span className="hidden group-open:inline">▾</span>
+                  Makros hinzufügen (optional)
+                </summary>
+                <div className="grid grid-cols-3 gap-2 mt-2">
+                  <div>
+                    <label className="block text-[10px] text-ink-faint mb-1">Protein (g)</label>
+                    <input
+                      type="number"
+                      value={formProtein ?? ""}
+                      onChange={(e) => setFormProtein(e.target.value ? Number(e.target.value) : null)}
+                      min={0}
+                      max={500}
+                      className="w-full border border-border rounded-xl px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface-bg"
+                      placeholder="0"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-ink-faint mb-1">Kohlenhydrate (g)</label>
+                    <input
+                      type="number"
+                      value={formCarbs ?? ""}
+                      onChange={(e) => setFormCarbs(e.target.value ? Number(e.target.value) : null)}
+                      min={0}
+                      max={1000}
+                      className="w-full border border-border rounded-xl px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface-bg"
+                      placeholder="0"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-ink-faint mb-1">Fett (g)</label>
+                    <input
+                      type="number"
+                      value={formFat ?? ""}
+                      onChange={(e) => setFormFat(e.target.value ? Number(e.target.value) : null)}
+                      min={0}
+                      max={500}
+                      className="w-full border border-border rounded-xl px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface-bg"
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+              </details>
 
               <div className="flex gap-2 pt-2">
                 <button
