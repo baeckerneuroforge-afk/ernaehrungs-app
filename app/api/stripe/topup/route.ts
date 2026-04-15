@@ -1,6 +1,11 @@
 import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { stripe } from "@/lib/stripe";
+import { z } from "zod";
+
+const topupSchema = z.object({
+  package: z.enum(["small", "medium", "large"]),
+});
 
 // Top-up packages: amount in credits → Stripe price
 const TOPUP_PACKAGES: Record<string, { credits: number; price_cents: number; label: string }> = {
@@ -29,15 +34,26 @@ export async function POST(request: Request) {
     );
   }
 
-  const { package: pkg } = await request.json();
-  const topup = TOPUP_PACKAGES[pkg];
+  let rawBody;
+  try {
+    rawBody = await request.json();
+  } catch {
+    return new Response(
+      JSON.stringify({ error: "invalid_body" }),
+      { status: 400, headers: { "Content-Type": "application/json" } },
+    );
+  }
 
-  if (!topup) {
+  const parsed = topupSchema.safeParse(rawBody);
+  if (!parsed.success) {
     return new Response(
       JSON.stringify({ error: "invalid_package", message: "Ungültiges Credit-Paket." }),
       { status: 400, headers: { "Content-Type": "application/json" } },
     );
   }
+
+  const pkg = parsed.data.package;
+  const topup = TOPUP_PACKAGES[pkg]!;
 
   const supabase = createSupabaseAdmin();
 

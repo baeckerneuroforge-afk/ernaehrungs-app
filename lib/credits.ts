@@ -96,37 +96,55 @@ export async function deductCredits(
   // Admins have unlimited credits — skip the deduction entirely.
   if (await isAdminUser(userId)) return true;
 
-  const { data: user } = await supabase
-    .from("ea_users")
-    .select("credits_subscription, credits_topup, email, name, last_credit_warning_at")
-    .eq("clerk_id", userId)
-    .single();
+  // Try atomic RPC first (race-condition safe). Falls back to
+  // SELECT-then-UPDATE if the RPC doesn't exist yet (migration not run).
+  let newSub: number;
+  let newTopup: number;
 
-  if (!user) return false;
+  const { data: rpcResult, error: rpcError } = await supabase.rpc(
+    "deduct_credits_atomic",
+    { p_clerk_id: userId, p_amount: amount }
+  );
 
-  const subCredits = user.credits_subscription ?? 0;
-  const topupCredits = user.credits_topup ?? 0;
-  const total = subCredits + topupCredits;
+  if (!rpcError && rpcResult) {
+    const result = typeof rpcResult === "string" ? JSON.parse(rpcResult) : rpcResult;
+    if (!result.success) return false;
+    newSub = result.new_sub;
+    newTopup = result.new_topup;
+  } else {
+    // Fallback: non-atomic path (for dev / before migration is run)
+    if (rpcError) {
+      console.warn("[credits] RPC deduct_credits_atomic not available, using fallback:", rpcError.message);
+    }
 
-  if (total < amount) return false;
+    const { data: user } = await supabase
+      .from("ea_users")
+      .select("credits_subscription, credits_topup")
+      .eq("clerk_id", userId)
+      .single();
 
-  // Consume subscription credits first
-  const subDeduct = Math.min(subCredits, amount);
-  const topupDeduct = amount - subDeduct;
+    if (!user) return false;
 
-  const newSub = subCredits - subDeduct;
-  const newTopup = topupCredits - topupDeduct;
+    const subCredits = user.credits_subscription ?? 0;
+    const topupCredits = user.credits_topup ?? 0;
+    if (subCredits + topupCredits < amount) return false;
 
-  const { error } = await supabase
-    .from("ea_users")
-    .update({
-      credits_subscription: newSub,
-      credits_topup: newTopup,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("clerk_id", userId);
+    const subDeduct = Math.min(subCredits, amount);
+    const topupDeduct = amount - subDeduct;
+    newSub = subCredits - subDeduct;
+    newTopup = topupCredits - topupDeduct;
 
-  if (error) return false;
+    const { error } = await supabase
+      .from("ea_users")
+      .update({
+        credits_subscription: newSub,
+        credits_topup: newTopup,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("clerk_id", userId);
+
+    if (error) return false;
+  }
 
   // Log transaction
   await supabase.from("ea_credit_transactions").insert({
@@ -137,21 +155,27 @@ export async function deductCredits(
     balance_after: newSub + newTopup,
   });
 
-  // Low-credit warning email, throttled to at most once per 24h via
-  // ea_users.last_credit_warning_at. Fire-and-forget so we never block chat.
+  // Low-credit warning email (fire-and-forget, throttled 1/24h)
   const remaining = newSub + newTopup;
-  if (remaining <= 3 && remaining >= 0 && user.email) {
-    const lastWarn = user.last_credit_warning_at
-      ? new Date(user.last_credit_warning_at).getTime()
-      : 0;
-    const dayMs = 24 * 60 * 60 * 1000;
-    if (Date.now() - lastWarn > dayMs) {
-      const template = emailTemplates.creditsLow(user.name || "dort", remaining);
-      void sendEmail({ to: user.email, subject: template.subject, html: template.html });
-      void supabase
-        .from("ea_users")
-        .update({ last_credit_warning_at: new Date().toISOString() })
-        .eq("clerk_id", userId);
+  if (remaining <= 3 && remaining >= 0) {
+    const { data: userData } = await supabase
+      .from("ea_users")
+      .select("email, name, last_credit_warning_at")
+      .eq("clerk_id", userId)
+      .single();
+
+    if (userData?.email) {
+      const lastWarn = userData.last_credit_warning_at
+        ? new Date(userData.last_credit_warning_at).getTime()
+        : 0;
+      if (Date.now() - lastWarn > 24 * 60 * 60 * 1000) {
+        const template = emailTemplates.creditsLow(userData.name || "dort", remaining);
+        void sendEmail({ to: userData.email, subject: template.subject, html: template.html });
+        void supabase
+          .from("ea_users")
+          .update({ last_credit_warning_at: new Date().toISOString() })
+          .eq("clerk_id", userId);
+      }
     }
   }
 

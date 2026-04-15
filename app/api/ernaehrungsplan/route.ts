@@ -1,6 +1,12 @@
 import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { z } from "zod";
+
+const savePlanSchema = z.object({
+  planData: z.record(z.string(), z.unknown()).nullable().optional(),
+  parameters: z.record(z.string(), z.unknown()).nullable().optional(),
+});
 
 export async function GET() {
   const { userId } = await auth();
@@ -25,8 +31,19 @@ export async function POST(request: Request) {
   if (!userId)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { planData, parameters } = await request.json();
+  let rawBody;
+  try {
+    rawBody = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
 
+  const validation = savePlanSchema.safeParse(rawBody);
+  if (!validation.success) {
+    return NextResponse.json({ error: "invalid_input", message: validation.error.message }, { status: 400 });
+  }
+
+  const { planData, parameters } = validation.data;
   const supabase = createSupabaseAdmin();
 
   const titel = `7-Tage-Plan vom ${new Date().toLocaleDateString("de-DE")}`;

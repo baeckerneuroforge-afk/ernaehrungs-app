@@ -1,6 +1,12 @@
 import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { stripe, PLANS } from "@/lib/stripe";
+import { z } from "zod";
+
+const checkoutSchema = z.object({
+  plan: z.enum(["pro", "pro_plus"]),
+  interval: z.enum(["monthly", "quarterly", "yearly"]).optional(),
+});
 
 export async function POST(request: Request) {
   if (!process.env.STRIPE_SECRET_KEY) {
@@ -22,7 +28,25 @@ export async function POST(request: Request) {
     );
   }
 
-  const { plan, interval } = await request.json();
+  let rawBody;
+  try {
+    rawBody = await request.json();
+  } catch {
+    return new Response(
+      JSON.stringify({ error: "invalid_body" }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  const parsed = checkoutSchema.safeParse(rawBody);
+  if (!parsed.success) {
+    return new Response(
+      JSON.stringify({ error: "invalid_input", message: parsed.error.message }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  const { plan, interval } = parsed.data;
 
   // Determine price ID
   let priceId: string;
