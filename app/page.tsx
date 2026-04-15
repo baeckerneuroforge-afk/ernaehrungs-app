@@ -73,8 +73,8 @@ export default function LandingPage() {
         <PhotoAiSection />
         <ClosedLoopSection />
         <ExampleQuestionsSection />
-        <ChatGptComparisonSection />
         <CalorieShowcaseSection />
+        <ChatGptComparisonSection />
         <PricingSection />
         <JanineSection />
         <FaqSection />
