@@ -4,7 +4,9 @@ import { stripe } from "@/lib/stripe";
 
 // Top-up packages: amount in credits → Stripe price
 const TOPUP_PACKAGES: Record<string, { credits: number; price_cents: number; label: string }> = {
-  small: { credits: 30, price_cents: 499, label: "30 Credits" },
+  small: { credits: 15, price_cents: 299, label: "15 Credits" },
+  medium: { credits: 40, price_cents: 599, label: "40 Credits" },
+  large: { credits: 100, price_cents: 1199, label: "100 Credits" },
 };
 
 export async function POST(request: Request) {
