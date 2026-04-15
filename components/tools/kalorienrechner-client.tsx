@@ -48,9 +48,14 @@ function defaultAdjustmentForZiel(ziel: string): number {
 }
 
 export function KalorienrechnerClient({ prefill, gewichtsZiel, hasBasisOrHigher = false }: Props) {
-  // Ableiten aus aktivem Gewichtsziel, falls User noch keinen eigenen Wert
-  // gespeichert hat. Richtung: zielwert < aktuelles Gewicht → abnehmen.
+  // Priority chain for initial adjustment:
+  // 1. Saved calorie_adjustment from profile (highest priority)
+  // 2. Derived from active weight goal
+  // 3. Default for profile goal type
+  const hasSavedAdjustment = prefill?.calorie_adjustment != null;
+
   const derivedFromGoal = (() => {
+    if (hasSavedAdjustment) return null; // Don't derive if user already saved
     const current = prefill?.gewicht_kg;
     const target = gewichtsZiel?.zielwert;
     if (!current || !target) return null;
@@ -59,14 +64,23 @@ export function KalorienrechnerClient({ prefill, gewichtsZiel, hasBasisOrHigher 
     return { adjustment: 0, ziel: "halten" };
   })();
 
-  const initialZiel =
-    prefill?.calorie_adjustment != null
-      ? (prefill?.ziel ?? "halten")
-      : derivedFromGoal?.ziel ?? prefill?.ziel ?? "halten";
-  const initialAdjustment =
-    prefill?.calorie_adjustment ??
-    derivedFromGoal?.adjustment ??
-    defaultAdjustmentForZiel(initialZiel);
+  const initialZiel = hasSavedAdjustment
+    ? (prefill?.ziel ?? "halten")
+    : derivedFromGoal?.ziel ?? prefill?.ziel ?? "halten";
+
+  const initialAdjustment = hasSavedAdjustment
+    ? prefill!.calorie_adjustment!
+    : derivedFromGoal?.adjustment ?? defaultAdjustmentForZiel(initialZiel);
+
+  if (typeof window !== "undefined") {
+    console.log("[kalorienrechner] Loaded:", {
+      calorie_adjustment: prefill?.calorie_adjustment,
+      hasSavedAdjustment,
+      derivedFromGoal,
+      initialAdjustment,
+      initialZiel,
+    });
+  }
 
   const [gewicht, setGewicht] = useState(prefill?.gewicht_kg ?? "");
   const [groesse, setGroesse] = useState(prefill?.groesse_cm ?? "");
@@ -179,20 +193,24 @@ export function KalorienrechnerClient({ prefill, gewichtsZiel, hasBasisOrHigher 
     if (!result) return;
     setSaving(true);
     setSaveError(null);
+    const payload = {
+      calorie_target: result.zielKcal,
+      calorie_adjustment: adjustment,
+    };
+    console.log("[kalorienrechner] Saving:", payload);
     try {
       const res = await fetch("/api/profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          calorie_target: result.zielKcal,
-          calorie_adjustment: adjustment,
-        }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
+        console.error("[kalorienrechner] Save failed:", data);
         setSaveError(data?.message || "Speichern fehlgeschlagen.");
         return;
       }
+      console.log("[kalorienrechner] Save success");
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch {
