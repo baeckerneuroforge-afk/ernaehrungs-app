@@ -49,7 +49,7 @@ function AuthCallbackContent() {
         fetch("/api/profile", { credentials: "same-origin" })
           .then((r) => (r.ok ? r.json() : null))
           .then((profile) => {
-            go(profile?.onboarding_done ? "/chat" : "/onboarding");
+            go(profile?.onboarding_done ? "/home" : "/onboarding");
           })
           .catch(() => {
             go("/onboarding");
@@ -58,7 +58,7 @@ function AuthCallbackContent() {
       }
 
       // Normal post-sign-in flow: go straight to the requested page
-      go(next || "/chat");
+      go(next || "/home");
       return;
     }
 

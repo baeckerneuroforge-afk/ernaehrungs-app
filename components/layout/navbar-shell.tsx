@@ -19,6 +19,7 @@ import {
   HelpCircle,
   FileText,
   ScanLine,
+  Home,
 } from "lucide-react";
 import { CreditBadge } from "@/components/credit-badge";
 import { hasFeatureAccess, type Feature } from "@/lib/feature-gates";
@@ -79,6 +80,7 @@ export function NavbarShell() {
     feature?: Feature;
     tour?: string;
   }[] = [
+    { href: "/home", label: "Home", icon: Home },
     { href: "/chat", label: "Chat", icon: MessageCircle, feature: "chat" },
     { href: "/ernaehrungsplan", label: "Plan", icon: CalendarDays, feature: "plan", tour: "plan" },
     { href: "/tagebuch", label: "Tagebuch", icon: BookOpen, feature: "tagebuch", tour: "tagebuch" },

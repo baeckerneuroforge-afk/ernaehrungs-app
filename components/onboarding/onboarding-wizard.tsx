@@ -834,7 +834,7 @@ export function OnboardingWizard({ userId: _userId, existingProfile, initialStep
                   // ohne Router-Cache / Prefetch-Staleness. router.push() hatte
                   // teilweise noch den alten (pre-consent) /chat-RSC im Cache
                   // → /chat sah review_consent=null → Redirect zurück zu /onboarding.
-                  window.location.assign("/chat");
+                  window.location.assign("/home");
                 }}
                 className="w-full inline-flex items-center justify-center gap-2 text-sm text-white bg-primary hover:bg-primary-hover px-6 py-3 rounded-full shadow-card transition"
               >

@@ -34,7 +34,7 @@ export default async function OnboardingPage() {
   // missed consent are NOT forced back here. Consent can be managed in
   // settings or asked as a non-blocking prompt in the app later.
   if (p?.onboarding_done) {
-    redirect("/chat");
+    redirect("/home");
   }
 
   const initialStep = 1;
