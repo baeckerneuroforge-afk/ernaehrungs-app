@@ -327,6 +327,11 @@ export async function POST(request: Request) {
         profilParts.push(`Besonderheiten: ${p.krankheiten}`);
       if (p.aktivitaet)
         profilParts.push(`Aktivitätslevel: ${p.aktivitaet}`);
+      if (p.calorie_target) {
+        const adj = p.calorie_adjustment;
+        const adjStr = typeof adj === "number" ? ` (${adj > 0 ? "+" : ""}${adj} kcal vs. TDEE)` : "";
+        profilParts.push(`Individuelles Tagesziel: ${p.calorie_target} kcal${adjStr}`);
+      }
     }
 
     // ---- RAG: Vector search with confidence scoring ----

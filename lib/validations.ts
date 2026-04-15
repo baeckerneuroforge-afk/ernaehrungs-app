@@ -24,6 +24,8 @@ export const profileSchema = z.object({
   target_timeframe: z
     .enum(["3_months", "6_months", "9_months", "12_months", "no_rush"])
     .optional(),
+  calorie_target: z.number().int().min(800).max(6000).optional().nullable(),
+  calorie_adjustment: z.number().int().min(-1500).max(1500).optional().nullable(),
 });
 
 // Chat

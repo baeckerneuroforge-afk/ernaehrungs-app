@@ -575,6 +575,11 @@ export async function POST(request: Request) {
         parts.push(`Ernährungsform: ${p.ernaehrungsform}`);
       if (p.krankheiten) parts.push(`Besonderheiten: ${p.krankheiten}`);
       if (p.aktivitaet) parts.push(`Aktivitätslevel: ${p.aktivitaet}`);
+      if (p.calorie_target) {
+        const adj = p.calorie_adjustment;
+        const adjStr = typeof adj === "number" ? ` (${adj > 0 ? "+" : ""}${adj} kcal vs. TDEE)` : "";
+        parts.push(`Individuelles Tagesziel: ${p.calorie_target} kcal${adjStr}`);
+      }
       profileContext = parts.join("\n");
     }
 

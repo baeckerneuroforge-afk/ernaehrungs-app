@@ -13,7 +13,7 @@ export default async function KalorienrechnerPage() {
 
   const { data: profile } = await supabase
     .from("ea_profiles")
-    .select("alter_jahre, geschlecht, groesse_cm, gewicht_kg, aktivitaet, ziel")
+    .select("alter_jahre, geschlecht, groesse_cm, gewicht_kg, aktivitaet, ziel, calorie_adjustment")
     .eq("user_id", userId)
     .limit(1);
 
