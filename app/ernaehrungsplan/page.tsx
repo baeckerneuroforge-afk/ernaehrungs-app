@@ -123,7 +123,7 @@ export default function ErnaehrungsplanPage() {
               {activePlan.titel || "Aktueller Plan"}
             </h2>
           </div>
-          <WeekGrid data={activePlan.data} params={activePlan.params} />
+          <WeekGrid data={activePlan.data} params={activePlan.params} userPlan={userPlan || "pro"} />
         </main>
         <Footer />
       </div>
