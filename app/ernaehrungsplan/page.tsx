@@ -33,12 +33,17 @@ export default function ErnaehrungsplanPage() {
   const [showCreator, setShowCreator] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [userPlan, setUserPlan] = useState<string | null>(null);
+  const [calorieTarget, setCalorieTarget] = useState<number | null>(null);
 
   useEffect(() => {
     fetch("/api/credits")
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => setUserPlan(data?.plan || "free"))
       .catch(() => setUserPlan("free"));
+    fetch("/api/profile")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => { if (data?.calorie_target) setCalorieTarget(data.calorie_target); })
+      .catch(() => {});
   }, []);
 
   // Active plan view
@@ -188,7 +193,7 @@ export default function ErnaehrungsplanPage() {
         {/* Creator */}
         {showCreator && (
           <div className="mb-6">
-            <PlanCreator onPlanGenerated={handlePlanGenerated} userPlan={userPlan || "pro"} />
+            <PlanCreator onPlanGenerated={handlePlanGenerated} userPlan={userPlan || "pro"} calorieTarget={calorieTarget} />
             <button
               onClick={() => setShowCreator(false)}
               className="mt-2 text-xs text-warm-light hover:text-warm-muted transition"

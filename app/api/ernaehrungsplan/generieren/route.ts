@@ -316,6 +316,17 @@ export async function POST(request: Request) {
 
     const p = profileResult.data?.[0];
     const tdee = p ? calculateTDEE(p) : null;
+
+    // Priority: calorie_target from Kalorienrechner > TDEE calculation
+    // If the user has set an individual target via the calorie calculator,
+    // it overrides the TDEE-derived target for the meal plan.
+    if (tdee && p?.calorie_target && typeof p.calorie_target === "number" && p.calorie_target >= 1200) {
+      tdee.target = p.calorie_target;
+      const adj = p.calorie_adjustment;
+      tdee.goalDelta = typeof adj === "number" ? adj : tdee.target - tdee.tdee;
+      tdee.goalLabel = `Individuelles Ziel (${tdee.target} kcal, ${tdee.goalDelta > 0 ? "+" : ""}${tdee.goalDelta} kcal vs. TDEE)`;
+    }
+
     const profilParts: string[] = [];
 
     if (p) {

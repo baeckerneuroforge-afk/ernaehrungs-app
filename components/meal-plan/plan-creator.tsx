@@ -10,13 +10,16 @@ import {
   Sparkles,
   Lock,
   CalendarDays,
+  Flame,
 } from "lucide-react";
+import Link from "next/link";
 import type { PlanParameters, WeekPlanData } from "@/types/meal-plan";
 import { FASTING_OPTIONS, MEAL_LABELS, TIMING_RANGES } from "@/types/meal-plan";
 
 interface Props {
   onPlanGenerated: (data: WeekPlanData, params: PlanParameters) => void;
   userPlan?: string;
+  calorieTarget?: number | null;
 }
 
 function generateTimeSlots(start: number, end: number): string[] {
@@ -148,7 +151,7 @@ function LoadingSkeleton() {
 /* Main component                                                      */
 /* ------------------------------------------------------------------ */
 
-export function PlanCreator({ onPlanGenerated, userPlan = "pro" }: Props) {
+export function PlanCreator({ onPlanGenerated, userPlan = "pro", calorieTarget }: Props) {
   const maxDays = userPlan === "free" ? 1 : userPlan === "pro" ? 3 : 7;
   const [days, setDays] = useState(Math.min(maxDays, 7));
   const [fasting, setFasting] = useState("none");
@@ -464,6 +467,27 @@ export function PlanCreator({ onPlanGenerated, userPlan = "pro" }: Props) {
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
           {error}
+        </div>
+      )}
+
+      {/* Calorie target info */}
+      {calorieTarget && (
+        <div className="bg-primary-faint border border-primary-pale rounded-2xl p-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <span className="w-9 h-9 rounded-full bg-primary-pale flex items-center justify-center flex-shrink-0">
+              <Flame className="w-4 h-4 text-primary" />
+            </span>
+            <div>
+              <p className="text-sm font-medium text-ink">Kalorienziel</p>
+              <p className="text-xs text-ink-muted">Aus deinem Kalorienrechner</p>
+            </div>
+          </div>
+          <div className="text-right">
+            <p className="text-lg font-bold text-primary">{calorieTarget} kcal</p>
+            <Link href="/tools/kalorienrechner" className="text-[10px] text-primary hover:underline">
+              Anpassen →
+            </Link>
+          </div>
         </div>
       )}
 
