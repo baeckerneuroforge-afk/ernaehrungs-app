@@ -16,10 +16,9 @@ interface Props {
 
 export function CreditTopupModal({ open, onClose }: Props) {
   const [loading, setLoading] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   if (!open) return null;
-
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   async function handleBuy(pkg: string) {
     setLoading(pkg);
