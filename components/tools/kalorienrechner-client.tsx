@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { GESCHLECHT, AKTIVITAET } from "@/types";
 import { Flame, Activity, Target, Check } from "lucide-react";
 
@@ -13,6 +13,13 @@ interface Props {
     aktivitaet?: string | null;
     ziel?: string | null;
     calorie_adjustment?: number | null;
+  } | null;
+  gewichtsZiel?: {
+    typ?: string | null;
+    beschreibung?: string | null;
+    zielwert?: number | null;
+    startwert?: number | null;
+    einheit?: string | null;
   } | null;
 }
 
@@ -37,23 +44,48 @@ function defaultAdjustmentForZiel(ziel: string): number {
   return 0;
 }
 
-export function KalorienrechnerClient({ prefill }: Props) {
+export function KalorienrechnerClient({ prefill, gewichtsZiel }: Props) {
+  // Ableiten aus aktivem Gewichtsziel, falls User noch keinen eigenen Wert
+  // gespeichert hat. Richtung: zielwert < aktuelles Gewicht → abnehmen.
+  const derivedFromGoal = (() => {
+    const current = prefill?.gewicht_kg;
+    const target = gewichtsZiel?.zielwert;
+    if (!current || !target) return null;
+    if (target < current) return { adjustment: -500, ziel: "abnehmen" };
+    if (target > current) return { adjustment: 300, ziel: "zunehmen" };
+    return { adjustment: 0, ziel: "halten" };
+  })();
+
+  const initialZiel =
+    prefill?.calorie_adjustment != null
+      ? (prefill?.ziel ?? "halten")
+      : derivedFromGoal?.ziel ?? prefill?.ziel ?? "halten";
+  const initialAdjustment =
+    prefill?.calorie_adjustment ??
+    derivedFromGoal?.adjustment ??
+    defaultAdjustmentForZiel(initialZiel);
+
   const [gewicht, setGewicht] = useState(prefill?.gewicht_kg ?? "");
   const [groesse, setGroesse] = useState(prefill?.groesse_cm ?? "");
   const [alter, setAlter] = useState(prefill?.alter_jahre ?? "");
   const [geschlecht, setGeschlecht] = useState(prefill?.geschlecht ?? "weiblich");
   const [aktivitaet, setAktivitaet] = useState(prefill?.aktivitaet ?? "moderat");
-  const [ziel, setZiel] = useState(prefill?.ziel ?? "halten");
-  const [adjustment, setAdjustment] = useState<number>(
-    prefill?.calorie_adjustment ?? defaultAdjustmentForZiel(prefill?.ziel ?? "halten")
-  );
+  const [ziel, setZiel] = useState(initialZiel);
+  const [adjustment, setAdjustment] = useState<number>(initialAdjustment);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   // Wenn der Nutzer das Ziel wechselt, setze das Delta auf den Default
-  // dieses Ziels zurueck — sonst wirkt die UI "kaputt".
+  // dieses Ziels zurueck — sonst wirkt die UI "kaputt". Erst-Run ueberspringen,
+  // damit ein gespeicherter oder aus dem Gewichtsziel abgeleiteter Initialwert
+  // nicht gleich ueberschrieben wird.
+  const skipZielEffect = useRef(true);
   useEffect(() => {
+    if (skipZielEffect.current) {
+      skipZielEffect.current = false;
+      return;
+    }
     setAdjustment(defaultAdjustmentForZiel(ziel));
     setSaved(false);
   }, [ziel]);
@@ -167,8 +199,27 @@ export function KalorienrechnerClient({ prefill }: Props) {
     }
   }
 
+  // Info-Banner: Zielgewicht existiert, aktuelles Gewicht bekannt.
+  const goalDelta =
+    gewichtsZiel?.zielwert && prefill?.gewicht_kg
+      ? Math.abs(prefill.gewicht_kg - gewichtsZiel.zielwert)
+      : null;
+
   return (
     <div className="space-y-8">
+      {gewichtsZiel?.zielwert && (
+        <div className="flex items-start gap-2 text-sm bg-primary-bg/40 border border-primary/20 rounded-xl px-4 py-3">
+          <span>🎯</span>
+          <span className="text-ink">
+            Dein Ziel: <strong>{gewichtsZiel.zielwert} kg</strong> erreichen
+            {goalDelta != null && goalDelta > 0 && (
+              <> (noch {goalDelta.toFixed(1).replace(".", ",")} kg)</>
+            )}
+            {" — "}Kalorienrechner ist darauf eingestellt.
+          </span>
+        </div>
+      )}
+
       {/* Form */}
       <div className="bg-white rounded-2xl border border-gray-100 p-6">
         <h2 className="font-semibold text-gray-800 mb-4">Deine Daten</h2>

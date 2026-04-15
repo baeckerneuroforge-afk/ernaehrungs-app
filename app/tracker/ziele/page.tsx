@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Ziel } from "@/types";
+import Link from "next/link";
 import {
   Target,
   Plus,
@@ -20,6 +21,7 @@ export default function ZielePage() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [latestWeight, setLatestWeight] = useState<number | null>(null);
+  const [lastSavedGewichtsZiel, setLastSavedGewichtsZiel] = useState(false);
 
   // Form state
   const [typ, setTyp] = useState<"gewicht" | "kalorien" | "custom">("gewicht");
@@ -67,6 +69,10 @@ export default function ZielePage() {
     });
 
     if (res.ok) {
+      if (typ === "gewicht") {
+        setLastSavedGewichtsZiel(true);
+        setTimeout(() => setLastSavedGewichtsZiel(false), 8000);
+      }
       setBeschreibung("");
       setZielwert("");
       setStartwert("");
@@ -271,6 +277,21 @@ export default function ZielePage() {
               Ziel erstellen
             </button>
           </form>
+        )}
+
+        {lastSavedGewichtsZiel && (
+          <div className="flex items-center gap-2 text-sm text-ink bg-primary-bg/40 border border-primary/20 rounded-xl px-4 py-3 mb-6">
+            <span>💡</span>
+            <span>
+              Dein Kalorienrechner wurde automatisch angepasst.
+              <Link
+                href="/tools/kalorienrechner"
+                className="text-primary font-medium hover:underline ml-1"
+              >
+                Zum Kalorienrechner →
+              </Link>
+            </span>
+          </div>
         )}
 
         {/* Active Goals */}

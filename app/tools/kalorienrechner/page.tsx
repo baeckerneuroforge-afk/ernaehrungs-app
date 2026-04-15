@@ -11,11 +11,28 @@ export default async function KalorienrechnerPage() {
 
   const supabase = createSupabaseAdmin();
 
-  const { data: profile } = await supabase
-    .from("ea_profiles")
-    .select("alter_jahre, geschlecht, groesse_cm, gewicht_kg, aktivitaet, ziel, calorie_adjustment")
-    .eq("user_id", userId)
-    .limit(1);
+  const [{ data: profile }, { data: ziele }] = await Promise.all([
+    supabase
+      .from("ea_profiles")
+      .select("alter_jahre, geschlecht, groesse_cm, gewicht_kg, aktivitaet, ziel, calorie_adjustment")
+      .eq("user_id", userId)
+      .limit(1),
+    supabase
+      .from("ea_ziele")
+      .select("typ, beschreibung, zielwert, startwert, einheit, erreicht")
+      .eq("user_id", userId)
+      .eq("erreicht", false)
+      .order("created_at", { ascending: false }),
+  ]);
+
+  const gewichtsZiel =
+    ziele?.find(
+      (z) =>
+        z.typ === "gewicht" ||
+        z.beschreibung?.toLowerCase().includes("abnehm") ||
+        z.beschreibung?.toLowerCase().includes("zunahm") ||
+        z.beschreibung?.toLowerCase().includes("muskel"),
+    ) ?? null;
 
   return (
     <div className="min-h-screen flex flex-col bg-surface-bg">
@@ -25,7 +42,10 @@ export default async function KalorienrechnerPage() {
         <p className="text-gray-500 text-sm mb-8">
           Berechne deinen täglichen Kalorienbedarf basierend auf deinem Profil.
         </p>
-        <KalorienrechnerClient prefill={profile?.[0] ?? null} />
+        <KalorienrechnerClient
+          prefill={profile?.[0] ?? null}
+          gewichtsZiel={gewichtsZiel}
+        />
       </main>
       <Footer />
     </div>
