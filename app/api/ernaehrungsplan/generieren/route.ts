@@ -86,7 +86,9 @@ REGELN:
 `;
   }
 
-  return `Du bist eine erfahrene Ernährungswissenschaftlerin und erstellst strukturierte, praxisnahe 7-Tage-Ernährungspläne als JSON.${calorieBlock}
+  const numDays = params.days || 7;
+  const dayLabel = numDays === 1 ? "1-Tages" : `${numDays}-Tage`;
+  return `Du bist eine erfahrene Ernährungswissenschaftlerin und erstellst strukturierte, praxisnahe ${dayLabel}-Ernährungspläne als JSON.${calorieBlock}
 
 ## ABSOLUTE REGELN (NIEMALS brechen):
 
@@ -149,7 +151,7 @@ ${params.userMessage ? `- Individuelle Wünsche: ${params.userMessage}` : ""}
 }
 
 ## REGELN FÜR DEN INHALT:
-- 7 Tage: Montag bis Sonntag
+- ${numDays === 1 ? "1 Tag (Montag)" : numDays === 3 ? "3 Tage: Montag bis Mittwoch" : "7 Tage: Montag bis Sonntag"}
 - Jeder Tag hat exakt ${params.mealsPerDay} Mahlzeiten mit den types: ${mealLabels.map((l) => `"${l}"`).join(", ")}
 - "time" ist die Uhrzeit im Format "HH:MM"
 - "calories" ist eine realistische Schätzung pro Mahlzeit
@@ -283,6 +285,11 @@ export async function POST(request: Request) {
       );
     }
 
+    // ---- Enforce days limit based on plan ----
+    const planMaxDays = plan === "free" ? 1 : plan === "pro" ? 3 : 7;
+    const requestedDays = Math.min(planParameters.days || 7, planMaxDays);
+    planParameters.days = requestedDays;
+
     // Credit check & deduction
     const hasCredits = await deductCredits(
       userId,
@@ -400,15 +407,17 @@ export async function POST(request: Request) {
       systemPrompt += `\n\n⚠️ Keine spezifischen Dokumente in der Wissensbasis gefunden. Erstelle den Plan basierend auf allgemein anerkannten Ernährungsempfehlungen.`;
     }
 
-    const userMessage = `Erstelle einen strukturierten 7-Tage-Ernährungsplan als JSON. Antworte NUR mit dem JSON-Objekt.`;
+    const daysLabel = requestedDays === 1 ? "1-Tages" : `${requestedDays}-Tage`;
+    const userMessage = `Erstelle einen strukturierten ${daysLabel}-Ernährungsplan als JSON. Antworte NUR mit dem JSON-Objekt.`;
 
     // Stream response
     const anthropic = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY,
     });
+    const maxTokens = requestedDays <= 1 ? 3000 : requestedDays <= 3 ? 5000 : 8000;
     const stream = anthropic.messages.stream({
       model: "claude-sonnet-4-6",
-      max_tokens: 8000,
+      max_tokens: maxTokens,
       system: systemPrompt,
       messages: [{ role: "user", content: userMessage }],
     });

@@ -8,12 +8,15 @@ import {
   ChefHat,
   Salad,
   Sparkles,
+  Lock,
+  CalendarDays,
 } from "lucide-react";
 import type { PlanParameters, WeekPlanData } from "@/types/meal-plan";
 import { FASTING_OPTIONS, MEAL_LABELS, TIMING_RANGES } from "@/types/meal-plan";
 
 interface Props {
   onPlanGenerated: (data: WeekPlanData, params: PlanParameters) => void;
+  userPlan?: string;
 }
 
 function generateTimeSlots(start: number, end: number): string[] {
@@ -135,7 +138,7 @@ function LoadingSkeleton() {
         ))}
       </div>
       <p className="text-center text-sm text-ink-muted animate-pulse">
-        Dein individueller 7-Tage-Plan wird erstellt...
+        Dein individueller Plan wird erstellt...
       </p>
     </div>
   );
@@ -145,7 +148,9 @@ function LoadingSkeleton() {
 /* Main component                                                      */
 /* ------------------------------------------------------------------ */
 
-export function PlanCreator({ onPlanGenerated }: Props) {
+export function PlanCreator({ onPlanGenerated, userPlan = "pro" }: Props) {
+  const maxDays = userPlan === "free" ? 1 : userPlan === "pro" ? 3 : 7;
+  const [days, setDays] = useState(Math.min(maxDays, 7));
   const [fasting, setFasting] = useState("none");
   const [mealsPerDay, setMealsPerDay] = useState(3);
   const [flexibleTiming, setFlexibleTiming] = useState(false);
@@ -184,6 +189,7 @@ export function PlanCreator({ onPlanGenerated }: Props) {
     setError("");
 
     const params: PlanParameters = {
+      days,
       fasting,
       mealsPerDay,
       timing: flexibleTiming ? {} : timingWithDefaults,
@@ -253,6 +259,45 @@ export function PlanCreator({ onPlanGenerated }: Props) {
 
   return (
     <div className="space-y-4 animate-fade-in">
+      {/* 0. Tage-Auswahl */}
+      <SectionCard icon={CalendarDays} label="Plan-Dauer">
+        <div className="flex gap-2">
+          {([1, 3, 7] as const).map((d) => {
+            const locked = d > maxDays;
+            const active = days === d;
+            return (
+              <button
+                key={d}
+                type="button"
+                disabled={locked}
+                onClick={() => setDays(d)}
+                className={`relative flex-1 py-2.5 rounded-full text-sm font-medium transition-all duration-200 ${
+                  locked
+                    ? "bg-surface-muted text-ink-faint cursor-not-allowed opacity-60"
+                    : active
+                      ? "bg-primary text-white shadow-card"
+                      : "bg-primary-pale text-primary hover:bg-primary hover:text-white"
+                }`}
+              >
+                {d} {d === 1 ? "Tag" : "Tage"}
+                {locked && (
+                  <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center shadow-sm">
+                    <Lock className="w-2.5 h-2.5 text-white" />
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        {maxDays < 7 && (
+          <p className="text-[11px] text-ink-faint mt-2">
+            {maxDays === 1
+              ? "Mit dem Basis-Plan: bis 3 Tage. Mit Premium: 7 Tage."
+              : "Mit Premium: bis 7 Tage."}
+          </p>
+        )}
+      </SectionCard>
+
       <div className="grid sm:grid-cols-2 gap-4">
         {/* 1. Fastenmodell */}
         <SectionCard icon={Clock} label="Fastenmodell">

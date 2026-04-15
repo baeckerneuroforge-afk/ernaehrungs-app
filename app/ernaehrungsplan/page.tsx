@@ -188,7 +188,7 @@ export default function ErnaehrungsplanPage() {
         {/* Creator */}
         {showCreator && (
           <div className="mb-6">
-            <PlanCreator onPlanGenerated={handlePlanGenerated} />
+            <PlanCreator onPlanGenerated={handlePlanGenerated} userPlan={userPlan || "pro"} />
             <button
               onClick={() => setShowCreator(false)}
               className="mt-2 text-xs text-warm-light hover:text-warm-muted transition"

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Send, Leaf, User, History, ArrowLeft, ThumbsUp, ThumbsDown, X, MessageCircle, Sparkles, Lock, ImagePlus } from "lucide-react";
+import { Send, Leaf, User, History, ArrowLeft, ThumbsUp, ThumbsDown, X, MessageCircle, Sparkles, Lock, ImagePlus, Download } from "lucide-react";
 import { ChatMessage } from "./message";
 import { HistorySidebar } from "./history-sidebar";
 import { DirectMessagePanel } from "./direct-message-panel";
@@ -497,12 +497,25 @@ export function ChatClient({ userId, userName, initialPlan }: ChatClientProps) {
           {historyMode && (
             <div className="bg-accent-warmPale border-b border-border px-4 py-2.5 flex items-center justify-between">
               <p className="text-xs text-ink-muted">Du führst ein früheres Gespräch fort.</p>
-              <button
-                onClick={handleNewChat}
-                className="flex items-center gap-1 text-xs text-primary font-medium hover:text-primary-hover transition"
-              >
-                Neues Gespräch starten
-              </button>
+              <div className="flex items-center gap-2">
+                {isPremiumChat && (
+                  <a
+                    href={`/api/chat/export?sessionId=${sessionIdRef.current}`}
+                    download
+                    className="flex items-center gap-1 text-xs text-ink-muted hover:text-primary transition"
+                    title="Chat exportieren"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    Export
+                  </a>
+                )}
+                <button
+                  onClick={handleNewChat}
+                  className="flex items-center gap-1 text-xs text-primary font-medium hover:text-primary-hover transition"
+                >
+                  Neues Gespräch starten
+                </button>
+              </div>
             </div>
           )}
 

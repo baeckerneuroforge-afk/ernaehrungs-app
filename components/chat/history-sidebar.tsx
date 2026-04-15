@@ -29,11 +29,21 @@ function relativeTime(dateStr: string): string {
 export function HistorySidebar({ currentSessionId, onSelectSession, onNewChat, open, onClose }: Props) {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [loading, setLoading] = useState(true);
+  const [meta, setMeta] = useState<{ plan?: string; sessionLimit?: number; daysLimit?: number | null } | null>(null);
 
   useEffect(() => {
     fetch("/api/chat/sessions")
       .then((r) => (r.ok ? r.json() : []))
-      .then((data) => { setSessions(data); setLoading(false); });
+      .then((data) => {
+        // Handle both old format (array) and new format ({ sessions, meta })
+        if (Array.isArray(data)) {
+          setSessions(data);
+        } else {
+          setSessions(data.sessions || []);
+          setMeta(data.meta || null);
+        }
+        setLoading(false);
+      });
   }, []);
 
   return (
@@ -115,6 +125,15 @@ export function HistorySidebar({ currentSessionId, onSelectSession, onNewChat, o
                   </button>
                 );
               })}
+            </div>
+          )}
+          {!loading && meta && meta.daysLimit && sessions.length > 0 && (
+            <div className="px-3 py-3 mt-1 border-t border-border">
+              <p className="text-[10px] text-ink-faint leading-relaxed">
+                {meta.plan === "free"
+                  ? "Du siehst deine letzten 5 Chats (30 Tage). Mit Basis: 20 Chats (90 Tage). Mit Premium: unbegrenzt."
+                  : "Du siehst deine letzten 20 Chats (90 Tage). Mit Premium: unbegrenzt."}
+              </p>
             </div>
           )}
         </div>

@@ -46,10 +46,12 @@ export function previousMonth(ref: Date = new Date()): string {
  */
 export async function generateMonthlyReport(
   userId: string,
-  month: string
+  month: string,
+  options?: { isPremium?: boolean }
 ): Promise<MonthlyReportData> {
   const supabase = createSupabaseAdmin();
   const { start, end } = monthRange(month);
+  const isPremium = options?.isPremium ?? false;
 
   // Parallelize all data fetches
   const [weightRes, foodRes, plansRes, goalsRes, profileRes] = await Promise.all([
@@ -123,6 +125,83 @@ export async function generateMonthlyReport(
     .slice(0, 5)
     .map(([name, count]) => `${name} (${count}×)`);
 
+  // Premium: load 3-month data for multi-month trends
+  let premiumPromptAddition = "";
+  if (isPremium) {
+    const threeMonthsAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+
+    const [threeMonthWeightRes, threeMonthFoodRes, prevReportsRes] = await Promise.all([
+      supabase
+        .from("ea_weight_logs")
+        .select("gewicht_kg, gemessen_am")
+        .eq("user_id", userId)
+        .gte("gemessen_am", threeMonthsAgo.split("T")[0])
+        .order("gemessen_am", { ascending: true }),
+      supabase
+        .from("ea_food_log")
+        .select("kalorien_geschaetzt, datum")
+        .eq("user_id", userId)
+        .gte("datum", threeMonthsAgo.split("T")[0]),
+      supabase
+        .from("ea_monthly_reports")
+        .select("report_data, month")
+        .eq("user_id", userId)
+        .order("month", { ascending: false })
+        .limit(3),
+    ]);
+
+    const threeMonthWeight = threeMonthWeightRes.data || [];
+    const threeMonthFood = threeMonthFoodRes.data || [];
+    const prevReports = prevReportsRes.data || [];
+
+    // Compact the 3-month food data into monthly averages
+    const foodByMonth: Record<string, number[]> = {};
+    for (const f of threeMonthFood) {
+      const m = f.datum?.slice(0, 7);
+      if (m && f.kalorien_geschaetzt) {
+        (foodByMonth[m] ??= []).push(f.kalorien_geschaetzt);
+      }
+    }
+    const monthlyAvgKcal = Object.entries(foodByMonth).map(([m, vals]) => ({
+      month: m,
+      avgKcal: Math.round(vals.reduce((a, b) => a + b, 0) / vals.length),
+      entries: vals.length,
+    }));
+
+    const prevSummaries = prevReports
+      .filter((r) => r.month !== month) // exclude current
+      .slice(0, 2)
+      .map((r) => {
+        const rd = r.report_data as MonthlyReportData | null;
+        return { month: r.month, recommendations: rd?.recommendations || [] };
+      });
+
+    premiumPromptAddition = `
+
+## PREMIUM ERWEITERUNGEN
+
+### 📈 Multi-Monats-Trend (3 Monate)
+GEWICHTSDATEN 3 MONATE: ${JSON.stringify(threeMonthWeight.map((w) => ({ date: w.gemessen_am, kg: w.gewicht_kg })))}
+- Zeige den Gesamttrend über 3 Monate
+- Vergleiche: Tempo der Veränderung (beschleunigt, stabil, verlangsamt?)
+
+### 🥗 Kalorien-Entwicklung nach Monat
+${JSON.stringify(monthlyAvgKcal)}
+
+### 📊 Monat-zu-Monat Vergleich
+VORHERIGE EMPFEHLUNGEN: ${JSON.stringify(prevSummaries)}
+- Welche Empfehlungen aus Vormonaten wurden umgesetzt?
+
+### 🔮 Prognose
+- Bei aktuellem Tempo: Wann wird das Zielgewicht erreicht?
+- Konkreter Ausblick für den nächsten Monat
+
+Ergänze dein JSON um diese Felder:
+- "multiMonthTrend": "..." (3-Monats-Zusammenfassung)
+- "prognosis": "..." (Ausblick)
+`;
+  }
+
   // Build analysis prompt
   const contextPayload = {
     profile,
@@ -159,14 +238,14 @@ Struktur:
 5. recommendations — 3 konkrete, umsetzbare Tipps für den nächsten Monat
 
 Wenn zu wenig Daten vorhanden sind (z.B. 0 Einträge), sei ehrlich und empfiehl dem Nutzer, das Tagebuch oder den Tracker häufiger zu nutzen.
-
+${premiumPromptAddition}
 Antworte AUSSCHLIESSLICH als gültiges JSON ohne Markdown-Codeblock:
 {
   "summary": "...",
   "weightAnalysis": "...",
   "nutritionAnalysis": "...",
   "goalProgress": "...",
-  "recommendations": ["...", "...", "..."]
+  "recommendations": ["...", "...", "..."]${isPremium ? ',\n  "multiMonthTrend": "...",\n  "prognosis": "..."' : ""}
 }`;
 
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -251,7 +330,7 @@ export async function runMonthlyReportsForAllPremium(month: string): Promise<{
 
   for (const user of users) {
     try {
-      const report = await generateMonthlyReport(user.clerk_id, month);
+      const report = await generateMonthlyReport(user.clerk_id, month, { isPremium: true });
       const { error: upsertError } = await supabase
         .from("ea_monthly_reports")
         .upsert(

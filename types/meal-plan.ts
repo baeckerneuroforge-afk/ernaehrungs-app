@@ -35,6 +35,7 @@ export interface WeekPlanData {
 }
 
 export interface PlanParameters {
+  days?: number;
   fasting: string;
   mealsPerDay: number;
   timing: Record<string, string>;

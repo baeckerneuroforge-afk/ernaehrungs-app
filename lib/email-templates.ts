@@ -124,4 +124,14 @@ export const emailTemplates = {
       ${button("https://www.nutriva-ai.de/reports", "Report ansehen →")}
     `),
   }),
+
+  weeklyCoaching: (name: string, coachingText: string): EmailTemplate => ({
+    subject: `Deine Woche mit Nutriva — 3 Tipps für dich`,
+    html: wrap(`
+      <h2 style="color: #1C1917; margin: 0 0 16px;">Deine Woche mit Nutriva</h2>
+      <div style="color: #57534E; line-height: 1.7; white-space: pre-line;">${coachingText.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
+      ${button("https://www.nutriva-ai.de/chat", "Zum Chat →")}
+      <p style="color: #A8A29E; font-size: 12px; line-height: 1.5; margin-top: 24px;">Diese Tipps basieren auf deinen Daten der letzten Woche. Öffne die App für mehr Details.</p>
+    `),
+  }),
 };
