@@ -1,6 +1,7 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { logAdminAction } from "@/lib/admin-audit";
+import { isAdminUser } from "@/lib/credits";
 import { validateBody, profileSchema } from "@/lib/validations";
 
 type SupabaseAdminClient = ReturnType<typeof createSupabaseAdmin>;
@@ -208,6 +209,25 @@ export async function POST(request: Request) {
   } catch (e) {
     console.error("[profile POST] ea_users self-heal threw", e);
     // Non-fatal — profile save should still proceed
+  }
+
+  // Gate: calorie_target / calorie_adjustment only for paid users (pro, pro_plus, admin)
+  if (profileBody.calorie_target != null || profileBody.calorie_adjustment != null) {
+    const isAdmin = await isAdminUser(userId);
+    if (!isAdmin) {
+      const { data: planRow } = await supabase
+        .from("ea_users")
+        .select("subscription_plan")
+        .eq("clerk_id", userId)
+        .limit(1);
+      const plan = (planRow?.[0]?.subscription_plan as string) || "free";
+      if (plan === "free") {
+        return new Response(
+          JSON.stringify({ error: "plan_required", message: "Kalorienziel speichern ist ab dem Basis-Plan verfügbar." }),
+          { status: 403, headers: { "Content-Type": "application/json" } }
+        );
+      }
+    }
   }
 
   const profileData = {

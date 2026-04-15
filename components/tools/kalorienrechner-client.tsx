@@ -2,7 +2,8 @@
 
 import { useState, useMemo, useEffect, useRef } from "react";
 import { GESCHLECHT, AKTIVITAET } from "@/types";
-import { Flame, Activity, Target, Check } from "lucide-react";
+import { Flame, Activity, Target, Check, Lock } from "lucide-react";
+import Link from "next/link";
 
 interface Props {
   prefill: {
@@ -22,6 +23,7 @@ interface Props {
     einheit?: string | null;
     zieldatum?: string | null;
   } | null;
+  hasBasisOrHigher?: boolean;
 }
 
 const ACTIVITY_MULTIPLIERS: Record<string, number> = {
@@ -45,7 +47,7 @@ function defaultAdjustmentForZiel(ziel: string): number {
   return 0;
 }
 
-export function KalorienrechnerClient({ prefill, gewichtsZiel }: Props) {
+export function KalorienrechnerClient({ prefill, gewichtsZiel, hasBasisOrHigher = false }: Props) {
   // Ableiten aus aktivem Gewichtsziel, falls User noch keinen eigenen Wert
   // gespeichert hat. Richtung: zielwert < aktuelles Gewicht → abnehmen.
   const derivedFromGoal = (() => {
@@ -289,7 +291,7 @@ export function KalorienrechnerClient({ prefill, gewichtsZiel }: Props) {
         </div>
       )}
 
-      {zeitplan && (
+      {hasBasisOrHigher && zeitplan && (
         <div className="bg-white rounded-xl border border-gray-100 p-4 space-y-3">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <span className="text-sm font-medium text-gray-800">Dein Zeitplan</span>
@@ -456,70 +458,109 @@ export function KalorienrechnerClient({ prefill, gewichtsZiel }: Props) {
       {/* Adjustment + Result */}
       {result ? (
         <>
-          {/* Quick-Select */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-6">
-            <h2 className="font-semibold text-gray-800 mb-4">Deine Anpassung</h2>
-            <div className="grid sm:grid-cols-3 gap-2 mb-6">
-              {[
-                { value: -500, label: "Abnehmen", sub: "−500 kcal (empfohlen)" },
-                { value: 0, label: "Halten", sub: "±0 kcal" },
-                { value: 300, label: "Zunehmen", sub: "+300 kcal (empfohlen)" },
-              ].map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => setAdjustment(opt.value)}
-                  className={`text-left p-3 rounded-xl border transition ${
-                    adjustment === opt.value
-                      ? "border-primary bg-primary-bg/40"
-                      : "border-gray-200 hover:border-primary/30"
-                  }`}
-                >
-                  <div className="text-sm font-medium text-gray-800">{opt.label}</div>
-                  <div className="text-xs text-gray-500 mt-0.5">{opt.sub}</div>
-                </button>
-              ))}
-            </div>
+          {/* Quick-Select + Slider — gated for paid users */}
+          {hasBasisOrHigher ? (
+            <div className="bg-white rounded-2xl border border-gray-100 p-6">
+              <h2 className="font-semibold text-gray-800 mb-4">Deine Anpassung</h2>
+              <div className="grid sm:grid-cols-3 gap-2 mb-6">
+                {[
+                  { value: -500, label: "Abnehmen", sub: "−500 kcal (empfohlen)" },
+                  { value: 0, label: "Halten", sub: "±0 kcal" },
+                  { value: 300, label: "Zunehmen", sub: "+300 kcal (empfohlen)" },
+                ].map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setAdjustment(opt.value)}
+                    className={`text-left p-3 rounded-xl border transition ${
+                      adjustment === opt.value
+                        ? "border-primary bg-primary-bg/40"
+                        : "border-gray-200 hover:border-primary/30"
+                    }`}
+                  >
+                    <div className="text-sm font-medium text-gray-800">{opt.label}</div>
+                    <div className="text-xs text-gray-500 mt-0.5">{opt.sub}</div>
+                  </button>
+                ))}
+              </div>
 
-            {/* Slider */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-sm text-gray-600">Oder individuell anpassen:</label>
-                <span className={`text-sm font-semibold ${adjustment < 0 ? "text-red-600" : adjustment > 0 ? "text-green-600" : "text-gray-700"}`}>
-                  {adjustment > 0 ? "+" : ""}{adjustment} kcal
-                </span>
-              </div>
-              <input
-                type="range"
-                min={-1500}
-                max={1500}
-                step={50}
-                value={adjustment}
-                onChange={(e) => { setAdjustment(Number(e.target.value)); setSaved(false); }}
-                className="w-full accent-primary"
-              />
-              <div className="flex justify-between text-[10px] text-gray-400 mt-1">
-                <span>−1500</span>
-                <span>0</span>
-                <span>+1500</span>
-              </div>
-              <div className="mt-3 flex items-center gap-2">
+              {/* Slider */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm text-gray-600">Oder individuell anpassen:</label>
+                  <span className={`text-sm font-semibold ${adjustment < 0 ? "text-red-600" : adjustment > 0 ? "text-green-600" : "text-gray-700"}`}>
+                    {adjustment > 0 ? "+" : ""}{adjustment} kcal
+                  </span>
+                </div>
                 <input
-                  type="number"
+                  type="range"
                   min={-1500}
                   max={1500}
                   step={50}
                   value={adjustment}
-                  onChange={(e) => {
-                    const n = Number(e.target.value);
-                    if (Number.isFinite(n)) setAdjustment(Math.max(-1500, Math.min(1500, n)));
-                    setSaved(false);
-                  }}
-                  className="w-28 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                  onChange={(e) => { setAdjustment(Number(e.target.value)); setSaved(false); }}
+                  className="w-full accent-primary"
                 />
-                <span className="text-xs text-gray-500">kcal Abweichung vom Gesamtumsatz</span>
+                <div className="flex justify-between text-[10px] text-gray-400 mt-1">
+                  <span>−1500</span>
+                  <span>0</span>
+                  <span>+1500</span>
+                </div>
+                <div className="mt-3 flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={-1500}
+                    max={1500}
+                    step={50}
+                    value={adjustment}
+                    onChange={(e) => {
+                      const n = Number(e.target.value);
+                      if (Number.isFinite(n)) setAdjustment(Math.max(-1500, Math.min(1500, n)));
+                      setSaved(false);
+                    }}
+                    className="w-28 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                  />
+                  <span className="text-xs text-gray-500">kcal Abweichung vom Gesamtumsatz</span>
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            /* Gate overlay for free users */
+            <div className="relative bg-white rounded-2xl border border-gray-100 p-6 overflow-hidden">
+              {/* Blurred preview */}
+              <div className="pointer-events-none select-none blur-[2px] opacity-50" aria-hidden>
+                <h2 className="font-semibold text-gray-800 mb-4">Deine Anpassung</h2>
+                <div className="grid sm:grid-cols-3 gap-2 mb-6">
+                  {[
+                    { label: "Abnehmen", sub: "−500 kcal (empfohlen)" },
+                    { label: "Halten", sub: "±0 kcal" },
+                    { label: "Zunehmen", sub: "+300 kcal (empfohlen)" },
+                  ].map((opt) => (
+                    <div key={opt.label} className="text-left p-3 rounded-xl border border-gray-200">
+                      <div className="text-sm font-medium text-gray-800">{opt.label}</div>
+                      <div className="text-xs text-gray-500 mt-0.5">{opt.sub}</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="h-2 bg-gray-200 rounded-full" />
+              </div>
+              {/* Overlay CTA */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/70 backdrop-blur-[1px] p-6 text-center">
+                <div className="w-12 h-12 rounded-full bg-primary-pale flex items-center justify-center mb-3">
+                  <Lock className="w-5 h-5 text-primary" />
+                </div>
+                <h3 className="font-semibold text-gray-800">Individuelles Defizit einstellen</h3>
+                <p className="text-sm text-gray-500 mt-1 max-w-sm">
+                  Slider, Zeitplan, Zieldatum-Verknüpfung und Gesundheits-Warnungen — ab dem Basis-Plan.
+                </p>
+                <Link
+                  href="#preise"
+                  className="mt-4 inline-flex items-center justify-center rounded-full bg-primary text-white px-6 py-2.5 text-sm font-medium hover:bg-primary-hover transition-colors"
+                >
+                  Basis-Plan entdecken →
+                </Link>
+              </div>
+            </div>
+          )}
 
           {/* Result-Karte */}
           <div className="bg-white rounded-2xl border border-primary/20 p-6 bg-primary-bg/20">
@@ -550,7 +591,7 @@ export function KalorienrechnerClient({ prefill, gewichtsZiel }: Props) {
               </div>
             </div>
 
-            {warning && (
+            {hasBasisOrHigher && warning && (
               <div
                 className={`mt-4 rounded-xl px-4 py-3 text-sm border ${
                   warning.tone === "red"
@@ -565,16 +606,22 @@ export function KalorienrechnerClient({ prefill, gewichtsZiel }: Props) {
               </div>
             )}
 
-            <div className="mt-5 flex items-center gap-3">
-              <button
-                onClick={handleSave}
-                disabled={saving || result.zielKcal < 1200}
-                className="inline-flex items-center gap-2 rounded-full bg-primary text-white px-5 py-2.5 text-sm font-medium hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {saved ? <><Check className="w-4 h-4" /> Gespeichert</> : saving ? "Speichert…" : "Als mein Ziel speichern"}
-              </button>
-              {saveError && <span className="text-xs text-red-600">{saveError}</span>}
-            </div>
+            {hasBasisOrHigher ? (
+              <div className="mt-5 flex items-center gap-3">
+                <button
+                  onClick={handleSave}
+                  disabled={saving || result.zielKcal < 1200}
+                  className="inline-flex items-center gap-2 rounded-full bg-primary text-white px-5 py-2.5 text-sm font-medium hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {saved ? <><Check className="w-4 h-4" /> Gespeichert</> : saving ? "Speichert…" : "Als mein Ziel speichern"}
+                </button>
+                {saveError && <span className="text-xs text-red-600">{saveError}</span>}
+              </div>
+            ) : (
+              <p className="mt-4 text-xs text-gray-500">
+                Im kostenlosen Plan siehst du deine Grundberechnung. Ab dem Basis-Plan kannst du das Defizit individuell anpassen und als Tagesziel speichern.
+              </p>
+            )}
           </div>
         </>
       ) : (

@@ -1,5 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
+import { isAdminUser } from "@/lib/credits";
 import { redirect } from "next/navigation";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
@@ -11,7 +12,7 @@ export default async function KalorienrechnerPage() {
 
   const supabase = createSupabaseAdmin();
 
-  const [{ data: profile }, { data: ziele }] = await Promise.all([
+  const [{ data: profile }, { data: ziele }, { data: userRow }, isAdmin] = await Promise.all([
     supabase
       .from("ea_profiles")
       .select("alter_jahre, geschlecht, groesse_cm, gewicht_kg, aktivitaet, ziel, calorie_adjustment")
@@ -23,7 +24,16 @@ export default async function KalorienrechnerPage() {
       .eq("user_id", userId)
       .eq("erreicht", false)
       .order("created_at", { ascending: false }),
+    supabase
+      .from("ea_users")
+      .select("subscription_plan")
+      .eq("clerk_id", userId)
+      .limit(1),
+    isAdminUser(userId),
   ]);
+
+  const plan = isAdmin ? "admin" : (userRow?.[0]?.subscription_plan as string) || "free";
+  const hasBasisOrHigher = plan !== "free";
 
   const gewichtsZiel =
     ziele?.find(
@@ -45,6 +55,7 @@ export default async function KalorienrechnerPage() {
         <KalorienrechnerClient
           prefill={profile?.[0] ?? null}
           gewichtsZiel={gewichtsZiel}
+          hasBasisOrHigher={hasBasisOrHigher}
         />
       </main>
       <Footer />

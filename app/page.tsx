@@ -1509,8 +1509,11 @@ function PricingSection() {
             suffix=""
             features={[
               { text: "15 KI-Beratungen / Monat" },
-              { text: "Persönliches Ernährungsprofil" },
-              { text: "Ernährungstagebuch & Gewichtstracker" },
+              { text: "KI-Chat" },
+              { text: "Ernährungsplan" },
+              { text: "Tagebuch & Gewichtstracker" },
+              { text: "Kalorienrechner (Grundberechnung)" },
+              { text: "Wochenreview" },
             ]}
             ctaLabel="Kostenlos starten"
             ctaVariant="outline"
@@ -1528,11 +1531,12 @@ function PricingSection() {
             featured
             features={[
               { text: "100 Credits · Haiku KI-Modell", highlight: true },
-              { text: "Persönliche Ernährungspläne", highlight: true },
-              { text: "Ernährungstagebuch", highlight: true },
-              { text: "Gewichts- & Ziel-Tracker" },
-              { text: "Wöchentlicher KI-Review" },
-              { text: "Rezeptvorschläge" },
+              { text: "Alles aus Kostenlos, plus:" },
+              { text: "Individueller Kalorienrechner mit Slider", highlight: true },
+              { text: "Zeitplan-Berechnung mit Zieldatum", highlight: true },
+              { text: "Gesundheits-Warnungen bei aggressivem Defizit", highlight: true },
+              { text: "Chat kennt dein persönliches Kalorienziel", highlight: true },
+              { text: "Monatsreport" },
             ]}
             ctaLabel="Basis wählen"
             ctaVariant="primary"
@@ -1558,14 +1562,13 @@ function PricingSection() {
             accent="amber"
             features={[
               { text: "Alles aus Basis" },
-              { text: "Prioritäts-Support" },
               {
-                text: "400 Credits · Sonnet KI-Modell (Premium-Qualität)",
+                text: "Unlimited Credits · Sonnet KI-Modell (Premium-Qualität)",
                 highlight: true,
                 accent: "amber",
               },
               {
-                text: "Foto-Tracking: Essen einfach fotografieren",
+                text: "Foto-Analyse: Essen einfach fotografieren",
                 highlight: true,
                 accent: "amber",
               },
@@ -1575,17 +1578,17 @@ function PricingSection() {
                 accent: "amber",
               },
               {
-                text: "Monatlicher Fortschrittsreport",
-                highlight: true,
-                accent: "amber",
-              },
-              {
-                text: "Wöchentliche Reviews von Janine",
+                text: "Chat-Bild-Upload",
                 highlight: true,
                 accent: "amber",
               },
               {
                 text: "Direktnachrichten an Janine",
+                highlight: true,
+                accent: "amber",
+              },
+              {
+                text: "Prioritäts-Support",
                 highlight: true,
                 accent: "amber",
               },

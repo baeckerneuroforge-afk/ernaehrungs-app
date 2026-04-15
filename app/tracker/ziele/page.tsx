@@ -294,6 +294,20 @@ export default function ZielePage() {
           </div>
         )}
 
+        <div className="flex items-start gap-2 text-sm text-ink-muted bg-surface-muted/60 border border-border rounded-xl px-4 py-3 mb-6">
+          <span>📊</span>
+          <span>
+            Dein Kalorienrechner zeigt dir dein empfohlenes Defizit.
+            Ab dem Basis-Plan kannst du es individuell anpassen.
+            <Link
+              href="/tools/kalorienrechner"
+              className="text-primary font-medium hover:underline ml-1"
+            >
+              Zum Kalorienrechner →
+            </Link>
+          </span>
+        </div>
+
         {/* Active Goals */}
         <div className="mb-6">
           <h3 className="font-serif text-lg text-ink mb-4">
