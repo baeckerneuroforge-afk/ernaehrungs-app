@@ -16,6 +16,7 @@ import {
   Loader2,
   TrendingDown,
   Target,
+  Upload,
 } from "lucide-react";
 
 interface Activity {
@@ -250,6 +251,23 @@ export default function HomePage() {
             <QuickAction href="/tools/kalorienrechner" icon={Calculator} label="Kalorienrechner" sub="Bedarf berechnen" />
           </div>
         </div>
+
+        {/* 4b. Import hint for premium */}
+        {(data.plan === "pro_plus" || data.plan === "admin") && (
+          <Link
+            href="/einstellungen/import"
+            className="flex items-center gap-3 bg-white rounded-2xl border border-border shadow-card p-4 hover:border-primary/30 transition-all duration-200"
+          >
+            <div className="w-9 h-9 rounded-xl bg-primary-pale flex items-center justify-center flex-shrink-0">
+              <Upload className="w-4 h-4 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-ink">Daten importieren</p>
+              <p className="text-[11px] text-ink-faint">MyFitnessPal, Yazio, Lifesum, FDDB & mehr</p>
+            </div>
+            <span className="text-xs text-primary font-medium flex-shrink-0">CSV Import →</span>
+          </Link>
+        )}
 
         {/* 5. Recent Activity */}
         {data.activities.length > 0 && (
