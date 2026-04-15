@@ -19,7 +19,7 @@ export default async function KalorienrechnerPage() {
       .limit(1),
     supabase
       .from("ea_ziele")
-      .select("typ, beschreibung, zielwert, startwert, einheit, erreicht")
+      .select("typ, beschreibung, zielwert, startwert, einheit, zieldatum, erreicht")
       .eq("user_id", userId)
       .eq("erreicht", false)
       .order("created_at", { ascending: false }),

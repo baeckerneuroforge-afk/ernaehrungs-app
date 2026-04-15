@@ -20,6 +20,7 @@ interface Props {
     zielwert?: number | null;
     startwert?: number | null;
     einheit?: string | null;
+    zieldatum?: string | null;
   } | null;
 }
 
@@ -200,10 +201,78 @@ export function KalorienrechnerClient({ prefill, gewichtsZiel }: Props) {
   }
 
   // Info-Banner: Zielgewicht existiert, aktuelles Gewicht bekannt.
+  // "Aktuelles Gewicht" kommt live aus dem Formular (falls User dort etwas
+  // getippt hat), sonst aus dem Profil.
+  const currentWeight = Number(gewicht) || prefill?.gewicht_kg || null;
   const goalDelta =
-    gewichtsZiel?.zielwert && prefill?.gewicht_kg
-      ? Math.abs(prefill.gewicht_kg - gewichtsZiel.zielwert)
+    gewichtsZiel?.zielwert && currentWeight
+      ? Math.abs(currentWeight - gewichtsZiel.zielwert)
       : null;
+
+  // Zeitplan-Berechnung (nur bei Gewichtsziel mit Zieldatum)
+  const zeitplan = (() => {
+    if (
+      !gewichtsZiel?.zieldatum ||
+      !gewichtsZiel?.zielwert ||
+      !currentWeight ||
+      (gewichtsZiel.typ && gewichtsZiel.typ !== "gewicht")
+    ) {
+      return null;
+    }
+
+    const heute = new Date();
+    heute.setHours(0, 0, 0, 0);
+    const zielDatum = new Date(gewichtsZiel.zieldatum);
+    const tageUebrig = Math.max(
+      1,
+      Math.round((zielDatum.getTime() - heute.getTime()) / 86400000),
+    );
+    const wochenUebrig = tageUebrig / 7;
+
+    // positiv = abnehmen, negativ = zunehmen
+    const gewichtDifferenz = currentWeight - gewichtsZiel.zielwert;
+    if (gewichtDifferenz === 0) return null;
+
+    const richtung: "abnehmen" | "zunehmen" =
+      gewichtDifferenz > 0 ? "abnehmen" : "zunehmen";
+    const benoetigtProWoche = gewichtDifferenz / wochenUebrig; // kg/Woche, signed
+    const benoetigtDefizitProTag = Math.round(
+      (Math.abs(benoetigtProWoche) * 7700) / 7,
+    );
+
+    // User-Input muss in die richtige Richtung zeigen (Defizit beim Abnehmen,
+    // Ueberschuss beim Zunehmen), sonst Infinity.
+    const userMagnitude =
+      (richtung === "abnehmen" && adjustment < 0) ||
+      (richtung === "zunehmen" && adjustment > 0)
+        ? Math.abs(adjustment)
+        : 0;
+    const userProWoche = (userMagnitude * 7) / 7700;
+    const benoetigteWochen =
+      userProWoche > 0 ? Math.abs(gewichtDifferenz) / userProWoche : Infinity;
+
+    const geschaetztDatum =
+      Number.isFinite(benoetigteWochen)
+        ? new Date(heute.getTime() + benoetigteWochen * 7 * 86400000)
+        : null;
+
+    const differenzTage =
+      geschaetztDatum != null
+        ? Math.round(
+            (geschaetztDatum.getTime() - zielDatum.getTime()) / 86400000,
+          )
+        : null;
+
+    return {
+      richtung,
+      benoetigtDefizitProTag,
+      benoetigtProWoche: Math.abs(benoetigtProWoche),
+      geschaetztDatum,
+      differenzTage,
+      zielDatum,
+      istZuAggressiv: benoetigtDefizitProTag > 1000,
+    };
+  })();
 
   return (
     <div className="space-y-8">
@@ -217,6 +286,91 @@ export function KalorienrechnerClient({ prefill, gewichtsZiel }: Props) {
             )}
             {" — "}Kalorienrechner ist darauf eingestellt.
           </span>
+        </div>
+      )}
+
+      {zeitplan && (
+        <div className="bg-white rounded-xl border border-gray-100 p-4 space-y-3">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <span className="text-sm font-medium text-gray-800">Dein Zeitplan</span>
+            <span className="text-xs text-gray-500">
+              Ziel: {gewichtsZiel!.zielwert} kg bis{" "}
+              {zeitplan.zielDatum.toLocaleDateString("de-DE")}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <span className="text-gray-500">
+                Benötigter{" "}
+                {zeitplan.richtung === "abnehmen" ? "Defizit" : "Überschuss"}:
+              </span>
+              <span className="font-semibold text-gray-800 ml-1">
+                {zeitplan.benoetigtDefizitProTag} kcal/Tag
+              </span>
+            </div>
+            <div>
+              <span className="text-gray-500">
+                Dein{" "}
+                {zeitplan.richtung === "abnehmen" ? "Defizit" : "Überschuss"}:
+              </span>
+              <span className="font-semibold text-gray-800 ml-1">
+                {Math.abs(adjustment)} kcal/Tag
+              </span>
+            </div>
+          </div>
+
+          <div className="text-sm">
+            <span className="text-gray-500">
+              Geschätztes Erreichen mit aktuellem{" "}
+              {zeitplan.richtung === "abnehmen" ? "Defizit" : "Überschuss"}:{" "}
+            </span>
+            {zeitplan.geschaetztDatum ? (
+              <>
+                <span className="font-semibold text-primary">
+                  {zeitplan.geschaetztDatum.toLocaleDateString("de-DE")}
+                </span>
+                {zeitplan.differenzTage != null && zeitplan.differenzTage > 0 && (
+                  <span className="text-amber-600 ml-1">
+                    ({zeitplan.differenzTage} Tage später als geplant)
+                  </span>
+                )}
+                {zeitplan.differenzTage != null && zeitplan.differenzTage < 0 && (
+                  <span className="text-green-600 ml-1">
+                    ({Math.abs(zeitplan.differenzTage)} Tage früher als geplant)
+                  </span>
+                )}
+                {zeitplan.differenzTage === 0 && (
+                  <span className="text-green-600 ml-1">(genau im Plan)</span>
+                )}
+              </>
+            ) : (
+              <span className="font-semibold text-amber-600">
+                {zeitplan.richtung === "abnehmen"
+                  ? "Dein aktueller Wert ist kein Defizit — Ziel wird so nicht erreicht."
+                  : "Dein aktueller Wert ist kein Überschuss — Ziel wird so nicht erreicht."}
+              </span>
+            )}
+          </div>
+
+          {zeitplan.istZuAggressiv && (
+            <div className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3">
+              ⚠️ Um dein Ziel bis zum{" "}
+              {zeitplan.zielDatum.toLocaleDateString("de-DE")} zu erreichen,
+              wäre ein{" "}
+              {zeitplan.richtung === "abnehmen" ? "Defizit" : "Überschuss"} von{" "}
+              {zeitplan.benoetigtDefizitProTag} kcal/Tag nötig — das ist zu
+              aggressiv. Ein nachhaltiger Wert von 500–750 kcal ist gesünder.
+              Das Datum verschiebt sich dann etwas, aber du bleibst langfristig
+              dran.
+            </div>
+          )}
+
+          <p className="text-xs text-gray-500">
+            Schneller ist nicht immer besser — nachhaltiger Gewichtsverlust
+            liegt bei 0,5–1 kg pro Woche. Sprich gerne im Chat über konkrete
+            Umsetzungen oder erstelle dir einen passenden Ernährungsplan.
+          </p>
         </div>
       )}
 
