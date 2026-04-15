@@ -17,6 +17,7 @@ import {
   Check,
   Loader2,
   RotateCcw,
+  Upload,
 } from "lucide-react";
 
 type Theme = "light" | "dark" | "system";
@@ -270,6 +271,12 @@ export function SettingsClient({ initialPreferences, initialTheme }: Props) {
             icon={<LifeBuoy className="w-4 h-4 text-primary" />}
             label="Hilfe & Support"
             description="Kontakt aufnehmen und häufige Fragen"
+          />
+          <LinkRow
+            href="/einstellungen/import"
+            icon={<Upload className="w-4 h-4 text-primary" />}
+            label="Daten importieren"
+            description="CSV aus MyFitnessPal, Yazio, Lifesum & mehr"
           />
           <button
             type="button"

@@ -66,6 +66,14 @@ export const trackerLimiter = redis
     })
   : null;
 
+export const importLimiter = redis
+  ? new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(5, "1 h"),
+      prefix: "rl:import",
+    })
+  : null;
+
 export const feedbackLimiter = redis
   ? new Ratelimit({
       redis,
