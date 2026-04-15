@@ -28,6 +28,9 @@ interface Product {
   nutriscore: string | null;
 }
 
+// html5-qrcode scanner state enum
+const SCANNER_STATE_SCANNING = 2;
+
 export default function ScannerPage() {
   const [userPlan, setUserPlan] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
@@ -37,62 +40,96 @@ export default function ScannerPage() {
   const [portion, setPortion] = useState(100);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
-  const scannerRef = useRef<{ stop: () => Promise<void> } | null>(null);
+
+  // Stable refs — these survive re-renders without causing DOM conflicts
+  const scannerContainerRef = useRef<HTMLDivElement>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const scannerInstanceRef = useRef<any>(null);
+  const mountedRef = useRef(true);
 
   useEffect(() => {
+    mountedRef.current = true;
     fetch("/api/credits")
       .then((r) => (r.ok ? r.json() : null))
-      .then((data) => setUserPlan(data?.plan || "free"))
-      .catch(() => setUserPlan("free"));
+      .then((data) => { if (mountedRef.current) setUserPlan(data?.plan || "free"); })
+      .catch(() => { if (mountedRef.current) setUserPlan("free"); });
+    return () => { mountedRef.current = false; };
   }, []);
 
-  const stopScanner = useCallback(async () => {
-    if (scannerRef.current) {
-      try {
-        await scannerRef.current.stop();
-      } catch { /* already stopped */ }
-      scannerRef.current = null;
+  const stopScan = useCallback(async () => {
+    const scanner = scannerInstanceRef.current;
+    if (!scanner) return;
+    try {
+      const state = scanner.getState?.();
+      if (state === SCANNER_STATE_SCANNING) {
+        await scanner.stop();
+      }
+    } catch (e) {
+      console.warn("[scanner] Cleanup error:", e);
     }
+    scannerInstanceRef.current = null;
+    if (mountedRef.current) setScanning(false);
   }, []);
 
+  // Cleanup on unmount (also handles React 18 Strict Mode double-mount)
   useEffect(() => {
-    return () => { stopScanner(); };
-  }, [stopScanner]);
+    return () => { stopScan(); };
+  }, [stopScan]);
 
-  const startScan = async () => {
+  const startScan = useCallback(async () => {
+    if (scannerInstanceRef.current) return;
+    if (!scannerContainerRef.current) return;
+
     setError("");
     setResult(null);
     setSaved(false);
 
+    // Assign a stable ID to the container div (html5-qrcode needs an ID string)
+    const containerId = "barcode-scanner-region";
+    scannerContainerRef.current.id = containerId;
+
     try {
       const { Html5Qrcode } = await import("html5-qrcode");
-      const scanner = new Html5Qrcode("scanner-container");
-      scannerRef.current = scanner;
+      const scanner = new Html5Qrcode(containerId);
+      scannerInstanceRef.current = scanner;
 
       await scanner.start(
         { facingMode: "environment" },
         { fps: 10, qrbox: { width: 250, height: 150 } },
-        async (decodedText) => {
-          await scanner.stop();
-          scannerRef.current = null;
-          setScanning(false);
-          await lookupBarcode(decodedText);
+        async (decodedText: string) => {
+          // Stop first, then update state — avoids DOM thrashing
+          try {
+            await scanner.stop();
+          } catch (e) {
+            console.warn("[scanner] Stop after decode:", e);
+          }
+          scannerInstanceRef.current = null;
+          if (mountedRef.current) {
+            setScanning(false);
+            await lookupBarcode(decodedText);
+          }
         },
-        () => {} // no match yet
+        () => {} // no match — keep scanning
       );
-      setScanning(true);
+
+      if (mountedRef.current) setScanning(true);
     } catch (err) {
       console.error("[scanner] Start failed:", err);
-      setError("Kamera konnte nicht gestartet werden. Bitte erlaube den Kamerazugriff.");
+      scannerInstanceRef.current = null;
+      if (mountedRef.current) {
+        setError("Kamera konnte nicht gestartet werden. Bitte erlaube den Kamerazugriff.");
+      }
     }
-  };
+  }, []);
 
   const lookupBarcode = async (barcode: string) => {
+    if (!mountedRef.current) return;
     setLoading(true);
     setError("");
     try {
       const res = await fetch(`/api/scanner/lookup?barcode=${encodeURIComponent(barcode)}`);
       const data = await res.json();
+      if (!mountedRef.current) return;
 
       if (data.product) {
         setResult(data.product);
@@ -100,10 +137,22 @@ export default function ScannerPage() {
         setError("Produkt nicht gefunden. Versuche es mit einem anderen Barcode.");
       }
     } catch {
-      setError("Fehler bei der Abfrage. Bitte versuche es erneut.");
+      if (mountedRef.current) {
+        setError("Fehler bei der Abfrage. Bitte versuche es erneut.");
+      }
     }
-    setLoading(false);
+    if (mountedRef.current) setLoading(false);
   };
+
+  const handleScanAgain = useCallback(async () => {
+    setResult(null);
+    setError("");
+    setSaved(false);
+    setPortion(100);
+    await stopScan();
+    // Brief delay so html5-qrcode can fully tear down its DOM nodes
+    setTimeout(() => startScan(), 300);
+  }, [stopScan, startScan]);
 
   const addToFoodLog = async () => {
     if (!result) return;
@@ -179,6 +228,8 @@ export default function ScannerPage() {
     );
   }
 
+  const showPlaceholder = !scanning && !result && !loading;
+
   return (
     <div className="min-h-screen flex flex-col bg-surface-bg">
       <Navbar />
@@ -188,14 +239,19 @@ export default function ScannerPage() {
           Scanne den Barcode eines Lebensmittels — Nährwerte werden automatisch erkannt.
         </p>
 
-        {/* Scanner container */}
+        {/*
+          Scanner container — ALWAYS in the DOM (never conditionally rendered).
+          html5-qrcode inserts/removes its own <video> child here;
+          if React unmounts this div mid-scan we get removeChild errors.
+          We only toggle visibility via CSS.
+        */}
         <div
-          id="scanner-container"
-          className={`w-full aspect-video rounded-2xl overflow-hidden bg-ink/5 border border-border mb-4 ${
-            !scanning && !result ? "flex items-center justify-center" : ""
+          ref={scannerContainerRef}
+          className={`w-full aspect-video rounded-2xl overflow-hidden border border-border mb-4 ${
+            scanning ? "bg-black" : showPlaceholder ? "bg-ink/5 flex items-center justify-center" : "hidden"
           }`}
         >
-          {!scanning && !result && !loading && (
+          {showPlaceholder && (
             <div className="text-center text-ink-faint">
               <Camera className="w-8 h-8 mx-auto mb-2 opacity-40" />
               <p className="text-xs">Kamera wird hier angezeigt</p>
@@ -204,7 +260,7 @@ export default function ScannerPage() {
         </div>
 
         {/* Start button */}
-        {!scanning && !result && !loading && (
+        {showPlaceholder && (
           <button
             onClick={startScan}
             className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary-hover text-white py-3.5 rounded-full text-sm font-medium transition shadow-card"
@@ -219,7 +275,7 @@ export default function ScannerPage() {
           <div className="text-center py-2">
             <p className="text-sm text-ink-muted animate-pulse">Halte den Barcode in den Rahmen...</p>
             <button
-              onClick={async () => { await stopScanner(); setScanning(false); }}
+              onClick={stopScan}
               className="mt-2 text-xs text-ink-faint hover:text-ink transition"
             >
               Abbrechen
@@ -318,7 +374,7 @@ export default function ScannerPage() {
 
             {/* Scan again */}
             <button
-              onClick={() => { setResult(null); setSaved(false); setPortion(100); startScan(); }}
+              onClick={handleScanAgain}
               className="w-full flex items-center justify-center gap-2 border border-border text-ink-muted hover:text-primary hover:border-primary/40 py-2.5 rounded-full text-sm transition"
             >
               <RotateCcw className="w-4 h-4" />
@@ -332,7 +388,7 @@ export default function ScannerPage() {
           <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm mt-4">
             {error}
             <button
-              onClick={() => { setError(""); startScan(); }}
+              onClick={handleScanAgain}
               className="text-primary font-medium ml-2 hover:underline"
             >
               Nochmal versuchen
