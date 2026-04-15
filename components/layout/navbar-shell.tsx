@@ -18,7 +18,6 @@ import {
   Lock,
   HelpCircle,
   FileText,
-  ScanLine,
   Home,
 } from "lucide-react";
 import { CreditBadge } from "@/components/credit-badge";
@@ -85,7 +84,6 @@ export function NavbarShell() {
     { href: "/ernaehrungsplan", label: "Plan", icon: CalendarDays, feature: "plan", tour: "plan" },
     { href: "/tagebuch", label: "Tagebuch", icon: BookOpen, feature: "tagebuch", tour: "tagebuch" },
     { href: "/tracker", label: "Tracker", icon: LineChart, feature: "tracker", tour: "tracker" },
-    { href: "/scanner", label: "Scanner", icon: ScanLine, feature: "barcode_scanner" },
     { href: "/reports", label: "Reports", icon: FileText, feature: "monthly_report" },
     { href: "/profil", label: "Profil", icon: UserIcon },
   ];
