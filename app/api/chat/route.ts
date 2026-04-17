@@ -286,10 +286,14 @@ const HEALTH_NO_KNOWLEDGE_RESPONSE = (keyword: string) =>
 // ---------------------------------------------------------------------------
 const MODEL_SONNET = "claude-sonnet-4-6";
 const MODEL_HAIKU = "claude-haiku-4-5-20251001";
+const MODEL_OPUS = "claude-opus-4-7";
 
 function getModelForAction(action: string, plan: string | null | undefined): string {
-  if (action === "plan_generation" || action === "review") {
-    return MODEL_SONNET; // Complex tasks: always Sonnet
+  if (action === "review") {
+    return MODEL_OPUS; // Wochenreview: Opus 4.7 für tiefere Analyse
+  }
+  if (action === "plan_generation") {
+    return MODEL_SONNET; // Ernährungspläne bleiben auf Sonnet
   }
   // Chat: Premium/Admin bekommen Sonnet, Free/Basis bekommen Haiku.
   if (plan === "pro_plus" || plan === "admin") {
@@ -792,10 +796,10 @@ export async function POST(request: Request) {
     ];
 
     // ---- Dynamic model routing (plan-aware for chat) ----
-    // Bild-Nachrichten IMMER auf Sonnet (Vision) — auch der Feature-Gate
+    // Bild-Nachrichten IMMER auf Opus 4.7 (Vision) — auch der Feature-Gate
     // stellt das sicher, aber defense in depth.
     const model = hasImage
-      ? MODEL_SONNET
+      ? MODEL_OPUS
       : getModelForAction(action, userPlanEarly);
 
     // ---- Admin RAG marker ----
@@ -1195,7 +1199,8 @@ ${block3Section}
 - Keine Fastenmodelle die nicht in der Wissensbasis belegt sind`;
 
   // 4. Stream via Anthropic (tier-dependent token limit)
-  const maxTokens = isPremium ? 2000 : 1200;
+  // Opus 4.7 nutzt einen neuen Tokenizer (1.0-1.35x mehr Tokens) — Limits erhöht.
+  const maxTokens = isPremium ? 2500 : 1500;
 
   const proTeaserText = `\n\n---\n\n### 🎯 Deine Woche voraus\n\nMöchtest du konkrete Handlungsvorschläge für nächste Woche — mit Lebensmittelempfehlungen, Rezeptideen und einem angepassten Ernährungsplan? Upgrade auf Premium für den vollen Wochenrückblick.\n\n[Premium entdecken →]`;
 

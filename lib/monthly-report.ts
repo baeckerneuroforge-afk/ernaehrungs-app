@@ -250,8 +250,8 @@ Antworte AUSSCHLIESSLICH als gültiges JSON ohne Markdown-Codeblock:
 
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const response = await anthropic.messages.create({
-    model: "claude-opus-4-6",
-    max_tokens: 2000,
+    model: "claude-opus-4-7",
+    max_tokens: 2500,
     messages: [{ role: "user", content: prompt }],
   });
 

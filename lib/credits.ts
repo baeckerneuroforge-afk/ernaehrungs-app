@@ -6,10 +6,11 @@ import { emailTemplates } from "@/lib/email-templates";
 export const CREDIT_COSTS = {
   chat_usage: 1, // Haiku (Free/Basis)
   chat_usage_premium: 2, // Sonnet (Premium/Admin) — bessere Qualität
-  chat_image: 2, // Chat mit Bild (Sonnet Vision) — Premium only
+  chat_image: 3, // Chat mit Bild (Opus 4.7 Vision) — Premium only
   plan_generation: 5,
-  review: 3,
-  foto_analysis: 2, // Sonnet Vision
+  review: 4, // Wochenreview (Opus 4.7)
+  foto_analysis: 3, // Opus 4.7 Vision
+  monthly_report: 7, // Monatsreport (Opus 4.7)
 } as const;
 
 // Credits granted per plan per month
@@ -42,6 +43,7 @@ export type CreditActionType =
   | "plan_generation"
   | "review"
   | "foto_analysis"
+  | "monthly_report"
   | "manual_adjustment"
   | "expiry_reset"
   | "refund";

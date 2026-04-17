@@ -325,7 +325,7 @@ export async function POST(request: Request) {
     });
 
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    const model = "claude-sonnet-4-6";
+    const model = "claude-opus-4-7";
     console.log("[foto-analyze] Calling Claude:", {
       model,
       mediaType,
@@ -333,7 +333,7 @@ export async function POST(request: Request) {
     });
     const response = await anthropic.messages.create({
       model,
-      max_tokens: 1000,
+      max_tokens: 1500,
       messages: [
         {
           role: "user",

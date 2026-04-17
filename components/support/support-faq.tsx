@@ -7,7 +7,7 @@ const FAQ_ITEMS: { question: string; answer: string }[] = [
   {
     question: "Wie funktioniert das Credit-System?",
     answer:
-      "Jede Chat-Nachricht kostet 1 Credit, ein kompletter Ernährungsplan 5 Credits und ein Wochenreview 3 Credits. Im Free-Plan bekommst du 15 Credits, im Basis-Plan 100 und im Premium-Plan 500 pro Monat. Ungenutzte Abo-Credits verfallen am Monatsende — zusätzlich gekaufte Top-up-Credits bleiben erhalten.",
+      "Jede Chat-Nachricht kostet 1 Credit, ein kompletter Ernährungsplan 5 Credits und ein Wochenreview 4 Credits. Im Free-Plan bekommst du 15 Credits, im Basis-Plan 100 und im Premium-Plan 500 pro Monat. Ungenutzte Abo-Credits verfallen am Monatsende — zusätzlich gekaufte Top-up-Credits bleiben erhalten.",
   },
   {
     question: "Wie kann ich mein Abo kündigen?",
