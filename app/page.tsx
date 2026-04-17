@@ -93,6 +93,7 @@ function HeroSection() {
   const videoContainerRef = useRef<HTMLDivElement>(null);
   const revealRef = useScrollReveal();
   const [videoFailed, setVideoFailed] = useState(false);
+  const [autoplayBlocked, setAutoplayBlocked] = useState(false);
 
   useEffect(() => {
     const el = videoContainerRef.current;
@@ -100,13 +101,26 @@ function HeroSection() {
     if (!el || !video) return;
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) video.play().catch(() => {});
+        if (entry.isIntersecting) {
+          const p = video.play();
+          if (p && typeof p.catch === "function") {
+            p.catch(() => setAutoplayBlocked(true));
+          }
+        }
       },
       { threshold: 0.3 }
     );
     observer.observe(el);
     return () => observer.disconnect();
   }, [videoFailed]);
+
+  const handleManualPlay = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.play()
+      .then(() => setAutoplayBlocked(false))
+      .catch(() => {});
+  };
 
   return (
     <section className="relative min-h-[85vh] md:min-h-[90vh] flex items-center overflow-hidden dark:bg-[#1C1917]">
@@ -188,18 +202,41 @@ function HeroSection() {
             className="anim-scale-up delay-3 relative w-full max-w-5xl"
           >
             {!videoFailed ? (
-              <video
-                ref={videoRef}
-                src="/videos/nutriva-landing-hero-v2.mp4"
-                poster="/video-poster.svg"
-                preload="metadata"
-                autoPlay
-                muted
-                loop
-                playsInline
-                onError={() => setVideoFailed(true)}
-                className="w-full aspect-video object-cover rounded-2xl shadow-2xl border border-white/10"
-              />
+              <div className="relative">
+                <video
+                  ref={videoRef}
+                  src="/videos/nutriva-landing-hero-v2.mp4"
+                  poster="/video-poster.svg"
+                  preload="metadata"
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  controls={autoplayBlocked}
+                  onPlay={() => setAutoplayBlocked(false)}
+                  onError={() => setVideoFailed(true)}
+                  className="w-full aspect-video object-cover rounded-2xl shadow-2xl border border-white/10"
+                />
+                {autoplayBlocked && (
+                  <button
+                    type="button"
+                    onClick={handleManualPlay}
+                    aria-label="Video abspielen"
+                    className="absolute inset-0 flex items-center justify-center rounded-2xl bg-black/30 hover:bg-black/40 transition-colors"
+                  >
+                    <span className="flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white/95 shadow-2xl transition-transform hover:scale-105">
+                      <svg
+                        className="w-7 h-7 sm:w-8 sm:h-8 text-primary ml-1"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        aria-hidden
+                      >
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    </span>
+                  </button>
+                )}
+              </div>
             ) : (
               <div className="w-full aspect-video rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-[#F0F7EC]">
                 <HeroFallback />
@@ -1235,9 +1272,9 @@ function ChatGptComparisonSection() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* ChatGPT card */}
-          <div className="anim-fade-up delay-1 rounded-xl shadow-lg bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div className="bg-gray-200/70 dark:bg-gray-700/70 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="font-serif font-semibold text-xl text-gray-700 dark:text-gray-200">
+          <div className="anim-fade-up delay-1 rounded-xl shadow-lg bg-white dark:bg-surface-card border border-border dark:border-gray-700 overflow-hidden">
+            <div className="bg-surface-muted dark:bg-gray-700/70 px-6 py-4 border-b border-border dark:border-gray-700">
+              <h3 className="font-serif font-semibold text-xl text-warm-dark dark:text-gray-100">
                 ChatGPT
               </h3>
             </div>
@@ -1253,7 +1290,7 @@ function ChatGptComparisonSection() {
                       <AlertTriangle className="w-3 h-3 text-amber-600" strokeWidth={2.5} />
                     </div>
                   )}
-                  <span className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+                  <span className="text-sm text-warm-dark/80 dark:text-gray-300 leading-relaxed">
                     {p.text}
                   </span>
                 </li>

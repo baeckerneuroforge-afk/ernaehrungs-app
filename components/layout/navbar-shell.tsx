@@ -72,6 +72,16 @@ export function NavbarShell() {
     setMenuOpen(false);
   }, [pathname]);
 
+  // Close drawer on ESC key
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [menuOpen]);
+
   const navLinks: {
     href: string;
     label: string;
@@ -203,7 +213,7 @@ export function NavbarShell() {
                     </button>
                     {/* Mobile hamburger */}
                     <button
-                      className="md:hidden p-2 text-ink-muted cursor-pointer hover:text-ink transition"
+                      className="md:hidden p-3 w-11 h-11 flex items-center justify-center rounded-lg text-ink-muted cursor-pointer hover:text-ink hover:bg-surface-muted transition"
                       onClick={() => setMenuOpen(true)}
                       aria-label="Menü öffnen"
                     >
@@ -286,7 +296,7 @@ export function NavbarShell() {
                 >
                   <Icon className="w-[18px] h-[18px]" />
                   <span className="flex-1">{link.label}</span>
-                  {locked && <Lock className="w-3.5 h-3.5 text-ink-faint" />}
+                  {locked && <Lock className="w-3.5 h-3.5 text-amber-600" />}
                 </Link>
               );
             })}

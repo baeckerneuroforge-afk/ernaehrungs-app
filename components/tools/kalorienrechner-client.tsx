@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
+import { toast } from "sonner";
 import { GESCHLECHT, AKTIVITAET } from "@/types";
 import { Flame, Activity, Target, Check, Lock } from "lucide-react";
 import Link from "next/link";
@@ -207,14 +208,18 @@ export function KalorienrechnerClient({ prefill, gewichtsZiel, hasBasisOrHigher 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         console.error("[kalorienrechner] Save failed:", data);
-        setSaveError(data?.message || "Speichern fehlgeschlagen.");
+        const msg = data?.message || "Speichern fehlgeschlagen.";
+        setSaveError(msg);
+        toast.error(msg);
         return;
       }
       console.log("[kalorienrechner] Save success");
       setSaved(true);
+      toast.success("Kalorienziel gespeichert");
       setTimeout(() => setSaved(false), 2500);
     } catch {
       setSaveError("Ein Fehler ist aufgetreten. Bitte versuche es erneut.");
+      toast.error("Netzwerk-Fehler");
     } finally {
       setSaving(false);
     }
@@ -397,7 +402,7 @@ export function KalorienrechnerClient({ prefill, gewichtsZiel, hasBasisOrHigher 
       {/* Form */}
       <div className="bg-white rounded-2xl border border-gray-100 p-6">
         <h2 className="font-semibold text-gray-800 mb-4">Deine Daten</h2>
-        <div className="grid sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm text-gray-500 mb-1">Gewicht (kg)</label>
             <input
@@ -480,7 +485,7 @@ export function KalorienrechnerClient({ prefill, gewichtsZiel, hasBasisOrHigher 
           {hasBasisOrHigher ? (
             <div className="bg-white rounded-2xl border border-gray-100 p-6">
               <h2 className="font-semibold text-gray-800 mb-4">Deine Anpassung</h2>
-              <div className="grid sm:grid-cols-3 gap-2 mb-6">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-6">
                 {[
                   { value: -500, label: "Abnehmen", sub: "−500 kcal (empfohlen)" },
                   { value: 0, label: "Halten", sub: "±0 kcal" },
@@ -545,9 +550,9 @@ export function KalorienrechnerClient({ prefill, gewichtsZiel, hasBasisOrHigher 
             /* Gate overlay for free users */
             <div className="relative bg-white rounded-2xl border border-gray-100 p-6 overflow-hidden">
               {/* Blurred preview */}
-              <div className="pointer-events-none select-none blur-[2px] opacity-50" aria-hidden>
+              <div className="pointer-events-none select-none blur-[6px] opacity-40" aria-hidden>
                 <h2 className="font-semibold text-gray-800 mb-4">Deine Anpassung</h2>
-                <div className="grid sm:grid-cols-3 gap-2 mb-6">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-6">
                   {[
                     { label: "Abnehmen", sub: "−500 kcal (empfohlen)" },
                     { label: "Halten", sub: "±0 kcal" },

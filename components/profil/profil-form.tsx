@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import {
   ZIELE,
   ALLERGIEN,
@@ -150,7 +151,7 @@ export function ProfilForm({
     e.preventDefault();
     setSaving(true);
 
-    await fetch("/api/profile", {
+    const res = await fetch("/api/profile", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -170,7 +171,12 @@ export function ProfilForm({
     });
 
     setSaving(false);
-    setSaved(true);
+    if (res.ok) {
+      setSaved(true);
+      toast.success("Profil gespeichert");
+    } else {
+      toast.error("Speichern fehlgeschlagen");
+    }
 
     if (!existingProfile) {
       router.push("/chat");

@@ -55,7 +55,7 @@ export default async function BlogPage({
 
       {/* Posts Grid */}
       {!posts?.length ? (
-        <div className="text-center py-16 text-gray-400">
+        <div className="text-center py-16 text-ink-muted">
           <p className="text-sm">
             {searchParams.category
               ? `Keine Artikel in der Kategorie "${searchParams.category}" gefunden.`

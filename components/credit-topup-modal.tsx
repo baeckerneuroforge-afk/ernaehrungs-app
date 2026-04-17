@@ -80,23 +80,12 @@ export function CreditTopupModal({ open, onClose }: Props) {
                 key={pkg.key}
                 onClick={() => setSelected(pkg.key)}
                 disabled={loading !== null}
-                className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition text-left relative ${
+                className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition text-left ${
                   isSelected
                     ? "border-primary bg-primary-bg/30 shadow-sm"
                     : "border-gray-100 hover:border-primary/30 hover:bg-gray-50/50"
                 } ${loading !== null ? "opacity-70" : ""}`}
               >
-                {/* Badge */}
-                {pkg.badge && (
-                  <span className={`absolute -top-2.5 right-3 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                    pkg.badge === "Beliebt"
-                      ? "bg-amber-100 text-amber-700"
-                      : "bg-emerald-100 text-emerald-700"
-                  }`}>
-                    {pkg.badge}
-                  </span>
-                )}
-
                 {/* Radio indicator */}
                 <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
                   isSelected ? "border-primary" : "border-gray-300"
@@ -106,11 +95,21 @@ export function CreditTopupModal({ open, onClose }: Props) {
 
                 {/* Content */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-baseline gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-warm-dark text-base">{pkg.credits} Credits</span>
-                    <span className="text-[10px] text-warm-light">€{pkg.perCredit}/Credit</span>
+                    {pkg.badge && (
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                        pkg.badge === "Beliebt"
+                          ? "bg-amber-100 text-amber-700"
+                          : "bg-emerald-100 text-emerald-700"
+                      }`}>
+                        {pkg.badge}
+                      </span>
+                    )}
                   </div>
-                  <span className="text-xs text-warm-muted">{pkg.label}</span>
+                  <span className="text-xs text-warm-muted">
+                    {pkg.label} · €{pkg.perCredit}/Credit
+                  </span>
                 </div>
 
                 {/* Price */}
@@ -134,7 +133,7 @@ export function CreditTopupModal({ open, onClose }: Props) {
         </button>
 
         {errorMsg && (
-          <div className="mt-4 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+          <div className="mt-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
             {errorMsg}
           </div>
         )}

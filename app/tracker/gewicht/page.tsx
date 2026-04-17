@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { toast } from "sonner";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { WeightChart } from "@/components/tracker/weight-chart";
@@ -56,15 +57,23 @@ export default function GewichtPage() {
       setDatum(new Date().toISOString().split("T")[0]);
       setModalOpen(false);
       loadLogs();
+      toast.success("Gewicht eingetragen");
+    } else {
+      toast.error("Speichern fehlgeschlagen");
     }
     setSaving(false);
   }
 
   async function handleDelete(id: string) {
     setDeleting(id);
-    await fetch(`/api/tracker/gewicht/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/tracker/gewicht/${id}`, { method: "DELETE" });
     setDeleting(null);
     loadLogs();
+    if (res.ok) {
+      toast.success("Eintrag gelöscht");
+    } else {
+      toast.error("Löschen fehlgeschlagen");
+    }
   }
 
   const latest = logs.length > 0 ? logs[logs.length - 1] : null;
@@ -86,7 +95,7 @@ export default function GewichtPage() {
 
         {/* Stats */}
         {latest && (
-          <div className="grid grid-cols-3 gap-3 mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
             <div className="bg-white rounded-2xl border border-border p-4">
               <p className="text-xs text-ink-faint mb-1">Aktuell</p>
               <p className="text-xl font-serif text-ink">
@@ -136,8 +145,11 @@ export default function GewichtPage() {
         <div className="bg-white rounded-2xl border border-border p-5">
           <h3 className="font-serif text-lg text-ink mb-4">Verlauf</h3>
           {loading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="w-5 h-5 animate-spin text-ink-faint" />
+            <div className="flex flex-col items-center gap-2 py-8">
+              <Loader2 className="w-5 h-5 animate-spin text-primary" />
+              <p className="text-sm text-ink-muted">
+                Gewichte werden geladen …
+              </p>
             </div>
           ) : logs.length === 0 ? (
             <div className="text-center py-10">

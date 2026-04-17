@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { toast } from "sonner";
 import {
   ChevronDown,
   Clock,
@@ -248,9 +249,12 @@ export function PlanCreator({ onPlanGenerated, userPlan = "pro", calorieTarget }
 
       const planData: WeekPlanData = JSON.parse(jsonMatch[0]);
       onPlanGenerated(planData, params);
+      toast.success("Ernährungsplan erstellt");
     } catch (err) {
       console.error("Plan generation error:", err);
-      setError("Plan konnte nicht erstellt werden. Bitte versuche es erneut.");
+      const msg = "Plan konnte nicht erstellt werden. Bitte versuche es erneut.";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setGenerating(false);
     }
@@ -284,8 +288,9 @@ export function PlanCreator({ onPlanGenerated, userPlan = "pro", calorieTarget }
               >
                 {d} {d === 1 ? "Tag" : "Tage"}
                 {locked && (
-                  <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center shadow-sm">
-                    <Lock className="w-2.5 h-2.5 text-white" />
+                  <span className="absolute -top-2 -right-1 inline-flex items-center gap-0.5 text-[9px] font-semibold bg-amber-500 text-white px-1.5 py-0.5 rounded-full shadow-sm">
+                    <Lock className="w-2.5 h-2.5" />
+                    Premium
                   </span>
                 )}
               </button>

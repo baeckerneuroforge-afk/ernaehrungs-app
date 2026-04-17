@@ -187,7 +187,7 @@ export function BillingClient({
             : "border-border"
         }`}
       >
-        <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-2">
               <span
@@ -222,12 +222,12 @@ export function BillingClient({
             )}
           </div>
 
-          <div className="flex flex-col items-end gap-2">
+          <div className="flex flex-col sm:items-end gap-2 w-full sm:w-auto">
             {plan === "free" && (
               <button
                 onClick={() => handleUpgrade("pro")}
                 disabled={!!upgrading}
-                className="inline-flex items-center gap-1.5 bg-primary hover:bg-primary-hover text-white text-sm font-medium rounded-full px-5 py-2.5 transition disabled:opacity-60"
+                className="inline-flex items-center justify-center gap-1.5 bg-primary hover:bg-primary-hover text-white text-sm font-medium rounded-full px-5 py-2.5 transition disabled:opacity-60 w-full sm:w-auto"
               >
                 {upgrading === "pro" ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -241,7 +241,7 @@ export function BillingClient({
               <button
                 onClick={() => handleUpgrade("pro_plus")}
                 disabled={!!upgrading}
-                className="inline-flex items-center gap-1.5 bg-primary hover:bg-primary-hover text-white text-sm font-medium rounded-full px-5 py-2.5 transition disabled:opacity-60"
+                className="inline-flex items-center justify-center gap-1.5 bg-primary hover:bg-primary-hover text-white text-sm font-medium rounded-full px-5 py-2.5 transition disabled:opacity-60 w-full sm:w-auto"
               >
                 {upgrading === "pro_plus" ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -394,46 +394,81 @@ export function BillingClient({
       <div className="bg-white rounded-2xl border border-border shadow-card p-6 mb-6">
         <h3 className="font-serif text-lg text-ink mb-4">Zahlungshistorie</h3>
         {loadingHistory ? (
-          <div className="text-sm text-ink-faint">Wird geladen …</div>
+          <div className="flex flex-col items-center gap-2 py-6">
+            <Loader2 className="w-5 h-5 animate-spin text-primary" />
+            <p className="text-sm text-ink-faint">Zahlungen werden geladen …</p>
+          </div>
         ) : history.length === 0 ? (
           <div className="text-sm text-ink-faint text-center py-6">
             Noch keine Transaktionen.
           </div>
         ) : (
-          <div className="overflow-x-auto -mx-6">
-            <table className="w-full text-sm min-w-[500px]">
-              <thead>
-                <tr className="text-xs text-ink-faint border-b border-border">
-                  <th className="text-left font-medium px-6 py-2">Datum</th>
-                  <th className="text-left font-medium px-6 py-2">
-                    Beschreibung
-                  </th>
-                  <th className="text-right font-medium px-6 py-2">Credits</th>
-                </tr>
-              </thead>
-              <tbody>
-                {history.map((tx) => (
-                  <tr
-                    key={tx.id}
-                    className="border-b border-border last:border-b-0"
-                  >
-                    <td className="px-6 py-3 text-ink-muted whitespace-nowrap">
-                      {fmtDate(tx.created_at)}
-                    </td>
-                    <td className="px-6 py-3 text-ink">
-                      {tx.description ||
-                        (tx.type === "subscription_grant"
-                          ? "Abo-Credits"
-                          : "Top-Up")}
-                    </td>
-                    <td className="px-6 py-3 text-right font-medium text-primary whitespace-nowrap">
-                      +{tx.amount}
-                    </td>
+          <>
+            {/* Desktop: Tabelle */}
+            <div className="hidden md:block overflow-x-auto -mx-6">
+              <table className="w-full text-sm min-w-[500px]">
+                <thead>
+                  <tr className="text-xs text-ink-faint border-b border-border">
+                    <th className="text-left font-medium px-6 py-2">Datum</th>
+                    <th className="text-left font-medium px-6 py-2">
+                      Beschreibung
+                    </th>
+                    <th className="text-right font-medium px-6 py-2">
+                      Credits
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {history.map((tx) => (
+                    <tr
+                      key={tx.id}
+                      className="border-b border-border last:border-b-0"
+                    >
+                      <td className="px-6 py-3 text-ink-muted whitespace-nowrap">
+                        {fmtDate(tx.created_at)}
+                      </td>
+                      <td className="px-6 py-3 text-ink">
+                        {tx.description ||
+                          (tx.type === "subscription_grant"
+                            ? "Abo-Credits"
+                            : "Top-Up")}
+                      </td>
+                      <td className="px-6 py-3 text-right font-medium text-primary whitespace-nowrap">
+                        +{tx.amount}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile: Cards */}
+            <div className="md:hidden space-y-2">
+              {history.map((tx) => (
+                <div
+                  key={tx.id}
+                  className="bg-surface-muted rounded-lg p-3 border border-border"
+                >
+                  <div className="flex justify-between items-start gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-sm text-ink truncate">
+                        {tx.description ||
+                          (tx.type === "subscription_grant"
+                            ? "Abo-Credits"
+                            : "Top-Up")}
+                      </p>
+                      <p className="text-xs text-ink-faint mt-0.5">
+                        {fmtDate(tx.created_at)}
+                      </p>
+                    </div>
+                    <p className="font-semibold text-primary whitespace-nowrap">
+                      +{tx.amount}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
 

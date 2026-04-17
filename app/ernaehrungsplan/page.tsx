@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { toast } from "sonner";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { PlanCreator } from "@/components/meal-plan/plan-creator";
@@ -89,10 +90,15 @@ export default function ErnaehrungsplanPage() {
 
   async function handleDelete(id: string) {
     setDeleting(id);
-    await fetch(`/api/ernaehrungsplan/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/ernaehrungsplan/${id}`, { method: "DELETE" });
     setDeleting(null);
     if (activePlan?.id === id) setActivePlan(null);
     loadPlans();
+    if (res.ok) {
+      toast.success("Plan gelöscht");
+    } else {
+      toast.error("Löschen fehlgeschlagen");
+    }
   }
 
   async function handleLoadPlan(plan: SavedPlan) {
@@ -205,12 +211,15 @@ export default function ErnaehrungsplanPage() {
 
         {/* Saved Plans */}
         <div className="bg-white rounded-2xl border border-warm-border p-5">
-          <h3 className="font-semibold text-warm-dark text-sm mb-4">
+          <h3 className="font-semibold text-warm-dark text-base mb-4">
             Gespeicherte Pläne ({plans.length})
           </h3>
           {loading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="w-5 h-5 animate-spin text-warm-light" />
+            <div className="flex flex-col items-center gap-2 py-8">
+              <Loader2 className="w-5 h-5 animate-spin text-primary" />
+              <p className="text-sm text-ink-muted">
+                Deine Pläne werden geladen …
+              </p>
             </div>
           ) : plans.length === 0 ? (
             <div className="text-center py-8 text-warm-light">

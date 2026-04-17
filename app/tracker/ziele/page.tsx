@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { toast } from "sonner";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Ziel } from "@/types";
@@ -79,12 +80,15 @@ export default function ZielePage() {
       setZieldatum("");
       setShowForm(false);
       loadData();
+      toast.success("Ziel erstellt");
+    } else {
+      toast.error("Speichern fehlgeschlagen");
     }
     setSaving(false);
   }
 
   async function handleToggle(ziel: Ziel) {
-    await fetch(`/api/tracker/ziele/${ziel.id}`, {
+    const res = await fetch(`/api/tracker/ziele/${ziel.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -95,13 +99,21 @@ export default function ZielePage() {
       }),
     });
     loadData();
+    if (res.ok && !ziel.erreicht) {
+      toast.success("Ziel erreicht! 🎉");
+    }
   }
 
   async function handleDelete(id: string) {
     setDeleting(id);
-    await fetch(`/api/tracker/ziele/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/tracker/ziele/${id}`, { method: "DELETE" });
     setDeleting(null);
     loadData();
+    if (res.ok) {
+      toast.success("Ziel gelöscht");
+    } else {
+      toast.error("Löschen fehlgeschlagen");
+    }
   }
 
   function getProgress(ziel: Ziel): number | null {
@@ -237,7 +249,7 @@ export default function ZielePage() {
                   />
                 </div>
                 {typ === "custom" && (
-                  <div>
+                  <div className="col-span-2 sm:col-span-1">
                     <label className="text-xs text-ink-muted mb-1.5 block">
                       Einheit
                     </label>
@@ -294,19 +306,21 @@ export default function ZielePage() {
           </div>
         )}
 
-        <div className="flex items-start gap-2 text-sm text-ink-muted bg-surface-muted/60 border border-border rounded-xl px-4 py-3 mb-6">
-          <span>📊</span>
-          <span>
-            Dein Kalorienrechner zeigt dir dein empfohlenes Defizit.
-            Ab dem Basis-Plan kannst du es individuell anpassen.
-            <Link
-              href="/tools/kalorienrechner"
-              className="text-primary font-medium hover:underline ml-1"
-            >
-              Zum Kalorienrechner →
-            </Link>
-          </span>
-        </div>
+        {!lastSavedGewichtsZiel && (
+          <div className="flex items-start gap-2 text-sm text-ink-muted bg-surface-muted/60 border border-border rounded-xl px-4 py-3 mb-6">
+            <span>📊</span>
+            <span>
+              Dein Kalorienrechner zeigt dir dein empfohlenes Defizit.
+              Ab dem Basis-Plan kannst du es individuell anpassen.
+              <Link
+                href="/tools/kalorienrechner"
+                className="text-primary font-medium hover:underline ml-1"
+              >
+                Zum Kalorienrechner →
+              </Link>
+            </span>
+          </div>
+        )}
 
         {/* Active Goals */}
         <div className="mb-6">
@@ -315,17 +329,27 @@ export default function ZielePage() {
             <span className="text-ink-faint text-sm">({activeZiele.length})</span>
           </h3>
           {loading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="w-5 h-5 animate-spin text-ink-faint" />
+            <div className="flex flex-col items-center gap-2 py-8">
+              <Loader2 className="w-5 h-5 animate-spin text-primary" />
+              <p className="text-sm text-ink-muted">
+                Ziele werden geladen …
+              </p>
             </div>
           ) : activeZiele.length === 0 ? (
             <div className="bg-white rounded-2xl border border-border p-10 text-center">
               <div className="w-16 h-16 rounded-full bg-primary-pale flex items-center justify-center mx-auto mb-3">
                 <Target className="w-8 h-8 text-primary" />
               </div>
-              <p className="text-sm text-ink-muted">
+              <p className="text-sm text-ink-muted mb-4">
                 Noch keine Ziele gesetzt. Starte mit deinem ersten Ziel.
               </p>
+              <button
+                onClick={() => setShowForm(true)}
+                className="inline-flex items-center gap-1.5 bg-primary hover:bg-primary-hover text-white px-4 py-2 rounded-full text-sm font-medium transition"
+              >
+                <Plus className="w-4 h-4" />
+                Erstes Ziel erstellen
+              </button>
             </div>
           ) : (
             <div className="space-y-3">

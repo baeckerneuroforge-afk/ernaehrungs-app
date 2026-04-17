@@ -115,8 +115,29 @@ export default function HomePage() {
     return (
       <div className="min-h-screen flex flex-col bg-surface-bg">
         <Navbar />
-        <main className="flex-1 flex items-center justify-center">
-          <Loader2 className="w-6 h-6 animate-spin text-ink-faint" />
+        <main className="flex-1 max-w-2xl mx-auto px-4 sm:px-6 py-8 w-full space-y-6">
+          {/* Skeleton: Greeting */}
+          <div className="space-y-2 animate-pulse">
+            <div className="h-7 w-40 bg-surface-muted rounded" />
+            <div className="h-4 w-56 bg-surface-muted rounded" />
+          </div>
+          {/* Skeleton: Stats */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 animate-pulse">
+            <div className="h-20 bg-surface-muted rounded-2xl" />
+            <div className="h-20 bg-surface-muted rounded-2xl" />
+            <div className="h-20 bg-surface-muted rounded-2xl" />
+            <div className="h-20 bg-surface-muted rounded-2xl" />
+          </div>
+          {/* Skeleton: Quick Actions */}
+          <div className="grid grid-cols-2 gap-3 animate-pulse">
+            <div className="h-24 bg-surface-muted rounded-2xl" />
+            <div className="h-24 bg-surface-muted rounded-2xl" />
+            <div className="h-24 bg-surface-muted rounded-2xl" />
+            <div className="h-24 bg-surface-muted rounded-2xl" />
+          </div>
+          <p className="text-center text-xs text-ink-faint">
+            Dein Dashboard wird geladen …
+          </p>
         </main>
         <Footer />
       </div>
@@ -157,7 +178,7 @@ export default function HomePage() {
         </div>
 
         {/* 2. Quick Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <StatCard
             icon={<Scale className="w-4 h-4" />}
             label="Gewicht"
@@ -204,7 +225,30 @@ export default function HomePage() {
           />
         </div>
 
-        {/* 3. Goal Progress */}
+        {/* 3. Goal Progress — or CTA if no goal yet */}
+        {!data.gewichtsZiel?.zielwert && (
+          <Link
+            href="/tracker/ziele"
+            className="block bg-white rounded-2xl border border-dashed border-primary/40 p-5 hover:border-primary hover:bg-primary-pale/30 transition-all group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary-pale flex items-center justify-center">
+                <Target className="w-5 h-5 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-ink">
+                  Setz dir ein Ziel
+                </p>
+                <p className="text-xs text-ink-muted">
+                  Definiere dein Gewichtsziel für mehr Fokus.
+                </p>
+              </div>
+              <span className="text-xs text-primary font-medium whitespace-nowrap group-hover:translate-x-0.5 transition-transform">
+                Los →
+              </span>
+            </div>
+          </Link>
+        )}
         {data.gewichtsZiel?.zielwert && data.currentWeight && (
           <div className="bg-white rounded-2xl border border-border shadow-card p-5 space-y-3">
             <div className="flex items-center justify-between">

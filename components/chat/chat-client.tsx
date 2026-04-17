@@ -827,7 +827,7 @@ export function ChatClient({ userId, userName, initialPlan }: ChatClientProps) {
                     <img
                       src={pendingImage.dataUrl}
                       alt="Vorschau"
-                      className="w-20 h-20 object-cover rounded-xl border border-border shadow-card"
+                      className="w-24 h-24 sm:w-28 sm:h-28 object-cover rounded-xl border border-border shadow-card"
                     />
                     <button
                       onClick={() => setPendingImage(null)}
@@ -922,7 +922,7 @@ export function ChatClient({ userId, userName, initialPlan }: ChatClientProps) {
                   <button
                     onClick={handleSend}
                     disabled={(!input.trim() && !pendingImage) || isStreaming}
-                    className="absolute right-2 bottom-2 w-9 h-9 bg-primary text-white rounded-full flex items-center justify-center hover:bg-primary-hover transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed shadow-card"
+                    className="absolute right-2 bottom-2 w-9 h-9 bg-primary text-white rounded-full flex items-center justify-center hover:bg-primary-hover transition-all duration-200 disabled:opacity-50 disabled:bg-ink-faint disabled:cursor-not-allowed shadow-card"
                     aria-label="Senden"
                   >
                     <Send className="w-4 h-4" />

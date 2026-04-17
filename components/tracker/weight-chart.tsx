@@ -73,8 +73,8 @@ export function WeightChart({ data, targetMin, targetMax }: WeightChartProps) {
 
   return (
     <div className="bg-white rounded-2xl border border-border p-4 sm:p-5">
-      <ResponsiveContainer width="100%" height={280}>
-        <LineChart data={chartData} margin={{ top: 10, right: 16, left: -10, bottom: 0 }}>
+      <ResponsiveContainer width="100%" minWidth={280} height={280}>
+        <LineChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
           {hasRange && (
             <ReferenceArea
@@ -98,7 +98,7 @@ export function WeightChart({ data, targetMin, targetMax }: WeightChartProps) {
             fontSize={11}
             tickLine={false}
             axisLine={false}
-            width={40}
+            width={50}
             tickFormatter={(v) => `${v}`}
           />
           <Tooltip content={<CustomTooltip />} cursor={{ stroke: "#E5E7EB", strokeWidth: 1 }} />

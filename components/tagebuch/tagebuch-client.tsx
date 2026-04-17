@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { toast } from "sonner";
 import { FoodLog, MAHLZEIT_TYPEN } from "@/types";
 import {
   Plus,
@@ -412,6 +413,7 @@ export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
         });
         setEntries((prev) => [...prev, entry]);
         closeForm();
+        toast.success("Mahlzeit gespeichert");
         // Foto-Einträge: 5s lang Feedback-Leiste zeigen
         if (wasPhotoEntry && entry?.id) {
           setFeedbackPromptId(entry.id);
@@ -431,13 +433,14 @@ export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
         const errorData = await res
           .json()
           .catch(() => ({} as { error?: string }));
-        setSaveError(
-          errorData?.error || `Fehler beim Speichern (${res.status})`
-        );
+        const msg = errorData?.error || `Fehler beim Speichern (${res.status})`;
+        setSaveError(msg);
+        toast.error(msg);
         console.error("[tagebuch] Save failed:", res.status, errorData);
       }
     } catch (err) {
       setSaveError("Netzwerk-Fehler. Bitte prüfe deine Verbindung.");
+      toast.error("Netzwerk-Fehler");
       console.error("[tagebuch] Network error:", err);
     } finally {
       setSaving(false);
@@ -479,6 +482,9 @@ export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
     const res = await fetch(`/api/tagebuch/${id}`, { method: "DELETE" });
     if (res.ok) {
       setEntries((prev) => prev.filter((e) => e.id !== id));
+      toast.success("Eintrag gelöscht");
+    } else {
+      toast.error("Löschen fehlgeschlagen");
     }
   }
 
@@ -656,7 +662,7 @@ export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
                     key={entry.id}
                     type="button"
                     onClick={() => setLightboxEntry(entry)}
-                    className="shrink-0 w-20 h-20 rounded-xl overflow-hidden border border-stone-200 shadow-sm hover:shadow-card transition"
+                    className="shrink-0 w-24 h-24 rounded-xl overflow-hidden border border-stone-200 shadow-sm hover:shadow-card transition"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
@@ -1004,7 +1010,7 @@ export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-ink-muted mb-2">
                     Kalorien (optional)
@@ -1037,7 +1043,7 @@ export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
                   <span className="hidden group-open:inline">▾</span>
                   Makros hinzufügen (optional)
                 </summary>
-                <div className="grid grid-cols-3 gap-2 mt-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
                   <div>
                     <label className="block text-[10px] text-ink-faint mb-1">Protein (g)</label>
                     <input

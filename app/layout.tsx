@@ -4,6 +4,7 @@ import { deDE } from "@clerk/localizations";
 import { CookieBanner } from "@/components/cookie-banner";
 import { CreditWarning } from "@/components/credit-warning";
 import { PageTransition } from "@/components/layout/page-transition";
+import { Toaster } from "sonner";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -67,6 +68,16 @@ export default function RootLayout({
         <CreditWarning />
         <PageTransition>{children}</PageTransition>
         <CookieBanner />
+        <Toaster
+          position="top-center"
+          richColors
+          closeButton
+          toastOptions={{
+            style: {
+              fontFamily: "var(--font-sans)",
+            },
+          }}
+        />
         <script
           dangerouslySetInnerHTML={{
             __html: `if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js')}`,
