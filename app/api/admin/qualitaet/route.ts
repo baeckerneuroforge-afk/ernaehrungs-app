@@ -48,7 +48,7 @@ export async function GET() {
     .in("user_id", consentedUserIds)
     .order("created_at", { ascending: true });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) { console.error("[admin/qualitaet] db error:", error); return NextResponse.json({ error: "internal_error" }, { status: 500 }); }
 
   // Get all feedback
   const { data: feedbackRows } = await admin

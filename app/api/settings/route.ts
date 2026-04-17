@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { validateBody, settingsSchema } from "@/lib/validations";
+import { checkRateLimit, settingsLimiter } from "@/lib/rate-limit";
 
 type Theme = "light" | "dark" | "system";
 
@@ -45,6 +46,14 @@ export async function PUT(request: Request) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
   }
 
+  const rl = await checkRateLimit(settingsLimiter, userId);
+  if (!rl.success) {
+    return new Response(
+      JSON.stringify({ error: "rate_limited", message: "Zu viele Änderungen. Bitte warte kurz." }),
+      { status: 429, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
   const rawBody = await request.json();
   const validation = validateBody(settingsSchema, rawBody);
   if (!validation.success) {
@@ -85,7 +94,8 @@ export async function PUT(request: Request) {
     .eq("clerk_id", userId);
 
   if (error) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    console.error("[settings] db error:", error);
+    return new Response(JSON.stringify({ error: "internal_error" }), { status: 500 });
   }
 
   // Email preferences are read from ea_users at send-time by the cron jobs

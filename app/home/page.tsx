@@ -13,7 +13,6 @@ import {
   BookOpen,
   ClipboardList,
   Calculator,
-  Loader2,
   TrendingDown,
   Target,
   Upload,

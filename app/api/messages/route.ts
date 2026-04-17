@@ -4,8 +4,13 @@ import { hasFeatureAccess, getUpgradeMessage } from "@/lib/feature-gates";
 import { getUserPlan } from "@/lib/feature-gates-server";
 import { checkRateLimit, messagesLimiter } from "@/lib/rate-limit";
 import { NextResponse } from "next/server";
+import { z } from "zod";
 
 const RATE_LIMIT_MSG = "Zu viele Anfragen. Bitte warte einen Moment.";
+
+const messageSchema = z.object({
+  content: z.string().min(1).max(4000),
+});
 
 // GET: user fetches their own messages + replies
 export async function GET() {
@@ -26,7 +31,13 @@ export async function GET() {
     .order("created_at", { ascending: false })
     .limit(20);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[messages] GET db error:", error);
+    return NextResponse.json(
+      { error: "internal_error", message: "Nachrichten konnten nicht geladen werden." },
+      { status: 500 }
+    );
+  }
   return NextResponse.json(data || []);
 }
 
@@ -54,18 +65,33 @@ export async function POST(request: Request) {
     );
   }
 
-  const supabase = createSupabaseAdmin();
-
-  const { content } = await request.json();
-  if (!content?.trim()) {
-    return NextResponse.json({ error: "Nachricht darf nicht leer sein" }, { status: 400 });
+  let rawBody: unknown;
+  try {
+    rawBody = await request.json();
+  } catch {
+    return NextResponse.json({ error: "invalid_json" }, { status: 400 });
   }
+  const parsed = messageSchema.safeParse(rawBody);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "invalid_input", message: "Nachricht muss zwischen 1 und 4000 Zeichen lang sein." },
+      { status: 400 }
+    );
+  }
+
+  const supabase = createSupabaseAdmin();
 
   const { error } = await supabase.from("ea_messages").insert({
     user_id: userId,
-    content: content.trim(),
+    content: parsed.data.content.trim(),
   });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[messages] POST db error:", error);
+    return NextResponse.json(
+      { error: "internal_error", message: "Nachricht konnte nicht gesendet werden." },
+      { status: 500 }
+    );
+  }
   return NextResponse.json({ success: true });
 }

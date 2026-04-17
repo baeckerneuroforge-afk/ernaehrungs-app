@@ -88,6 +88,10 @@ export async function POST() {
     "ea_ziele",
     "ea_credit_transactions",
     "ea_feedback",
+    "ea_monthly_reports",
+    "ea_support_tickets",
+    "ea_admin_audit_log",
+    "ea_onboarding_tour",
     "ea_profiles",
   ] as const;
 

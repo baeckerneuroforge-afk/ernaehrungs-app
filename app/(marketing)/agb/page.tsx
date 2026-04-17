@@ -44,7 +44,25 @@ export default function AgbPage() {
               </p>
             </Section>
 
-            <Section title="§ 2 Leistungsbeschreibung">
+            <Section title="§ 2 Mindestalter und Geschäftsfähigkeit">
+              <p>
+                Die Nutzung von Nutriva-AI ist ab 16 Jahren erlaubt.
+                Jugendliche zwischen 13 und 15 Jahren benötigen die
+                ausdrückliche Zustimmung der Erziehungsberechtigten (Art. 8
+                DSGVO). Nutzer unter 13 Jahren dürfen unsere Dienste nicht
+                verwenden.
+              </p>
+              <p className="mt-2">
+                Mit der Registrierung bestätigt der Nutzer, das
+                Mindestalter erreicht zu haben bzw. die erforderliche
+                elterliche Zustimmung einzuholen. Kostenpflichtige Abonnements
+                dürfen nur von Personen mit unbeschränkter Geschäftsfähigkeit
+                (i.d.R. ab 18 Jahren) oder mit Zustimmung der gesetzlichen
+                Vertreter abgeschlossen werden.
+              </p>
+            </Section>
+
+            <Section title="§ 3 Leistungsbeschreibung">
               <p>
                 Die App bietet KI-gestützte Ernährungsberatung auf Basis einer
                 von einer studierten Ernährungswissenschaftlerin kuratierten
@@ -62,7 +80,7 @@ export default function AgbPage() {
               </ul>
             </Section>
 
-            <Section title="§ 3 Keine medizinische Beratung">
+            <Section title="§ 4 Keine medizinische Beratung">
               <p>
                 Die App bietet keine medizinische Beratung, Diagnose oder
                 Therapie. Die KI-gestützten Empfehlungen ersetzen nicht die
@@ -75,7 +93,7 @@ export default function AgbPage() {
               </p>
             </Section>
 
-            <Section title="§ 4 Credit-System">
+            <Section title="§ 5 Credit-System">
               <p>Die App nutzt ein Credit-basiertes Nutzungssystem:</p>
               <ul className="list-disc pl-5 space-y-1 mt-2">
                 <li>
@@ -95,7 +113,7 @@ export default function AgbPage() {
               </ul>
             </Section>
 
-            <Section title="§ 5 Abonnement und Kündigung">
+            <Section title="§ 6 Abonnement und Kündigung">
               <ul className="list-disc pl-5 space-y-2">
                 <li>
                   Abonnements werden monatlich abgerechnet und verlängern sich
@@ -127,7 +145,7 @@ export default function AgbPage() {
               </ul>
             </Section>
 
-            <Section title="§ 6 Widerrufsrecht">
+            <Section title="§ 7 Widerrufsrecht">
               <p>
                 Als Verbraucher haben Sie das Recht, binnen vierzehn Tagen ohne
                 Angabe von Gründen diesen Vertrag zu widerrufen. Die
@@ -146,7 +164,7 @@ export default function AgbPage() {
               </p>
             </Section>
 
-            <Section title="§ 7 Verfügbarkeit">
+            <Section title="§ 8 Verfügbarkeit">
               <p>
                 Der Betreiber bemüht sich um eine möglichst unterbrechungsfreie
                 Verfügbarkeit der App. Ein Anspruch auf ständige Verfügbarkeit
@@ -155,7 +173,7 @@ export default function AgbPage() {
               </p>
             </Section>
 
-            <Section title="§ 8 Haftungsbeschränkung">
+            <Section title="§ 9 Haftungsbeschränkung">
               <p>
                 Der Betreiber haftet unbeschränkt für Vorsatz und grobe
                 Fahrlässigkeit. Für leichte Fahrlässigkeit haftet der Betreiber
@@ -168,7 +186,7 @@ export default function AgbPage() {
               </p>
             </Section>
 
-            <Section title="§ 9 Datenschutz">
+            <Section title="§ 10 Datenschutz">
               <p>
                 Die Erhebung und Verarbeitung personenbezogener Daten erfolgt
                 gemäß unserer{" "}
@@ -179,7 +197,7 @@ export default function AgbPage() {
               </p>
             </Section>
 
-            <Section title="§ 10 Änderungen der Nutzungsbedingungen">
+            <Section title="§ 11 Änderungen der Nutzungsbedingungen">
               <p>
                 Der Betreiber behält sich vor, diese Nutzungsbedingungen mit
                 angemessener Ankündigungsfrist zu ändern. Nutzer werden per
@@ -188,7 +206,7 @@ export default function AgbPage() {
               </p>
             </Section>
 
-            <Section title="§ 11 Schlussbestimmungen">
+            <Section title="§ 12 Schlussbestimmungen">
               <p>
                 Es gilt das Recht der Bundesrepublik Deutschland. Ist der Nutzer
                 Verbraucher, gelten zusätzlich die zwingenden

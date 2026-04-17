@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
+import { hasKiConsent } from "@/lib/consent";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -13,9 +14,15 @@ export const maxDuration = 300;
  * based on their last week's data, then sends via email.
  */
 export async function GET(request: Request) {
-  const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  if (!cronSecret) {
+    return NextResponse.json(
+      { error: "CRON_SECRET not configured" },
+      { status: 500 }
+    );
+  }
+  const authHeader = request.headers.get("authorization");
+  if (authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -33,11 +40,18 @@ export async function GET(request: Request) {
 
   let sent = 0;
   let failed = 0;
+  let skippedNoConsent = 0;
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
   for (const user of premiumUsers) {
     try {
       const userId = user.clerk_id;
+
+      // DSGVO: User könnte Consent zwischen Subscription-Aktivierung und Cron-Lauf widerrufen haben.
+      if (!(await hasKiConsent(supabase, userId))) {
+        skippedNoConsent++;
+        continue;
+      }
 
       const [profileRes, foodRes, weightRes, goalsRes] = await Promise.all([
         supabase
@@ -115,5 +129,5 @@ ${JSON.stringify(goals)}`,
     }
   }
 
-  return NextResponse.json({ ok: true, sent, failed });
+  return NextResponse.json({ ok: true, sent, failed, skippedNoConsent });
 }

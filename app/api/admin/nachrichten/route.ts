@@ -33,7 +33,7 @@ export async function GET() {
     .select("id, user_id, content, admin_reply, replied_at, is_read, created_at")
     .order("created_at", { ascending: false });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) { console.error("[admin/nachrichten] db error:", error); return NextResponse.json({ error: "internal_error" }, { status: 500 }); }
 
   // Fetch user names from profiles
   const userIds = Array.from(new Set((messages || []).map((m) => m.user_id)));
@@ -81,7 +81,7 @@ export async function PATCH(request: Request) {
     })
     .eq("id", id);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) { console.error("[admin/nachrichten] db error:", error); return NextResponse.json({ error: "internal_error" }, { status: 500 }); }
   return NextResponse.json({ success: true });
 }
 

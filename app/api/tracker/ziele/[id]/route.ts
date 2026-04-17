@@ -29,7 +29,7 @@ export async function PATCH(
     .select()
     .limit(1);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) { console.error("[tracker/ziele/:id] db error:", error); return NextResponse.json({ error: "internal_error" }, { status: 500 }); }
   return NextResponse.json(data?.[0]);
 }
 
@@ -53,6 +53,6 @@ export async function DELETE(
     .eq("id", params.id)
     .eq("user_id", userId);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) { console.error("[tracker/ziele/:id] db error:", error); return NextResponse.json({ error: "internal_error" }, { status: 500 }); }
   return NextResponse.json({ success: true });
 }

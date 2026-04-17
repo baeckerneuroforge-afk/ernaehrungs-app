@@ -1,21 +1,35 @@
 import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { z } from "zod";
+
+const saveSchema = z.object({
+  session_id: z.string().min(1).max(128),
+  user_message: z.string().min(1).max(20000),
+  assistant_message: z.string().min(1).max(20000),
+});
 
 export async function POST(request: Request) {
   try {
-    const { session_id, user_message, assistant_message } =
-      await request.json();
-
-    if (!session_id || !user_message || !assistant_message) {
-      return NextResponse.json({ error: "Missing fields" }, { status: 400 });
-    }
-
     const { userId } = await auth();
-
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    let rawBody: unknown;
+    try {
+      rawBody = await request.json();
+    } catch {
+      return NextResponse.json({ error: "invalid_json" }, { status: 400 });
+    }
+    const parsed = saveSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "invalid_input", message: "Ungültiger Request-Body." },
+        { status: 400 }
+      );
+    }
+    const { session_id, user_message, assistant_message } = parsed.data;
 
     const supabase = createSupabaseAdmin();
 
@@ -36,13 +50,19 @@ export async function POST(request: Request) {
     ]);
 
     if (error) {
-      console.error("Save conversation error:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("[chat/save] db error:", error);
+      return NextResponse.json(
+        { error: "internal_error", message: "Nachricht konnte nicht gespeichert werden." },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Chat save error:", error);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    console.error("[chat/save] unexpected error:", error);
+    return NextResponse.json(
+      { error: "internal_error" },
+      { status: 500 }
+    );
   }
 }

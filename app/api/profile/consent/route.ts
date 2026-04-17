@@ -53,7 +53,7 @@ export async function POST(request: Request) {
       hint: error.hint,
       clerk_id: userId,
     });
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "internal_error", message: "Einwilligung konnte nicht gespeichert werden." }, { status: 500 });
   }
   return NextResponse.json({ success: true });
 }

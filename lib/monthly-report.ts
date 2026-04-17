@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
+import { hasKiConsent } from "@/lib/consent";
 
 export type MonthlyReportData = {
   summary: string;
@@ -304,6 +305,8 @@ Antworte AUSSCHLIESSLICH als gültiges JSON ohne Markdown-Codeblock:
 export async function runMonthlyReportsForAllPremium(month: string): Promise<{
   processed: number;
   failed: number;
+  skippedNoConsent: number;
+  skippedAlreadyExists: number;
 }> {
   const supabase = createSupabaseAdmin();
 
@@ -314,7 +317,7 @@ export async function runMonthlyReportsForAllPremium(month: string): Promise<{
 
   if (error || !users) {
     console.error("Could not load premium users:", error);
-    return { processed: 0, failed: 0 };
+    return { processed: 0, failed: 0, skippedNoConsent: 0, skippedAlreadyExists: 0 };
   }
 
   // Format "2026-03" → "März 2026" for the email subject line.
@@ -327,9 +330,31 @@ export async function runMonthlyReportsForAllPremium(month: string): Promise<{
 
   let processed = 0;
   let failed = 0;
+  let skippedNoConsent = 0;
+  let skippedAlreadyExists = 0;
 
   for (const user of users) {
     try {
+      // DSGVO: Consent pro Lauf revalidieren — User könnte inzwischen widerrufen haben.
+      if (!(await hasKiConsent(supabase, user.clerk_id))) {
+        skippedNoConsent++;
+        continue;
+      }
+
+      // Idempotency: Falls bereits ein Report für (user, month) existiert, nicht neu generieren.
+      // Schützt gegen Doppel-Trigger von Vercel Cron oder manuellen Reruns.
+      const { data: existing } = await supabase
+        .from("ea_monthly_reports")
+        .select("id")
+        .eq("user_id", user.clerk_id)
+        .eq("month", month)
+        .maybeSingle();
+
+      if (existing) {
+        skippedAlreadyExists++;
+        continue;
+      }
+
       const report = await generateMonthlyReport(user.clerk_id, month, { isPremium: true });
       const { error: upsertError } = await supabase
         .from("ea_monthly_reports")
@@ -367,5 +392,5 @@ export async function runMonthlyReportsForAllPremium(month: string): Promise<{
     }
   }
 
-  return { processed, failed };
+  return { processed, failed, skippedNoConsent, skippedAlreadyExists };
 }

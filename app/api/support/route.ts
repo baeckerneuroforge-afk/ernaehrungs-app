@@ -3,6 +3,7 @@ import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import { validateBody, supportTicketSchema } from "@/lib/validations";
 import { sendEmail } from "@/lib/email";
+import { checkRateLimit, supportLimiter } from "@/lib/rate-limit";
 
 const ALLOWED_SUBJECTS = [
   "Technisches Problem",
@@ -18,6 +19,18 @@ const SUPPORT_EMAIL = "kontakt@nutriva-ai.de";
 export async function POST(request: Request) {
   try {
     const { userId } = await auth();
+
+    // Rate-Limit: User-ID wenn vorhanden, sonst IP (anonyme Tickets sind erlaubt).
+    const ipHeader = request.headers.get("x-forwarded-for") || "anon";
+    const rlKey = userId || `ip:${ipHeader.split(",")[0].trim()}`;
+    const rl = await checkRateLimit(supportLimiter, rlKey);
+    if (!rl.success) {
+      return NextResponse.json(
+        { error: "rate_limited", message: "Zu viele Tickets. Bitte warte eine Stunde." },
+        { status: 429 }
+      );
+    }
+
     const rawBody = await request.json();
     const validation = validateBody(supportTicketSchema, rawBody);
     if (!validation.success) {

@@ -2,6 +2,15 @@ import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import { checkRateLimit, feedbackLimiter } from "@/lib/rate-limit";
+import { z } from "zod";
+
+const feedbackSchema = z.object({
+  session_id: z.string().min(1).max(128),
+  rating: z.number().int().refine((v) => v === 1 || v === -1, {
+    message: "rating must be 1 or -1",
+  }),
+  comment: z.string().max(2000).optional(),
+});
 
 export async function POST(request: Request) {
   const { userId } = await auth();
@@ -15,12 +24,22 @@ export async function POST(request: Request) {
     );
   }
 
-  const supabase = createSupabaseAdmin();
-
-  const { session_id, rating, comment } = await request.json();
-  if (!session_id || !rating || ![1, -1].includes(Number(rating))) {
-    return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+  let rawBody: unknown;
+  try {
+    rawBody = await request.json();
+  } catch {
+    return NextResponse.json({ error: "invalid_json" }, { status: 400 });
   }
+  const parsed = feedbackSchema.safeParse(rawBody);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "invalid_input", message: "Ungültige Feedback-Daten." },
+      { status: 400 }
+    );
+  }
+  const { session_id, rating, comment } = parsed.data;
+
+  const supabase = createSupabaseAdmin();
 
   const { data: existing } = await supabase
     .from("ea_feedback")
@@ -36,10 +55,16 @@ export async function POST(request: Request) {
   const { error } = await supabase.from("ea_feedback").insert({
     session_id,
     user_id: userId,
-    rating: Number(rating),
+    rating,
     comment: comment?.trim() || null,
   });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[feedback] db error:", error);
+    return NextResponse.json(
+      { error: "internal_error", message: "Feedback konnte nicht gespeichert werden." },
+      { status: 500 }
+    );
+  }
   return NextResponse.json({ success: true });
 }

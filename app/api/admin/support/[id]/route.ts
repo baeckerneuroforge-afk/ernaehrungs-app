@@ -57,7 +57,8 @@ export async function PATCH(
     .limit(1);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[admin/support/:id] db error:", error);
+    return NextResponse.json({ error: "internal_error" }, { status: 500 });
   }
 
   await logAdminAction({

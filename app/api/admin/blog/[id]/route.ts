@@ -32,7 +32,7 @@ export async function GET(
     .eq("id", params.id)
     .limit(1);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) { console.error("[admin/blog/:id] db error:", error); return NextResponse.json({ error: "internal_error" }, { status: 500 }); }
   if (!data?.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({ post: data[0] });
 }
@@ -64,7 +64,7 @@ export async function PUT(
     .select()
     .limit(1);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) { console.error("[admin/blog/:id] db error:", error); return NextResponse.json({ error: "internal_error" }, { status: 500 }); }
 
   await logAdminAction({
     adminId: adminUserId,
@@ -105,7 +105,7 @@ export async function DELETE(
     .delete()
     .eq("id", params.id);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) { console.error("[admin/blog/:id] db error:", error); return NextResponse.json({ error: "internal_error" }, { status: 500 }); }
 
   await logAdminAction({
     adminId: adminUserId,

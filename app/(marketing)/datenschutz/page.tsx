@@ -163,7 +163,44 @@ export default function DatenschutzPage() {
                   <strong>Vercel (USA):</strong> Hosting. Speichert
                   Request-Logs. EU-Standardvertragsklauseln.
                 </li>
+                <li>
+                  <strong>Upstash (USA):</strong> Redis-basiertes Rate-Limiting
+                  zum Schutz vor Missbrauch. Gespeichert werden ausschließlich
+                  die User-ID und Zeitstempel der Anfragen für maximal 24
+                  Stunden. Rechtsgrundlage: Art. 6 Abs. 1 lit. f DSGVO
+                  (berechtigtes Interesse an Missbrauchsschutz).
+                  EU-Standardvertragsklauseln.
+                </li>
+                <li>
+                  <strong>Sentry (Functional Software, Inc., USA):</strong>{" "}
+                  Error-Monitoring. Bei Fehlern werden technische Metadaten
+                  (Fehlertyp, Zeitstempel, betroffene Komponente, anonymisierte
+                  User-ID) übertragen — keine Inhalte deiner Ernährungsdaten,
+                  Nachrichten oder Fotos. Rechtsgrundlage: Art. 6 Abs. 1 lit. f
+                  DSGVO (berechtigtes Interesse an Stabilität und
+                  Sicherheit der App). EU-Standardvertragsklauseln.
+                </li>
               </ul>
+              <p className="mt-4 text-sm text-ink-muted">
+                <strong>Auftragsverarbeitung (Art. 28 DSGVO):</strong> Mit allen
+                Dienstleistern, die personenbezogene Daten in unserem Auftrag
+                verarbeiten, haben wir Auftragsverarbeitungsverträge nach
+                Art. 28 DSGVO abgeschlossen. Dies betrifft insbesondere Clerk,
+                Supabase, Anthropic, OpenAI, Vercel, Stripe, Resend, Upstash
+                und Sentry.
+              </p>
+            </Section>
+
+            <Section title="Minderjährige">
+              <p>
+                Unsere Dienste richten sich an Personen ab 16 Jahren. Für
+                Nutzer zwischen 13 und 15 Jahren ist die Einwilligung der
+                Erziehungsberechtigten erforderlich (Art. 8 DSGVO). Nutzer
+                unter 13 Jahren dürfen Nutriva-AI nicht nutzen. Sollten wir
+                Kenntnis davon erlangen, dass ein Konto ohne erforderliche
+                Einwilligung von einem Kind unter 16 Jahren angelegt wurde,
+                löschen wir es unverzüglich.
+              </p>
             </Section>
 
             <Section title="Speicherdauer">

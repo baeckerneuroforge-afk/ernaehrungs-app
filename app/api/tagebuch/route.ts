@@ -18,7 +18,14 @@ export async function GET(request: Request) {
   const supabase = createSupabaseAdmin();
 
   const url = new URL(request.url);
-  const datum = url.searchParams.get("datum") || new Date().toISOString().split("T")[0];
+  const datumParam = url.searchParams.get("datum");
+  if (datumParam && !/^\d{4}-\d{2}-\d{2}$/.test(datumParam)) {
+    return NextResponse.json(
+      { error: "invalid_date", message: "Datum muss im Format YYYY-MM-DD sein." },
+      { status: 400 }
+    );
+  }
+  const datum = datumParam || new Date().toISOString().split("T")[0];
 
   const { data, error } = await supabase
     .from("ea_food_log")
@@ -27,7 +34,13 @@ export async function GET(request: Request) {
     .eq("datum", datum)
     .order("created_at", { ascending: true });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[tagebuch] GET db error:", error);
+    return NextResponse.json(
+      { error: "internal_error", message: "Einträge konnten nicht geladen werden." },
+      { status: 500 }
+    );
+  }
   return NextResponse.json(data || []);
 }
 
@@ -74,7 +87,10 @@ export async function POST(request: Request) {
 
   if (error) {
     console.error("[api/tagebuch POST] insert failed:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: "internal_error", message: "Eintrag konnte nicht gespeichert werden." },
+      { status: 500 }
+    );
   }
   if (!data?.id) {
     console.error("[api/tagebuch POST] insert returned no id:", data);

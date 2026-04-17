@@ -1,6 +1,8 @@
 import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { loadUserBehaviorContext } from "@/lib/utils/user-context";
+import { hasKiConsent, KI_CONSENT_MISSING_RESPONSE } from "@/lib/consent";
+import { quoteField, sanitizeForPrompt } from "@/lib/utils/prompt-safe";
 import Anthropic from "@anthropic-ai/sdk";
 
 const WOCHENCHECK_PROMPT = `Du bist eine warmherzige, fachlich fundierte Ernährungsberaterin. Du erstellst einen personalisierten Wochencheck basierend auf den echten Daten des Nutzers.
@@ -46,6 +48,14 @@ export async function POST(_request: Request) {
 
     const supabase = createSupabaseAdmin();
 
+    // DSGVO Art. 6/7 — Wochencheck nutzt Sonnet; ohne Einwilligung keine Verarbeitung.
+    if (!(await hasKiConsent(supabase, userId))) {
+      return new Response(JSON.stringify(KI_CONSENT_MISSING_RESPONSE), {
+        status: 403,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
     // Load profile + behavior context in parallel
     const [profileResult, behaviorContext] = await Promise.all([
       supabase
@@ -65,11 +75,11 @@ export async function POST(_request: Request) {
       if (p.geschlecht) profilParts.push(`Geschlecht: ${p.geschlecht}`);
       if (p.groesse_cm) profilParts.push(`Größe: ${p.groesse_cm} cm`);
       if (p.gewicht_kg) profilParts.push(`Gewicht: ${p.gewicht_kg} kg`);
-      if (p.ziel) profilParts.push(`Ziel: ${p.ziel}`);
+      if (p.ziel) profilParts.push(`Ziel: ${quoteField(p.ziel, 200)}`);
       if (p.allergien?.length)
         profilParts.push(`Allergien/Unverträglichkeiten: ${p.allergien.join(", ")}`);
-      if (p.ernaehrungsform) profilParts.push(`Ernährungsform: ${p.ernaehrungsform}`);
-      if (p.krankheiten) profilParts.push(`Besonderheiten: ${p.krankheiten}`);
+      if (p.ernaehrungsform) profilParts.push(`Ernährungsform: ${sanitizeForPrompt(p.ernaehrungsform, { maxLen: 100 })}`);
+      if (p.krankheiten) profilParts.push(`Besonderheiten: ${quoteField(p.krankheiten, 500)}`);
       if (p.aktivitaet) profilParts.push(`Aktivitätslevel: ${p.aktivitaet}`);
     }
 

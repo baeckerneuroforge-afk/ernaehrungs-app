@@ -3,6 +3,7 @@ import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { logAdminAction } from "@/lib/admin-audit";
 import { isAdminUser } from "@/lib/credits";
 import { validateBody, profileSchema } from "@/lib/validations";
+import { checkRateLimit, profileLimiter } from "@/lib/rate-limit";
 
 type SupabaseAdminClient = ReturnType<typeof createSupabaseAdmin>;
 
@@ -28,6 +29,14 @@ export async function POST(request: Request) {
   const { userId } = await auth();
   if (!userId) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+  }
+
+  const rl = await checkRateLimit(profileLimiter, userId);
+  if (!rl.success) {
+    return new Response(
+      JSON.stringify({ error: "rate_limited", message: "Zu viele Änderungen. Bitte warte kurz." }),
+      { status: 429, headers: { "Content-Type": "application/json" } }
+    );
   }
 
   const rawBody = await request.json();
@@ -246,7 +255,7 @@ export async function POST(request: Request) {
       details: error.details,
       hint: error.hint,
     });
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    return new Response(JSON.stringify({ error: "internal_error", message: "Profil konnte nicht gespeichert werden." }), { status: 500 });
   }
 
   return new Response(JSON.stringify({ ok: true }), {

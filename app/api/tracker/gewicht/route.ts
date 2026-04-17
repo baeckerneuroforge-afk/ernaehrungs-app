@@ -23,7 +23,7 @@ export async function GET() {
     .eq("user_id", userId)
     .order("gemessen_am", { ascending: true });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) { console.error("[tracker/gewicht] db error:", error); return NextResponse.json({ error: "internal_error" }, { status: 500 }); }
   return NextResponse.json(data);
 }
 
@@ -62,7 +62,7 @@ export async function POST(request: Request) {
     .select()
     .limit(1);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) { console.error("[tracker/gewicht] db error:", error); return NextResponse.json({ error: "internal_error" }, { status: 500 }); }
 
   // Sync profile.gewicht_kg to the most recent weight log so TDEE
   // calculations (Mifflin-St-Jeor) stay accurate as the user loses/gains.

@@ -11,8 +11,6 @@ import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { calculateTDEE } from "@/lib/tdee";
 import * as Sentry from "@sentry/nextjs";
 
-console.log("[foto-analyze] MODULE LOADED");
-
 // Node runtime für Buffer, randomUUID, und um Edge-Runtime-Limits
 // (wie z.B. das harte 4 MB Request-Body-Limit) zu vermeiden.
 export const runtime = "nodejs";
@@ -136,14 +134,14 @@ export async function POST(request: Request) {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) envMissing.push("NEXT_PUBLIC_SUPABASE_URL");
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) envMissing.push("SUPABASE_SERVICE_ROLE_KEY");
   if (envMissing.length) {
+    // Nur serverseitig loggen, welche Vars fehlen — Client bekommt generische Meldung.
     console.error("[foto-analyze] ENV VARS MISSING:", envMissing);
     return NextResponse.json(
       {
-        error: "server_misconfigured",
-        message: `Server-Config fehlt: ${envMissing.join(", ")}`,
-        missing: envMissing,
+        error: "service_unavailable",
+        message: "Der Foto-Service ist aktuell nicht verfügbar. Bitte später erneut versuchen.",
       },
-      { status: 500 }
+      { status: 503 }
     );
   }
 

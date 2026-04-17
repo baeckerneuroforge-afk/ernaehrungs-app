@@ -86,7 +86,7 @@ export async function POST(
       .update(updates)
       .eq("id", params.id);
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) { console.error("[admin/blog/:id/publish] db error:", error); return NextResponse.json({ error: "internal_error" }, { status: 500 }); }
 
     await logAdminAction({
       adminId: adminUserId,
@@ -108,7 +108,7 @@ export async function POST(
       })
       .eq("id", params.id);
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) { console.error("[admin/blog/:id/publish] db error:", error); return NextResponse.json({ error: "internal_error" }, { status: 500 }); }
 
     await logAdminAction({
       adminId: adminUserId,

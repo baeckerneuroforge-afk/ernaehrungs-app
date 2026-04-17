@@ -17,8 +17,14 @@ const isPublicRoute = createRouteMatcher([
 ]);
 
 export default function middleware(request: NextRequest, event: NextFetchEvent) {
-  // If Clerk keys are not configured, skip auth entirely
+  // Clerk keys MUST be configured in Production. Skipping auth would leave
+  // every protected API route wide open — treat as a server misconfiguration.
   if (!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || !process.env.CLERK_SECRET_KEY) {
+    if (process.env.NODE_ENV === "production") {
+      return new NextResponse("Server misconfigured", { status: 500 });
+    }
+    // Dev only: log loudly and skip so local tinkering still works.
+    console.warn("[middleware] Clerk keys missing — auth disabled (dev only)");
     return NextResponse.next();
   }
 

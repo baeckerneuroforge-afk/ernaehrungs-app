@@ -19,6 +19,12 @@ export async function GET(
     .eq("session_id", sessionId)
     .order("created_at", { ascending: true });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[chat/sessions/:id] db error:", error);
+    return NextResponse.json(
+      { error: "internal_error", message: "Session konnte nicht geladen werden." },
+      { status: 500 }
+    );
+  }
   return NextResponse.json(data || []);
 }

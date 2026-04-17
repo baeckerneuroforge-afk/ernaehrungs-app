@@ -35,7 +35,7 @@ export async function GET() {
     .select("id, title, slug, excerpt, category, status, in_wissensbasis, published_at, created_at, updated_at")
     .order("updated_at", { ascending: false });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) { console.error("[admin/blog] db error:", error); return NextResponse.json({ error: "internal_error" }, { status: 500 }); }
   return NextResponse.json({ posts: data || [] });
 }
 
@@ -81,7 +81,7 @@ export async function POST(request: Request) {
     .select()
     .limit(1);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) { console.error("[admin/blog] db error:", error); return NextResponse.json({ error: "internal_error" }, { status: 500 }); }
 
   await logAdminAction({
     adminId: adminUserId,

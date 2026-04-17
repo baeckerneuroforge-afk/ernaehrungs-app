@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { getUserPlan } from "@/lib/feature-gates-server";
 import { hasFeatureAccess } from "@/lib/feature-gates";
+import { hasKiConsent, KI_CONSENT_MISSING_RESPONSE } from "@/lib/consent";
 import { checkRateLimit, importLimiter } from "@/lib/rate-limit";
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
@@ -26,6 +27,12 @@ export async function POST(request: Request) {
       { error: "premium_required", message: "CSV-Import ist im Premium-Plan verfügbar." },
       { status: 403 }
     );
+  }
+
+  // DSGVO Art. 6/7 — CSV wird von Claude Haiku geparst; ohne Einwilligung keine Verarbeitung.
+  const supabaseForConsent = createSupabaseAdmin();
+  if (!(await hasKiConsent(supabaseForConsent, userId))) {
+    return NextResponse.json(KI_CONSENT_MISSING_RESPONSE, { status: 403 });
   }
 
   const rl = await checkRateLimit(importLimiter, userId);

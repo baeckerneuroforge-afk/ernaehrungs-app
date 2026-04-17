@@ -27,7 +27,8 @@ export async function POST(request: Request) {
     .eq("user_id", userId);
 
   if (error) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    console.error("[profile/tour-done] db error:", error);
+    return new Response(JSON.stringify({ error: "internal_error" }), { status: 500 });
   }
 
   return new Response(JSON.stringify({ ok: true, reset }), {
