@@ -1,32 +1,7 @@
 import { withSentryConfig } from "@sentry/nextjs";
 
-// Content Security Policy — erlaubt nur die Drittanbieter, die wir tatsächlich nutzen.
-// 'unsafe-inline' + 'unsafe-eval' im script-src sind nötig für Next.js' inline runtime
-// chunks, den theme-boot/sw-register snippet in app/layout.tsx, sowie Clerk's dynamic
-// component loading. Wichtige Allowlist-Einträge:
-//   - challenges.cloudflare.com: Clerk CAPTCHA (Cloudflare Turnstile) — ohne diese
-//     Entry bricht SignIn/SignUp und die Navbar-UserButton-Komponente.
-//   - va.vercel-scripts.com, vercel.live: Vercel Analytics + Preview-Toolbar.
-//   - clerk-telemetry.com: Clerk interne Metrics — sonst wirft Clerk-SDK Konsolen-
-//     Fehler, die in manchen Fällen den Render-Pfad blockieren.
-//   - worker-src blob:: Next.js + Clerk erzeugen blob-URL-basierte Web Workers.
-const csp = [
-  "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.clerk.com https://*.clerk.accounts.dev https://js.stripe.com https://*.vercel-scripts.com https://va.vercel-scripts.com https://vercel.live",
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-  "img-src 'self' data: blob: https:",
-  "font-src 'self' https://fonts.gstatic.com data:",
-  "connect-src 'self' https://*.clerk.com https://*.clerk.accounts.dev https://clerk-telemetry.com https://*.supabase.co https://*.supabase.in wss://*.supabase.co https://api.stripe.com https://*.sentry.io https://*.ingest.sentry.io https://*.upstash.io https://vitals.vercel-insights.com https://vercel.live https://api.anthropic.com",
-  "frame-src 'self' https://*.clerk.com https://*.clerk.accounts.dev https://js.stripe.com https://hooks.stripe.com https://challenges.cloudflare.com",
-  "worker-src 'self' blob:",
-  "media-src 'self' blob:",
-  "object-src 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-].join("; ");
-
+// CSP temporarily removed due to pre-launch blocking issues. Re-enable post-launch with proper debugging.
 const securityHeaders = [
-  { key: "Content-Security-Policy", value: csp },
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "X-Content-Type-Options", value: "nosniff" },
