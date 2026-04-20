@@ -587,17 +587,41 @@ export async function POST(request: Request) {
     // ---- Health-sensitive topic detection ----
     const healthCheck = detectHealthSensitive(message);
     const isHealthSensitive = healthCheck.sensitive;
-    // Threshold bleibt einheitlich bei 0.5 — die Extra-Vorsicht bei
-    // Gesundheitsthemen kommt über den System-Prompt, nicht über einen
-    // höheren Cutoff (der würde relevante Chunks bei 0.50–0.55 rauswerfen).
-    const healthMatchThreshold = 0.5;
+    // Threshold runter von 0.5 auf 0.4 — die embedding-Suche ist bei sehr
+    // allgemeinen Anfänger-Fragen ("wie fange ich an?") oft grenzwertig,
+    // wirft aber unterhalb 0.5 noch thematisch passende Chunks raus.
+    // Wir differenzieren jetzt nach 4 Stufen (high/medium/tentative/none)
+    // und tragen die Unsicherheit via System-Prompt statt via Cutoff.
+    const healthMatchThreshold = 0.4;
+
+    // ---- General-question detection ----
+    // Klassische "Wo fange ich an?"-Fragen haben keine Keywords, die
+    // embedding-Suche findet damit oft keinen Match, obwohl das Profil
+    // (Diabetes, Vegan, Abnehmen, etc.) reichhaltigen Kontext bietet.
+    // → Query vor der RAG-Suche mit Profil-Keywords anreichern und
+    //   gleichzeitig dem LLM signalisieren, dass es im "Beginner-Mode"
+    //   antworten darf (Basics + Tool-Verweise, auch ohne RAG-Treffer).
+    const isGeneralQuestion =
+      /\b(wie fang|wo anfang|womit anfang|worauf.+(acht|los)|erste schritte|am anfang|als anfänger|anfänger(in)?|neuanfang|neu hier|neustart|starte? ich|loslegen|beginner)\b/i.test(
+        message
+      );
+
+    const profileKeywords: string[] = [];
+    if (profile?.[0]) {
+      const p = profile[0];
+      if (p.krankheiten) profileKeywords.push(String(p.krankheiten));
+      if (p.ziel) profileKeywords.push(String(p.ziel));
+      if (p.ernaehrungsform) profileKeywords.push(String(p.ernaehrungsform));
+      if (p.allergien?.length) profileKeywords.push(p.allergien.join(" "));
+    }
 
     // ---- RAG: Vektor-Suche mit Follow-up-Kontext ----
     // Folgefragen wie "womit fange ich an?" enthalten keine Keywords.
     // Strategie: erst aktuelle Nachricht, bei <3 Treffern mit letzten User-
     // Nachrichten kombiniert nochmal suchen. Beste Treffer gewinnen.
     let knowledgeContext = "";
-    let ragConfidence: "high" | "low" | "none" = "none";
+    // 4-stufig: high (≥0.65), medium (0.50-0.65), tentative (0.40-0.50), none (<0.40)
+    let ragConfidence: "high" | "medium" | "tentative" | "none" = "none";
     let ragChunkCount = 0;
     let ragTopSources: string[] = [];
     let ragAvgSimilarity = 0;
@@ -630,6 +654,20 @@ export async function POST(request: Request) {
     try {
       let best = await runRagSearch(message);
 
+      // Profil-Enrichment zuerst probieren bei allgemeinen Anfänger-Fragen:
+      // "Wie fange ich an?" + Profil (Diabetes, vegan, Abnehmen) →
+      // Suche mit "Wie fange ich an Diabetes vegan Abnehmen" — trifft
+      // thematische Chunks dramatisch besser als die Rohfrage alleine.
+      if (isGeneralQuestion && profileKeywords.length > 0) {
+        const enrichedQuery = `${message} ${profileKeywords.join(" ")}`;
+        const enriched = await runRagSearch(enrichedQuery);
+        const enrichedBetter =
+          enriched.docs.length > best.docs.length ||
+          (enriched.docs.length === best.docs.length &&
+            enriched.avgSimilarity > best.avgSimilarity);
+        if (enrichedBetter) best = enriched;
+      }
+
       // Nicht genug Treffer → Folgefrage-Modus: mit User-Kontext neu suchen
       if (best.docs.length < 3) {
         const previousUserMessages = (history as { role: string; content: string }[])
@@ -653,7 +691,8 @@ export async function POST(request: Request) {
 
       if (best.docs.length > 0) {
         if (best.avgSimilarity >= 0.65) ragConfidence = "high";
-        else if (best.avgSimilarity >= healthMatchThreshold) ragConfidence = "low";
+        else if (best.avgSimilarity >= 0.5) ragConfidence = "medium";
+        else if (best.avgSimilarity >= healthMatchThreshold) ragConfidence = "tentative";
 
         knowledgeContext = best.docs
           .map(
@@ -681,9 +720,14 @@ export async function POST(request: Request) {
     });
 
     // ---- Fallback: Keine Wissensbasis-Treffer ----
-    // Nur hart ablehnen wenn es KEINE Vorgeschichte gibt. Bei Folgefragen
-    // darf die KI sich auf die bereits im Chat-Verlauf zitierten Fakten
-    // stützen — history enthält die vorherigen (grounded) Assistant-Antworten.
+    // Harter Block nur in wenigen, klar definierten Fällen.
+    // Die Regel "keine RAG-Chunks → keine Antwort" ist zu streng:
+    // Neue User mit Profil (z.B. Diabetes + vegan + Abnehmen) fragen oft
+    // "wie fange ich an?" — dazu findet die embedding-Suche selten Chunks
+    // mit similarity ≥ 0.5, obwohl das Profil reichhaltigen Kontext liefert.
+    // Solche Fragen werden jetzt vom LLM beantwortet (Beginner-Mode), mit
+    // Profil + allgemein anerkannten Basics. Medizinisch-sensible Themen
+    // bleiben strikt geblockt, weil dort keine "Basics" existieren.
     const hasConversationHistory =
       Array.isArray(history) &&
       history.some((h: { role: string }) => h.role === "assistant");
@@ -698,7 +742,11 @@ export async function POST(request: Request) {
           HEALTH_NO_KNOWLEDGE_RESPONSE(healthCheck.keyword ?? "diesem Thema"),
         );
       }
-      if (!hasConversationHistory) {
+      // Nicht-medizinische Anfänger-Fragen ("wie fange ich an?") dürfen
+      // durch — das LLM antwortet mit Profil + Basics (Beginner-Mode im
+      // System-Prompt). Auch bei Follow-ups geht's durch (alte Regel).
+      const hasProfileContext = !!profileContext;
+      if (!hasConversationHistory && !isGeneralQuestion && !hasProfileContext) {
         return streamStaticResponse(NO_KNOWLEDGE_RESPONSE);
       }
     }
@@ -730,16 +778,47 @@ export async function POST(request: Request) {
       fullSystemPrompt += `\n\nWISSENSBASIS:\n${knowledgeContext}`;
     }
 
-    if (ragConfidence === "low") {
-      fullSystemPrompt += `\n\n⚠️ ACHTUNG: Die Relevanz der gefundenen Dokumente ist NIEDRIG. Sei besonders vorsichtig. Wenn die Dokumente die Frage nicht direkt beantworten, sage ehrlich, dass du dazu keine ausreichenden Informationen hast. Erfinde NICHTS.`;
+    if (ragConfidence === "medium") {
+      fullSystemPrompt += `\n\n⚠️ Die Relevanz der gefundenen Dokumente ist mittel. Nutze sie als Orientierung, aber wenn sie die konkrete Frage nicht direkt beantworten, ergänze mit Profil-Kontext und allgemein anerkannten Ernährungs-Basics. Erfinde KEINE Studien, keine spezifischen Zahlen die nicht in den Chunks stehen.`;
+    } else if (ragConfidence === "tentative") {
+      fullSystemPrompt += `\n\n⚠️ Die Wissensbasis-Treffer sind nur thematisch angrenzend (niedrige Relevanz). Behandle sie als groben Kontext, nicht als verlässliche Quelle. Stütze deine Antwort primär auf User-Profil + allgemein anerkannte Basics. Verweise bei offenen spezifischen Fragen auf **Janine direkt** (Premium).`;
     }
 
     if (isHealthSensitive) {
-      if (ragConfidence === "low") {
+      if (ragConfidence === "medium" || ragConfidence === "tentative") {
         fullSystemPrompt += `\n\n⚠️ ACHTUNG — GESUNDHEITSSENSIBLES THEMA (${healthCheck.keyword}): Sei BESONDERS vorsichtig. Gib NUR Informationen die DIREKT in den Wissensbasis-Chunks stehen. Ergänze NICHTS aus eigenem Wissen. Wenn die Chunks das Thema nicht ausreichend abdecken, sage das ehrlich und verweise auf einen **Arzt**.`;
       } else if (ragConfidence === "high") {
         fullSystemPrompt += `\n\nHINWEIS — GESUNDHEITSSENSIBLES THEMA (${healthCheck.keyword}): Auch wenn die Wissensbasis Treffer liefert, betone am Ende der Antwort deutlich, dass individuelle Fragen zu diesem Thema immer mit einem **Arzt** oder einer Fachberatung geklärt werden sollten.`;
       }
+    }
+
+    // Beginner-Mode: allgemeine Einstiegsfrage ohne starke RAG-Treffer.
+    // Wird NUR aktiviert wenn die Frage nicht health-sensitive ist und ein
+    // Profil vorliegt — sonst greifen die strengeren Pfade oben.
+    if (
+      isGeneralQuestion &&
+      !isHealthSensitive &&
+      !!profileContext &&
+      (ragConfidence === "none" || ragConfidence === "tentative")
+    ) {
+      fullSystemPrompt += `\n\n🟢 BEGINNER-MODE — ALLGEMEINE EINSTIEGSFRAGE:
+Der User stellt eine sehr allgemeine "Wie fange ich an?"-Frage. Die Wissensbasis liefert dazu keine bis schwache direkte Treffer, aber du hast das Nutzerprofil (Ziel, Ernährungsform, ggf. Besonderheiten). Antworte HILFREICH und KONKRET.
+
+Regeln:
+- NUTZE das Profil als Anker: Ziel, Ernährungsform, Allergien, Besonderheiten fließen in jeden Schritt ein.
+- GIB 3–5 konkrete erste Schritte, nummeriert, mit klaren App-Tool-Verweisen (**Kalorienrechner**, **Tagebuch**, **Tracker**, **Ernährungsplan**, **Wochenreview**).
+- Halte dich an allgemein anerkannte Ernährungs-Basics (ausgewogen essen, Protein sichern, Ballaststoffe, regelmäßig tracken). KEINE spezifischen Studien, keine erfundenen Prozentzahlen.
+- BEI GESUNDHEITLICHEN BESONDERHEITEN im Profil (z.B. Diabetes, Schilddrüse, Allergien): Schließe die Antwort mit einem klaren Hinweis ab, das Vorgehen auch mit dem **Arzt** oder der behandelnden Fachperson abzustimmen. KEINE Medikamenten-, Dosierungs- oder Therapieempfehlungen.
+- KEINE Aussage "dazu habe ich keine Informationen". Der User braucht jetzt einen Einstieg, nicht einen Verweis auf Janine.
+- Maximal ~250 Wörter. Warmherzig, direkt, umsetzbar.`;
+    } else if (
+      ragConfidence === "none" &&
+      !!profileContext &&
+      !isHealthSensitive &&
+      !hasConversationHistory
+    ) {
+      // Non-general-Frage ohne RAG-Treffer aber mit Profil: soft antworten.
+      fullSystemPrompt += `\n\nHINWEIS — Für diese Frage wurden keine passenden Dokumente gefunden. Versuche trotzdem konkret zu helfen: nutze das User-Profil für personalisierte App-Tool-Verweise (**Tagebuch**, **Tracker**, **Ernährungsplan**, **Wochenreview**), rechne mit Mifflin-St-Jeor wo Profildaten ausreichen, oder stelle eine kurze Rückfrage zur Klärung. Gib KEINE spezifischen Empfehlungen, die über Basics hinausgehen. Bei komplexen individuellen Fragen verweise auf **Janine direkt** (Premium).`;
     }
 
     if (ragConfidence === "none" && hasConversationHistory) {
