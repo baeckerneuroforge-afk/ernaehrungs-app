@@ -10,19 +10,45 @@ interface Props {
   onClose: () => void;
 }
 
+// Mahlzeit-Typ bekommt einen Badge mit passendem Akzent (spiegelt die Farben
+// aus week-grid.tsx). Dezent — nur ein kleiner Badge, nicht die ganze Modal.
+function mealTypeBadgeClasses(type: string): string {
+  const lower = type.toLowerCase();
+  if (lower.includes("frühstück") || lower.includes("fruehstueck") || lower.includes("breakfast")) {
+    return "bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300";
+  }
+  if (lower.includes("mittag") || lower.includes("lunch")) {
+    return "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300";
+  }
+  if (lower.includes("abend") || lower.includes("dinner")) {
+    return "bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300";
+  }
+  return "bg-orange-50 dark:bg-orange-950/30 text-orange-700 dark:text-orange-300";
+}
+
 export function MealDetail({ meal, day, onClose }: Props) {
   const recipe = meal.fullRecipe;
+  const typeBadge = mealTypeBadgeClasses(meal.type);
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-white rounded-t-2xl sm:rounded-2xl shadow-xl max-w-lg w-full mx-0 sm:mx-4 max-h-[85vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b border-warm-border px-5 py-4 flex items-start justify-between rounded-t-2xl">
-          <div>
-            <p className="text-[11px] text-warm-light">{day} · {meal.time} · {meal.type}</p>
-            <h2 className="text-lg font-semibold text-warm-dark mt-0.5">{meal.name}</h2>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <span
+                className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${typeBadge}`}
+              >
+                {meal.type}
+              </span>
+              <span className="text-[11px] text-warm-light">
+                {day} · {meal.time}
+              </span>
+            </div>
+            <h2 className="text-lg font-semibold text-warm-dark">{meal.name}</h2>
           </div>
-          <button onClick={onClose} className="p-1 text-warm-light hover:text-warm-dark transition">
+          <button onClick={onClose} className="p-1 text-warm-light hover:text-warm-dark transition flex-shrink-0">
             <X className="w-5 h-5" />
           </button>
         </div>

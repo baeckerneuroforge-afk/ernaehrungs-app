@@ -33,19 +33,51 @@ type MealVisual = {
   text: string;
 };
 
+// Mahlzeit-Typen bekommen gezielte Akzent-Farben (nur Badge/Icon, nicht die
+// ganze Mahlzeit-Karte). Warme/erdige Farbfamilien, alle mit Dark-Mode-Variante.
 function getMealVisual(type: string): MealVisual {
   const lower = type.toLowerCase();
   if (lower.includes("frühstück") || lower.includes("fruehstueck") || lower.includes("breakfast")) {
-    return { icon: Sunrise, bg: "bg-orange-100", text: "text-orange-600" };
+    return {
+      icon: Sunrise,
+      bg: "bg-amber-50 dark:bg-amber-950/30",
+      text: "text-amber-700 dark:text-amber-300",
+    };
   }
   if (lower.includes("mittag") || lower.includes("lunch")) {
-    return { icon: Sun, bg: "bg-yellow-100", text: "text-yellow-600" };
+    return {
+      icon: Sun,
+      bg: "bg-emerald-50 dark:bg-emerald-950/30",
+      text: "text-emerald-700 dark:text-emerald-300",
+    };
   }
   if (lower.includes("abend") || lower.includes("dinner")) {
-    return { icon: Moon, bg: "bg-indigo-100", text: "text-indigo-600" };
+    return {
+      icon: Moon,
+      bg: "bg-indigo-50 dark:bg-indigo-950/30",
+      text: "text-indigo-700 dark:text-indigo-300",
+    };
   }
-  return { icon: Utensils, bg: "bg-primary-pale", text: "text-primary" };
+  // Snack / andere
+  return {
+    icon: Utensils,
+    bg: "bg-orange-50 dark:bg-orange-950/30",
+    text: "text-orange-700 dark:text-orange-300",
+  };
 }
+
+// Dezenter Akzent-Border links pro Wochentag. Brand bleibt grün (Mo = primary),
+// die restlichen Tage bekommen subtile warme/erdige Nuancen. "Heute" dominiert
+// weiterhin mit primary-Hintergrund und schlägt diese Akzente.
+const DAY_ACCENT: Record<string, string> = {
+  Montag: "border-l-primary",
+  Dienstag: "border-l-amber-500/50",
+  Mittwoch: "border-l-emerald-500/40",
+  Donnerstag: "border-l-orange-400/50",
+  Freitag: "border-l-rose-400/50",
+  Samstag: "border-l-indigo-400/50",
+  Sonntag: "border-l-purple-400/40",
+};
 
 function isToday(dayName: string): boolean {
   const today = new Date().getDay(); // 0=Sun .. 6=Sat
@@ -113,14 +145,15 @@ export function WeekGrid({ data, params, userPlan = "pro" }: Props) {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {days.map((day, idx) => {
           const today = isToday(day.day);
+          const accentBorder = DAY_ACCENT[day.day] ?? "border-l-border";
           return (
             <div
               key={day.day}
               style={{ animationDelay: `${idx * 40}ms` }}
-              className={`rounded-2xl border p-4 transition-all duration-200 animate-slide-in-up ${
+              className={`rounded-2xl border border-l-4 p-4 transition-all duration-200 animate-slide-in-up shadow-card ${
                 today
-                  ? "bg-primary-pale border-primary shadow-card"
-                  : "bg-white border-border hover:-translate-y-0.5 hover:shadow-md shadow-card"
+                  ? "bg-primary-pale border-primary border-l-primary"
+                  : `bg-white dark:bg-surface border-border ${accentBorder} hover:-translate-y-0.5 hover:shadow-md`
               }`}
             >
               <div className="flex items-center justify-between mb-3">
@@ -138,17 +171,29 @@ export function WeekGrid({ data, params, userPlan = "pro" }: Props) {
                   day.actualCalories ??
                   day.meals.reduce((sum, m) => sum + (m.calories || 0), 0);
                 if (!actual || !target) return null;
-                const diff = Math.abs(actual - target);
-                const cls =
-                  diff <= 100
-                    ? "text-primary bg-primary-pale"
-                    : diff <= 200
-                    ? "text-yellow-700 bg-yellow-50"
-                    : "text-red-600 bg-red-50";
+
+                // 5-stufige Ampel (signed diff, actual - target):
+                //   |diff| ≤ 50      → im Ziel          (emerald)
+                //   -200 ≤ diff < -50 → etwas drunter    (amber)
+                //   diff < -200       → deutlich drunter (orange)
+                //   50 < diff ≤ 200   → etwas drüber     (amber)
+                //   diff > 200        → deutlich drüber  (red)
+                const diff = actual - target;
+                const abs = Math.abs(diff);
+                let cls: string;
+                if (abs <= 50) {
+                  cls = "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30";
+                } else if (diff < -200) {
+                  cls = "text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/30";
+                } else if (diff > 200) {
+                  cls = "text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30";
+                } else {
+                  cls = "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30";
+                }
                 return (
                   <div
                     className={`mb-2 inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full ${cls}`}
-                    title={`Ziel: ${target} kcal`}
+                    title={`Ziel: ${target} kcal · Abweichung: ${diff > 0 ? "+" : ""}${diff} kcal`}
                   >
                     <Flame className="w-3 h-3" />&Sigma; {actual} kcal
                   </div>

@@ -17,6 +17,17 @@ const CATEGORY_LABELS: Record<string, string> = {
   "Sonstiges": "📦 Sonstiges",
 };
 
+// Dezenter Farbakzent pro Kategorie — nur auf den Header (Icon + Text),
+// NICHT auf die ganze Box. Bleibt im warm/erdigen Spektrum.
+const CATEGORY_ACCENT: Record<string, string> = {
+  "Obst & Gemüse": "text-emerald-700 dark:text-emerald-300",
+  "Milchprodukte": "text-rose-700 dark:text-rose-300",
+  "Getreide & Brot": "text-amber-700 dark:text-amber-300",
+  "Protein": "text-orange-700 dark:text-orange-300",
+  "Gewürze & Öle": "text-stone-600 dark:text-stone-300",
+  "Sonstiges": "text-ink-muted",
+};
+
 const CATEGORIES: Record<string, RegExp> = {
   "Obst & Gemüse": /apfel|birne|banane|beere|tomate|gurke|salat|spinat|brokkoli|karotte|paprika|zwiebel|knoblauch|zucchini|avocado|zitrone|orange|mango|pilz|kürbis|kartoffel|süßkartoffel|kohl|blumenkohl|erbse|bohne|linse|mais/i,
   "Milchprodukte": /joghurt|milch|käse|quark|sahne|butter|mozzarella|parmesan|frischkäse|skyr|feta/i,
@@ -111,7 +122,11 @@ export function ShoppingList({ items, interactive = false }: Props) {
       <div className="space-y-4">
         {Object.entries(categorized).map(([cat, catItems]) => (
           <div key={cat}>
-            <h4 className="text-xs font-semibold text-warm-dark mb-1.5">
+            <h4
+              className={`text-xs font-semibold mb-1.5 ${
+                CATEGORY_ACCENT[cat] ?? "text-warm-dark"
+              }`}
+            >
               {CATEGORY_LABELS[cat] || cat}
             </h4>
             <div className="space-y-1">
