@@ -1,18 +1,17 @@
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { currentUser } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { ProfilForm } from "@/components/profil/profil-form";
 import { DangerZone } from "@/components/profil/danger-zone";
 import { AlertTriangle } from "lucide-react";
 import { isAdminUser, PLAN_CREDITS } from "@/lib/credits";
+import { requireOnboardedUser } from "@/lib/auth-guard";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProfilPage() {
-  const { userId } = await auth();
-  if (!userId) redirect("/sign-in");
+  const userId = await requireOnboardedUser();
 
   const user = await currentUser();
   const supabase = createSupabaseAdmin();

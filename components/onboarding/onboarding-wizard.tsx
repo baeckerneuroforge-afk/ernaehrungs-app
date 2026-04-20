@@ -184,6 +184,10 @@ export function OnboardingWizard({ userId: _userId, existingProfile, initialStep
   async function handleSaveProfile() {
     setLastAction(() => handleSaveProfile);
     setSaving(true);
+    // DO NOT set onboarding_done here — that happens only after Step 5
+    // (review_consent) is answered. Setting it early means a user who
+    // closes the tab after Step 3 would be flagged as "done" and bypass
+    // the KI/review consent questions on return — DSGVO violation.
     const ok = await postJson(
       "/api/profile",
       {
@@ -197,7 +201,6 @@ export function OnboardingWizard({ userId: _userId, existingProfile, initialStep
         allergien,
         aktivitaet,
         krankheiten: krankheiten.trim() || null,
-        onboarding_done: true,
         // Gets stripped from the ea_profiles payload server-side and written
         // as agb_accepted_at on ea_users. See app/api/profile/route.ts.
         agb_accepted: agbAccepted,
@@ -225,13 +228,25 @@ export function OnboardingWizard({ userId: _userId, existingProfile, initialStep
   async function handleReviewConsent(consent: boolean) {
     setLastAction(() => () => handleReviewConsent(consent));
     setSaving(true);
-    const ok = await postJson(
+    const consentOk = await postJson(
       "/api/profile/consent",
       { consent, type: "review" },
       "Einstellung konnte nicht gespeichert werden"
     );
+    if (!consentOk) {
+      setSaving(false);
+      return;
+    }
+    // Final step — mark onboarding as complete. This is the ONLY place
+    // onboarding_done is set, so the flag strictly implies "saw all consent
+    // questions and answered them".
+    const doneOk = await postJson(
+      "/api/profile",
+      { onboarding_done: true },
+      "Onboarding konnte nicht abgeschlossen werden"
+    );
     setSaving(false);
-    if (!ok) return;
+    if (!doneOk) return;
     // Router-Cache invalidieren, damit /chat den frischen DB-State liest
     // (sonst kann der SC-Cache review_consent noch als null sehen → Redirect-Loop).
     router.refresh();

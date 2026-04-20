@@ -1,16 +1,16 @@
-import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
 import { Navbar } from "@/components/layout/navbar";
 import { ChatClient } from "@/components/chat/chat-client";
 import { Walkthrough } from "@/components/onboarding/walkthrough";
 import { isAdminUser } from "@/lib/credits";
+import { requireOnboardedUser } from "@/lib/auth-guard";
 
 export const dynamic = "force-dynamic";
 
 export default async function ChatPage() {
-  const { userId } = await auth();
-  if (!userId) redirect("/sign-in");
+  // requireOnboardedUser() already verifies profile existence + all consents
+  // + onboarding_done — no additional checks needed here.
+  const userId = await requireOnboardedUser();
 
   const supabase = createSupabaseAdmin();
 
@@ -20,13 +20,7 @@ export default async function ChatPage() {
     .eq("user_id", userId)
     .limit(1);
 
-  // No profile → do onboarding first
-  if (!profile?.length) redirect("/onboarding");
-
-  // Consent not yet answered → must respond before accessing chat
-  if (profile[0]?.review_consent === null) redirect("/onboarding");
-
-  const tourDone = profile[0]?.onboarding_tour_done === true;
+  const tourDone = profile?.[0]?.onboarding_tour_done === true;
 
   // Fetch plan for plan-gated step text
   let plan = "free";
@@ -46,7 +40,7 @@ export default async function ChatPage() {
       <Navbar />
       <ChatClient
         userId={userId}
-        userName={profile[0]?.name || "du"}
+        userName={profile?.[0]?.name || "du"}
         initialPlan={plan}
       />
       {!tourDone && <Walkthrough userPlan={plan} />}

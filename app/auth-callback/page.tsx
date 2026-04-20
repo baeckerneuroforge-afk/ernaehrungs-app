@@ -2,71 +2,122 @@
 
 import { useAuth } from "@clerk/nextjs";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, useRef, Suspense } from "react";
+import { useEffect, useRef, Suspense } from "react";
 import { Leaf, Loader2 } from "lucide-react";
+
+/**
+ * Post-sign-in landing.  Two hard jobs it has to get right:
+ *
+ *  1. Clerk sometimes finishes `setActive()` on the client before the HttpOnly
+ *     session cookie has fully propagated to our server.  A client-only
+ *     `router.replace()` would race the middleware and bounce the user back
+ *     to /sign-in.  We instead poll GET /api/auth/check until it returns 200,
+ *     which proves the cookie is reaching the server, then hard-navigate.
+ *
+ *  2. Returning users who signed up via social on /sign-up still carry
+ *     `?next=/onboarding`.  The server check tells us whether they still
+ *     need it (`needsOnboarding`) and we trust that over any URL param.
+ */
+
+const MAX_POLL_ATTEMPTS = 20; // 20 * 400ms = 8s grace window
+const POLL_INTERVAL_MS = 400;
 
 function AuthCallbackContent() {
   const { isLoaded, isSignedIn } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [waited, setWaited] = useState(false);
   const navigating = useRef(false);
-
-  // Safety timeout: if still not signed in after 8s, bail to /sign-in.
-  // Email+Password flows via setActive() can take a moment before the
-  // Clerk session cookie is fully propagated to the browser.
-  useEffect(() => {
-    const timer = setTimeout(() => setWaited(true), 8000);
-    return () => clearTimeout(timer);
-  }, []);
 
   useEffect(() => {
     if (!isLoaded || navigating.current) return;
 
-    if (isSignedIn) {
-      navigating.current = true;
-      const next = searchParams.get("next");
-
-      // Use a hard navigation (window.location.replace) instead of
-      // router.replace so the browser sends the freshly-set Clerk session
-      // cookie with the new request.  Client-side Next.js navigation can
-      // race the middleware when the cookie was just set via setActive()
-      // in the Email+Password flow, which would then bounce the user back
-      // to /sign-in.
-      const go = (url: string) => {
-        if (typeof window !== "undefined") {
-          window.location.replace(url);
-        } else {
-          router.replace(url);
+    // Not signed in at all? Give Clerk the same 8s grace window (email+code
+    // can take a moment), then fall back to /sign-in.
+    if (!isSignedIn) {
+      const timer = setTimeout(() => {
+        if (!navigating.current) {
+          navigating.current = true;
+          router.replace("/sign-in");
         }
-      };
+      }, 8000);
+      return () => clearTimeout(timer);
+    }
 
-      // If targeting /onboarding, check whether the user already completed
-      // it.  Returning users who sign in via Google on the /sign-up page
-      // still carry ?next=/onboarding — without this check they'd be
-      // forced back through onboarding.
-      if (next === "/onboarding") {
-        fetch("/api/profile", { credentials: "same-origin" })
-          .then((r) => (r.ok ? r.json() : null))
-          .then((profile) => {
-            go(profile?.onboarding_done ? "/home" : "/onboarding");
-          })
-          .catch(() => {
-            go("/onboarding");
-          });
-        return;
+    // Signed in per Clerk client state — now confirm the cookie is reaching
+    // our server and decide destination based on onboarding completion.
+    navigating.current = true;
+    let cancelled = false;
+
+    const go = (url: string) => {
+      if (cancelled) return;
+      if (typeof window !== "undefined") {
+        window.location.replace(url);
+      } else {
+        router.replace(url);
       }
+    };
 
-      // Normal post-sign-in flow: go straight to the requested page
-      go(next || "/home");
-      return;
-    }
+    const nextParam = searchParams.get("next");
 
-    // Only redirect to /sign-in after the grace period
-    if (waited && !isSignedIn) {
-      router.replace("/sign-in");
-    }
-  }, [isLoaded, isSignedIn, waited, router, searchParams]);
+    const poll = async (attempt: number): Promise<void> => {
+      if (cancelled) return;
+      try {
+        const res = await fetch("/api/auth/check", {
+          credentials: "same-origin",
+          cache: "no-store",
+        });
+
+        if (res.status === 401) {
+          // Cookie not through yet — retry with a small backoff.
+          if (attempt < MAX_POLL_ATTEMPTS) {
+            setTimeout(() => void poll(attempt + 1), POLL_INTERVAL_MS);
+          } else {
+            go("/sign-in");
+          }
+          return;
+        }
+
+        if (!res.ok) {
+          if (attempt < MAX_POLL_ATTEMPTS) {
+            setTimeout(() => void poll(attempt + 1), POLL_INTERVAL_MS);
+          } else {
+            // Server confirmed there's nothing we can do — send them to
+            // onboarding and let that page's own retry mechanism kick in.
+            go("/onboarding");
+          }
+          return;
+        }
+
+        const data = (await res.json()) as { needsOnboarding: boolean };
+
+        // needsOnboarding wins over `?next` — if the server says the user
+        // hasn't completed onboarding, nothing else matters.
+        if (data.needsOnboarding) {
+          go("/onboarding");
+          return;
+        }
+
+        // Onboarded. Respect `?next` if it's safe (same-origin path), else /home.
+        const safeNext =
+          nextParam && nextParam.startsWith("/") && !nextParam.startsWith("//")
+            ? nextParam
+            : null;
+        go(safeNext && safeNext !== "/onboarding" ? safeNext : "/home");
+      } catch {
+        if (attempt < MAX_POLL_ATTEMPTS) {
+          setTimeout(() => void poll(attempt + 1), POLL_INTERVAL_MS);
+        } else {
+          go("/sign-in");
+        }
+      }
+    };
+
+    void poll(0);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoaded, isSignedIn, router, searchParams]);
 
   return (
     <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-surface-bg px-6">

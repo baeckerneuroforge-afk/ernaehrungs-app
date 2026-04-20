@@ -1,6 +1,5 @@
-import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
+import { requireOnboardedUser } from "@/lib/auth-guard";
 import Link from "next/link";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
@@ -12,8 +11,7 @@ import { Upload } from "lucide-react";
 export const dynamic = "force-dynamic";
 
 export default async function TagebuchPage() {
-  const { userId } = await auth();
-  if (!userId) redirect("/sign-in");
+  const userId = await requireOnboardedUser();
 
   const supabase = createSupabaseAdmin();
 

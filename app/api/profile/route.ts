@@ -239,6 +239,48 @@ export async function POST(request: Request) {
     }
   }
 
+  // Guard: the client is never trusted to flip `onboarding_done` unless the
+  // server can independently verify that AGB + ki_consent + review_consent
+  // have all been recorded. This prevents a malformed client (or a tab
+  // closed after Step 3) from marking a partially-consented user as "done".
+  if (profileBody.onboarding_done === true) {
+    const { data: userRow } = await supabase
+      .from("ea_users")
+      .select("agb_accepted_at, ki_consent")
+      .eq("clerk_id", userId)
+      .maybeSingle();
+
+    const { data: profileRow } = await supabase
+      .from("ea_profiles")
+      .select("review_consent")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    const hasAgb = !!userRow?.agb_accepted_at;
+    const kiAnswered =
+      userRow?.ki_consent === true || userRow?.ki_consent === false;
+    const reviewAnswered =
+      profileRow?.review_consent === true ||
+      profileRow?.review_consent === false;
+
+    if (!hasAgb || !kiAnswered || !reviewAnswered) {
+      console.warn("[profile POST] onboarding_done refused — missing consent", {
+        userId,
+        hasAgb,
+        kiAnswered,
+        reviewAnswered,
+      });
+      return new Response(
+        JSON.stringify({
+          error: "consent_incomplete",
+          message:
+            "Bitte bestätige zuerst die AGB sowie die KI- und Review-Einwilligungen.",
+        }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+  }
+
   const profileData = {
     user_id: userId,
     ...profileBody,

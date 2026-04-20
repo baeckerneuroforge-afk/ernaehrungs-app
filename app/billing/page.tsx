@@ -1,8 +1,7 @@
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { stripe } from "@/lib/stripe";
 import { isAdminUser, PLAN_CREDITS } from "@/lib/credits";
+import { requireOnboardedUser } from "@/lib/auth-guard";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { BillingClient } from "@/components/billing/billing-client";
@@ -10,8 +9,7 @@ import { BillingClient } from "@/components/billing/billing-client";
 export const dynamic = "force-dynamic";
 
 export default async function BillingPage() {
-  const { userId } = await auth();
-  if (!userId) redirect("/sign-in");
+  const userId = await requireOnboardedUser();
 
   const supabase = createSupabaseAdmin();
   const { data: user } = await supabase

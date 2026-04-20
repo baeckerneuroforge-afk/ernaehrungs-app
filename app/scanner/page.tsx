@@ -1,10 +1,9 @@
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { UpgradeCard } from "@/components/upgrade-card";
 import { getUserPlan } from "@/lib/feature-gates-server";
 import { hasFeatureAccess } from "@/lib/feature-gates";
+import { requireOnboardedUser } from "@/lib/auth-guard";
 import { ScanLine } from "lucide-react";
 import dynamic from "next/dynamic";
 
@@ -24,8 +23,7 @@ function ScannerLoading() {
 }
 
 export default async function ScannerPage() {
-  const { userId } = await auth();
-  if (!userId) redirect("/sign-in");
+  const userId = await requireOnboardedUser();
 
   const plan = await getUserPlan(userId);
   const isPremium = hasFeatureAccess(plan, "barcode_scanner");

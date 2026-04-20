@@ -1,10 +1,9 @@
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { getUserPlan } from "@/lib/feature-gates-server";
 import { hasFeatureAccess } from "@/lib/feature-gates";
+import { requireOnboardedUser } from "@/lib/auth-guard";
 import { ReportsClient } from "@/components/reports/reports-client";
 import { UpgradePrompt } from "@/components/reports/upgrade-prompt";
 import type { MonthlyReportData } from "@/lib/monthly-report";
@@ -19,8 +18,7 @@ type ReportRow = {
 };
 
 export default async function ReportsPage() {
-  const { userId } = await auth();
-  if (!userId) redirect("/sign-in");
+  const userId = await requireOnboardedUser();
 
   const plan = await getUserPlan(userId);
 

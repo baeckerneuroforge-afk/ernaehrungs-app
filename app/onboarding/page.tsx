@@ -21,23 +21,51 @@ export default async function OnboardingPage() {
 
   const supabase = createSupabaseAdmin();
 
-  const { data: profile } = await supabase
-    .from("ea_profiles")
-    .select("*")
-    .eq("user_id", userId)
-    .limit(1);
+  // Pull both tables in parallel. ea_users holds AGB + ki_consent;
+  // ea_profiles holds the nutrition data + review_consent + the final
+  // completion flag.
+  const [userRes, profileRes] = await Promise.all([
+    supabase
+      .from("ea_users")
+      .select("agb_accepted_at, ki_consent")
+      .eq("clerk_id", userId)
+      .maybeSingle(),
+    supabase
+      .from("ea_profiles")
+      .select("*")
+      .eq("user_id", userId)
+      .maybeSingle(),
+  ]);
 
-  const p = profile?.[0];
+  const user = userRes.data;
+  const p = profileRes.data;
 
-  // Onboarding complete → go to chat. Consent questions (steps 4-5) are
-  // only shown during the initial onboarding flow — returning users who
-  // missed consent are NOT forced back here. Consent can be managed in
-  // settings or asked as a non-blocking prompt in the app later.
+  // Fully onboarded → straight to home.
   if (p?.onboarding_done) {
     redirect("/home");
   }
 
-  const initialStep = 1;
+  // Partial onboarding resume: figure out the right step so users who closed
+  // the tab after step 3 land on step 4 (KI consent), after step 4 on
+  // step 5 (review consent). Never skip; never restart.
+  let initialStep: 1 | 2 | 3 | 4 | 5 = 1;
+  const kiConsentAnswered =
+    user?.ki_consent === true || user?.ki_consent === false;
+  const reviewConsentAnswered =
+    p?.review_consent === true || p?.review_consent === false;
+
+  if (!p || !user?.agb_accepted_at) {
+    initialStep = 1;
+  } else if (!kiConsentAnswered) {
+    initialStep = 4;
+  } else if (!reviewConsentAnswered) {
+    initialStep = 5;
+  } else {
+    // All prerequisites satisfied but onboarding_done still false — show
+    // the final confirmation so the flag gets set via the wizard's finish
+    // handler rather than silently promoting them to /home.
+    initialStep = 5;
+  }
 
   return (
     <OnboardingWizard
