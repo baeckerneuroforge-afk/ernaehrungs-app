@@ -49,9 +49,22 @@ export async function PATCH(
     );
   }
 
-  const rawBody = await request.json();
+  let rawBody: unknown;
+  try {
+    rawBody = await request.json();
+  } catch {
+    return NextResponse.json(
+      { error: "invalid_json", message: "Ungültiger Request-Body." },
+      { status: 400 }
+    );
+  }
   const validation = validateBody(weightLogSchema, rawBody);
   if (!validation.success) {
+    console.warn("[tracker/gewicht/:id] PATCH validation failed", {
+      userId,
+      err: validation.error,
+      received: rawBody,
+    });
     return NextResponse.json(
       { error: "invalid_input", message: validation.error },
       { status: 400 }
@@ -76,28 +89,42 @@ export async function PATCH(
     .limit(1);
 
   if (error) {
-    console.error("[tracker/gewicht/:id] PATCH db error:", error);
-    return NextResponse.json({ error: "internal_error" }, { status: 500 });
+    console.error("[tracker/gewicht/:id] PATCH db error:", {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+    });
+    return NextResponse.json(
+      { error: "internal_error", message: "Eintrag konnte nicht aktualisiert werden." },
+      { status: 500 }
+    );
   }
   if (!data?.length) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
-  // Profil-Sync: wenn wir gerade den jüngsten Eintrag editiert haben, muss
-  // profile.gewicht_kg nachgezogen werden (für Mifflin-St-Jeor).
-  const { data: latest } = await supabase
-    .from("ea_weight_logs")
-    .select("gewicht_kg")
-    .eq("user_id", userId)
-    .order("gemessen_am", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  // Profil-Sync: fail-soft, analog zum POST-Handler.
+  try {
+    const { data: latest } = await supabase
+      .from("ea_weight_logs")
+      .select("gewicht_kg")
+      .eq("user_id", userId)
+      .order("gemessen_am", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-  if (latest?.gewicht_kg) {
-    await supabase
-      .from("ea_profiles")
-      .update({ gewicht_kg: latest.gewicht_kg })
-      .eq("user_id", userId);
+    if (latest?.gewicht_kg) {
+      const { error: profErr } = await supabase
+        .from("ea_profiles")
+        .update({ gewicht_kg: latest.gewicht_kg })
+        .eq("user_id", userId);
+      if (profErr) {
+        console.warn("[tracker/gewicht/:id] profile sync failed (non-fatal):", profErr.message);
+      }
+    }
+  } catch (syncErr) {
+    console.warn("[tracker/gewicht/:id] profile sync threw (non-fatal):", syncErr);
   }
 
   return NextResponse.json(data[0]);

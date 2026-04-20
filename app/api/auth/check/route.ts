@@ -20,17 +20,26 @@ import { NextResponse } from "next/server";
 export async function GET() {
   const { userId } = await auth();
   if (!userId) {
-    return NextResponse.json(
-      {
+    // 200 (not 401): this is a legitimate "not yet signed in" state that
+    // the poller needs to detect to retry. A 401 would be indistinguishable
+    // from a true auth failure and trip the poller's error path.
+    return new Response(
+      JSON.stringify({
         signedIn: false,
         hasProfile: false,
         hasAgb: false,
-        hasKiConsent: false,
-        hasReviewConsent: false,
+        kiConsentAnswered: false,
+        reviewConsentAnswered: false,
         onboardingDone: false,
-        needsOnboarding: true,
-      },
-      { status: 401 }
+        needsOnboarding: false,
+      }),
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-store",
+        },
+      }
     );
   }
 

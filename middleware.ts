@@ -14,6 +14,11 @@ const isPublicRoute = createRouteMatcher([
   "/datenschutz(.*)",
   "/tools/(.*)",
   "/api/webhooks/(.*)",
+  // /api/auth/check must be public — it's polled by /auth-callback and the
+  // onboarding session-gate specifically to detect the "cookie not yet
+  // propagated" state. If this route runs through auth.protect() then Clerk's
+  // handshake-redirect breaks the JSON contract and the poller spins forever.
+  "/api/auth/check",
 ]);
 
 export default function middleware(request: NextRequest, event: NextFetchEvent) {

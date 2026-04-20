@@ -104,35 +104,64 @@ export default function GewichtPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.gewicht) return;
+
+    // Locale-robust parsen: deutsche User tippen oft "72,5" statt "72.5".
+    // parseFloat("72,5") liefert 72 — wir wandeln Komma vorher in Punkt.
+    const normalized = form.gewicht.trim().replace(",", ".");
+    const gewicht_kg = parseFloat(normalized);
+    if (!Number.isFinite(gewicht_kg)) {
+      toast.error("Bitte gib eine gültige Zahl ein.");
+      return;
+    }
+    if (gewicht_kg < 20 || gewicht_kg > 400) {
+      toast.error("Gewicht muss zwischen 20 und 400 kg liegen.");
+      return;
+    }
+
     setSaving(true);
 
     const body = JSON.stringify({
-      gewicht_kg: parseFloat(form.gewicht),
-      notiz: form.notiz || null,
+      gewicht_kg,
+      notiz: form.notiz.trim() || null,
       gemessen_am: form.datum,
     });
 
-    const res = form.id
-      ? await fetch(`/api/tracker/gewicht/${form.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body,
-        })
-      : await fetch("/api/tracker/gewicht", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body,
-        });
+    try {
+      const res = form.id
+        ? await fetch(`/api/tracker/gewicht/${form.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body,
+          })
+        : await fetch("/api/tracker/gewicht", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body,
+          });
 
-    if (res.ok) {
-      setModalOpen(false);
-      setForm(emptyForm());
-      loadAll();
-      toast.success(form.id ? "Eintrag aktualisiert" : "Gewicht eingetragen");
-    } else {
-      toast.error("Speichern fehlgeschlagen");
+      if (res.ok) {
+        setModalOpen(false);
+        setForm(emptyForm());
+        loadAll();
+        toast.success(form.id ? "Eintrag aktualisiert" : "Gewicht eingetragen");
+      } else {
+        // Server-Message in den Toast durchreichen — sonst bleibt es bei
+        // "Speichern fehlgeschlagen" ohne Hinweis auf die Ursache.
+        let message = "Speichern fehlgeschlagen";
+        try {
+          const errBody = (await res.json()) as { message?: string };
+          if (errBody?.message) message = errBody.message;
+        } catch {
+          /* Response war kein JSON — generic message reicht. */
+        }
+        toast.error(message);
+      }
+    } catch (err) {
+      console.error("[gewicht] submit network error:", err);
+      toast.error("Netzwerk-Fehler. Bitte erneut versuchen.");
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   }
 
   async function handleDelete(id: string) {

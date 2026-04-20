@@ -67,8 +67,10 @@ function AuthCallbackContent() {
           cache: "no-store",
         });
 
-        if (res.status === 401) {
-          // Cookie not through yet — retry with a small backoff.
+        // /api/auth/check is public and always returns 200 with a JSON body.
+        // If we get anything else (network error, stray middleware redirect
+        // from a stale deploy, etc.) retry and eventually fall back to /sign-in.
+        if (!res.ok) {
           if (attempt < MAX_POLL_ATTEMPTS) {
             setTimeout(() => void poll(attempt + 1), POLL_INTERVAL_MS);
           } else {
@@ -77,18 +79,20 @@ function AuthCallbackContent() {
           return;
         }
 
-        if (!res.ok) {
+        const data = (await res.json()) as {
+          signedIn: boolean;
+          needsOnboarding: boolean;
+        };
+
+        // Cookie not yet visible to the server — give it time, then bail.
+        if (!data.signedIn) {
           if (attempt < MAX_POLL_ATTEMPTS) {
             setTimeout(() => void poll(attempt + 1), POLL_INTERVAL_MS);
           } else {
-            // Server confirmed there's nothing we can do — send them to
-            // onboarding and let that page's own retry mechanism kick in.
-            go("/onboarding");
+            go("/sign-in");
           }
           return;
         }
-
-        const data = (await res.json()) as { needsOnboarding: boolean };
 
         // needsOnboarding wins over `?next` — if the server says the user
         // hasn't completed onboarding, nothing else matters.
