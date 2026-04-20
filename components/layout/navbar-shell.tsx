@@ -33,13 +33,22 @@ export function NavbarShell() {
   const [menuOpen, setMenuOpen] = useState(false);
   const pathname = usePathname();
 
-  // Let Clerk handle the redirect after signOut so the session cookie
-  // is fully cleared before the browser navigates. The old approach
-  // (await signOut() + window.location.assign) had a race where the
-  // navigation fired before the cookie was deleted, causing the server
-  // to render a stale signed-in Navbar.
-  const handleSignOut = () => {
-    signOut({ redirectUrl: "/" });
+  // Sign-Out needs a HARD navigation, not Clerk's built-in `redirectUrl`
+  // (which is a Next router push — Server Components on the current route
+  // don't re-render, so any `requireOnboardedUser()` layout guards keep
+  // their signed-in render and the navbar flickers stale until the user
+  // reloads). The earlier race between `signOut()` (fire-and-forget) and
+  // `window.location.assign()` is fixed by awaiting signOut first so the
+  // session cookie is definitely gone before we navigate.
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } catch (err) {
+      // Swallow — Clerk occasionally throws on unmount timing. We still
+      // want to navigate so the user isn't stranded on a signed-in page.
+      console.error("[navbar] signOut error (continuing anyway):", err);
+    }
+    window.location.href = "/";
   };
 
   // Fetch plan + admin status whenever the signed-in user changes
