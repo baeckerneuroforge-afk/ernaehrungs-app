@@ -22,15 +22,24 @@ import {
   ThumbsDown,
   Info,
   Wand2,
+  Target,
 } from "lucide-react";
 import Link from "next/link";
+import type { DailyTargets } from "@/lib/nutrition-targets";
+import { calorieStatus } from "@/lib/nutrition-targets";
 
 interface Props {
   initialEntries: FoodLog[];
   today: string;
   canUsePhoto: boolean;
   canSmartLog: boolean;
+  /** null wenn Profil zu dünn für TDEE/calorie_target. */
+  targets: DailyTargets | null;
+  /** true wenn mindestens ein ea_meal_plans-Row mit status='active' existiert. */
+  hasActivePlan: boolean;
 }
+
+const PLAN_BANNER_DISMISS_KEY = "nutriva:tagebuch-plan-banner-dismissed";
 
 // Smart-Log Preview-Struktur (server-side sanitized)
 type SmartLogEntry = {
@@ -204,6 +213,8 @@ export function TagebuchClient({
   today,
   canUsePhoto,
   canSmartLog,
+  targets,
+  hasActivePlan,
 }: Props) {
   const [datum, setDatum] = useState(today);
   const [entries, setEntries] = useState<FoodLog[]>(initialEntries);
@@ -211,6 +222,28 @@ export function TagebuchClient({
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // "Plan erstellen"-Banner per User dismissable. LocalStorage reicht für
+  // Feature A — ein DB-Flag wäre Cross-Device-sauberer aber nicht zwingend
+  // für den ersten Wurf, und spart eine Migration.
+  const [planBannerDismissed, setPlanBannerDismissed] = useState(false);
+  useEffect(() => {
+    try {
+      setPlanBannerDismissed(
+        localStorage.getItem(PLAN_BANNER_DISMISS_KEY) === "1"
+      );
+    } catch {
+      /* Privacy-Mode → no localStorage → Banner bleibt sichtbar, ist OK. */
+    }
+  }, []);
+  function dismissPlanBanner() {
+    setPlanBannerDismissed(true);
+    try {
+      localStorage.setItem(PLAN_BANNER_DISMISS_KEY, "1");
+    } catch {
+      /* silent */
+    }
+  }
 
   // Makros-Toggle im Eintragungs-Formular. Default: offen — User-Feedback
   // hat gezeigt, dass die versteckten Felder oft übersehen werden und
@@ -656,7 +689,6 @@ export function TagebuchClient({
     (sum, e) => sum + (e.fat_g || 0),
     0
   );
-  const hasMacros = totalProtein > 0 || totalCarbs > 0 || totalFat > 0;
 
   const weekDays = buildWeekStrip(datum);
 
@@ -665,21 +697,6 @@ export function TagebuchClient({
 
   return (
     <div className="space-y-6">
-      {/* Datenqualität-Hinweis — einmal ganz oben, dezent. */}
-      <div className="bg-primary-pale/50 border border-primary/20 rounded-2xl p-3 flex items-start gap-3">
-        <Info className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-        <div className="text-sm">
-          <p className="font-medium text-ink">
-            Je genauer du einträgst, desto besser helfe ich dir.
-          </p>
-          <p className="text-ink-muted mt-0.5 leading-relaxed">
-            Mit präzisen Makros (Protein, Kohlenhydrate, Fett) kann ich deinen
-            Fortschritt exakter analysieren, passendere Empfehlungen geben und
-            deinen Ernährungsplan besser auf dich abstimmen.
-          </p>
-        </div>
-      </div>
-
       {/* Smart Log — Premium, oder Locked-Teaser für Free/Basis. */}
       {canSmartLog ? (
         <div className="bg-white rounded-2xl p-4 border border-border shadow-card space-y-3">
@@ -804,45 +821,83 @@ export function TagebuchClient({
         </div>
       </div>
 
-      {/* Stats bar */}
-      <div className="bg-surface-muted rounded-2xl px-4 py-3 flex items-center justify-between gap-4">
-        <div className="flex-1 text-center">
-          <p className="text-[10px] uppercase tracking-wide text-ink-faint">
-            Kalorien
-          </p>
-          <p className="text-sm font-semibold text-ink mt-0.5">
-            {totalKcal > 0 ? totalKcal : "—"}
-            <span className="text-xs font-normal text-ink-faint ml-1">kcal</span>
-          </p>
+      {/* Progress-Karte: Kalorien + 3 Makros mit Zielen und Balken.
+          Wenn das Profil noch dünn ist (keine targets), zeigen wir Banner A. */}
+      {targets ? (
+        <ProgressCard
+          datumLabel={formatDatumLabel(datum, today)}
+          consumedKcal={Math.round(totalKcal)}
+          consumedProtein={Math.round(totalProtein)}
+          consumedCarbs={Math.round(totalCarbs)}
+          consumedFat={Math.round(totalFat)}
+          targets={targets}
+        />
+      ) : (
+        <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 rounded-2xl p-4 flex items-start gap-3">
+          <Info className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+              Dein Tagesziel fehlt noch
+            </p>
+            <p className="text-xs text-amber-700/80 dark:text-amber-300/80 mt-0.5 leading-relaxed">
+              Setz dein Kalorienziel im Kalorienrechner, damit ich deinen
+              Fortschritt tracken kann.
+            </p>
+            <Link
+              href="/tools/kalorienrechner"
+              className="text-xs text-primary hover:underline inline-block mt-1.5 font-medium"
+            >
+              Kalorienrechner öffnen →
+            </Link>
+          </div>
         </div>
-        <div className="w-px h-8 bg-border" />
-        <div className="flex-1 text-center">
-          <p className="text-[10px] uppercase tracking-wide text-ink-faint">
-            Protein
+      )}
+
+      {/* Datenqualitäts-Hinweis — direkt unter dem Progress-Tracker,
+          erklärt warum präzise Makros den Mehrwert heben. */}
+      <div className="bg-primary-pale/50 border border-primary/20 rounded-2xl p-3 flex items-start gap-3">
+        <Info className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+        <div className="text-sm">
+          <p className="font-medium text-ink">
+            Je präziser du einträgst, desto besser helfe ich dir.
           </p>
-          <p className={`text-sm font-semibold mt-0.5 ${hasMacros ? "text-ink" : "text-ink-muted"}`}>
-            {hasMacros ? `${Math.round(totalProtein)}g` : "—"}
-          </p>
-        </div>
-        <div className="w-px h-8 bg-border" />
-        <div className="flex-1 text-center">
-          <p className="text-[10px] uppercase tracking-wide text-ink-faint">
-            Carbs
-          </p>
-          <p className={`text-sm font-semibold mt-0.5 ${hasMacros ? "text-ink" : "text-ink-muted"}`}>
-            {hasMacros ? `${Math.round(totalCarbs)}g` : "—"}
-          </p>
-        </div>
-        <div className="w-px h-8 bg-border" />
-        <div className="flex-1 text-center">
-          <p className="text-[10px] uppercase tracking-wide text-ink-faint">
-            Fett
-          </p>
-          <p className={`text-sm font-semibold mt-0.5 ${hasMacros ? "text-ink" : "text-ink-muted"}`}>
-            {hasMacros ? `${Math.round(totalFat)}g` : "—"}
+          <p className="text-ink-muted mt-0.5 text-xs leading-relaxed">
+            Mit genauen Makros kann ich deinen Fortschritt exakter analysieren
+            und bessere Empfehlungen geben.
           </p>
         </div>
       </div>
+
+      {/* Banner B: Ziel gesetzt, aber kein aktiver Plan → Einladung.
+          Dismissable, bleibt dismissed via localStorage. */}
+      {targets && !hasActivePlan && !planBannerDismissed && (
+        <div className="bg-primary/5 border border-primary/20 rounded-2xl p-3 flex items-start gap-3">
+          <Sparkles className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-ink">
+              Lass dir einen Ernährungsplan erstellen
+            </p>
+            <p className="text-xs text-ink-muted mt-0.5 leading-relaxed">
+              Dein Ziel: {targets.targetKcal} kcal pro Tag. Ich erstelle dir
+              einen Plan der genau dazu passt — inklusive Einkaufsliste.
+            </p>
+            <Link
+              href="/ernaehrungsplan"
+              className="text-xs text-primary hover:underline inline-block mt-1.5 font-medium"
+            >
+              Plan erstellen →
+            </Link>
+          </div>
+          <button
+            type="button"
+            onClick={dismissPlanBanner}
+            className="text-ink-faint hover:text-ink transition p-1 -m-1 flex-shrink-0"
+            aria-label="Banner schließen"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Desktop primary CTA — full width under the macro bar */}
       <button
@@ -1521,4 +1576,183 @@ function SmartEditField({
       />
     </label>
   );
+}
+
+// ---------------------------------------------------------------------------
+// Progress-Card — Kalorien (prominent) + 3 Makros mit Zielen und Balken.
+// Free-Feature, nicht gegated.
+// ---------------------------------------------------------------------------
+
+function ProgressCard({
+  datumLabel,
+  consumedKcal,
+  consumedProtein,
+  consumedCarbs,
+  consumedFat,
+  targets,
+}: {
+  datumLabel: string;
+  consumedKcal: number;
+  consumedProtein: number;
+  consumedCarbs: number;
+  consumedFat: number;
+  targets: DailyTargets;
+}) {
+  const status = calorieStatus(consumedKcal, targets.targetKcal);
+
+  // Kalorien-Balken-Farbe je nach Status.
+  const kcalBarClass =
+    status === "over"
+      ? "bg-red-400 dark:bg-red-500"
+      : status === "slightly_over"
+        ? "bg-amber-400 dark:bg-amber-500"
+        : status === "in_range"
+          ? "bg-emerald-500"
+          : "bg-emerald-400";
+
+  const remainingKcal = targets.targetKcal - consumedKcal;
+  const kcalPercent = Math.min(
+    100,
+    targets.targetKcal > 0 ? (consumedKcal / targets.targetKcal) * 100 : 0
+  );
+
+  const remainingText =
+    remainingKcal >= 0
+      ? `Noch ${Math.round(remainingKcal)} kcal übrig`
+      : `${Math.abs(Math.round(remainingKcal))} kcal über Ziel`;
+
+  const remainingClass =
+    status === "over"
+      ? "text-red-600 dark:text-red-400"
+      : status === "slightly_over"
+        ? "text-amber-600 dark:text-amber-400"
+        : "text-ink-muted";
+
+  return (
+    <div className="bg-white rounded-2xl p-4 border border-border shadow-card space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold text-sm text-ink flex items-center gap-2">
+          <Target className="w-4 h-4 text-primary" />
+          Dein Tag
+        </h3>
+        <span className="text-xs text-ink-muted">{datumLabel}</span>
+      </div>
+
+      {/* Kalorien prominent */}
+      <div className="space-y-1.5">
+        <div className="flex items-baseline justify-between">
+          <span className="text-sm font-medium text-ink">Kalorien</span>
+          <div className="flex items-baseline gap-1">
+            <span className="text-lg font-bold text-ink">{consumedKcal}</span>
+            <span className="text-sm text-ink-muted">
+              / {targets.targetKcal} kcal
+            </span>
+          </div>
+        </div>
+        <div className="w-full bg-surface-muted rounded-full h-3 overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-500 ${kcalBarClass}`}
+            style={{ width: `${kcalPercent}%` }}
+          />
+        </div>
+        <p className={`text-xs ${remainingClass}`}>{remainingText}</p>
+      </div>
+
+      {/* 3 Makros */}
+      <div className="grid grid-cols-3 gap-3 pt-3 border-t border-border">
+        <MacroBar
+          label="Protein"
+          consumed={consumedProtein}
+          target={targets.targetProtein}
+          color="rose"
+        />
+        <MacroBar
+          label="Kohlenh."
+          consumed={consumedCarbs}
+          target={targets.targetCarbs}
+          color="amber"
+        />
+        <MacroBar
+          label="Fett"
+          consumed={consumedFat}
+          target={targets.targetFat}
+          color="blue"
+        />
+      </div>
+
+      {targets.source === "profile_goal" && (
+        <p className="text-[10px] text-ink-faint pt-1 border-t border-border">
+          Ziel geschätzt aus deinem Profil. Für einen präzisen Wert den{" "}
+          <Link
+            href="/tools/kalorienrechner"
+            className="text-primary hover:underline"
+          >
+            Kalorienrechner
+          </Link>{" "}
+          nutzen.
+        </p>
+      )}
+    </div>
+  );
+}
+
+type MacroColor = "rose" | "amber" | "blue";
+const MACRO_BAR_CLASS: Record<MacroColor, string> = {
+  rose: "bg-rose-400 dark:bg-rose-500",
+  amber: "bg-amber-400 dark:bg-amber-500",
+  blue: "bg-blue-400 dark:bg-blue-500",
+};
+
+function MacroBar({
+  label,
+  consumed,
+  target,
+  color,
+}: {
+  label: string;
+  consumed: number;
+  target: number;
+  color: MacroColor;
+}) {
+  const percent = Math.min(
+    100,
+    target > 0 ? (consumed / target) * 100 : 0
+  );
+  return (
+    <div className="space-y-1">
+      <div className="flex items-baseline justify-between">
+        <span className="text-xs text-ink-muted">{label}</span>
+        <span className="text-xs font-medium text-ink">{consumed}g</span>
+      </div>
+      <div className="w-full bg-surface-muted rounded-full h-1.5 overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-all duration-500 ${MACRO_BAR_CLASS[color]}`}
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+      <span className="block text-[10px] text-ink-faint">
+        / {target}g
+      </span>
+    </div>
+  );
+}
+
+function formatDatumLabel(iso: string, today: string): string {
+  if (iso === today) return "Heute";
+  const d = new Date(iso + "T00:00:00");
+  const yesterday = new Date(today + "T00:00:00");
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (iso === formatISODateSafe(yesterday)) return "Gestern";
+  return d.toLocaleDateString("de-DE", {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+  });
+}
+
+function formatISODateSafe(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
