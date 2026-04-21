@@ -14,11 +14,23 @@ export interface Meal {
   fullRecipe: MealRecipe;
 }
 
+export interface DayMacros {
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+}
+
 export interface DayPlan {
   day: string;
   meals: Meal[];
   targetCalories?: number;
   actualCalories?: number;
+  /**
+   * Optional: Gesamtsumme der Makros für diesen Tag. Wird von der
+   * Plan-Generierung seit Feature B mit erzeugt. Ältere Pläne ohne
+   * dieses Feld bekommen im Tagebuch einen 25/50/25-Fallback berechnet.
+   */
+  macros?: DayMacros;
 }
 
 export interface MealPrepPlan {

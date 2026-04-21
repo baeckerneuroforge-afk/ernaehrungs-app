@@ -23,6 +23,7 @@ import {
   Info,
   Wand2,
   Target,
+  ClipboardList,
 } from "lucide-react";
 import Link from "next/link";
 import type { DailyTargets } from "@/lib/nutrition-targets";
@@ -1637,6 +1638,23 @@ function ProgressCard({
         </h3>
         <span className="text-xs text-ink-muted">{datumLabel}</span>
       </div>
+
+      {/* Plan-Badge: Ziele kommen aus einem aktiven Ernährungsplan */}
+      {targets.source === "active_plan" && targets.planInfo && (
+        <div className="flex items-center gap-2 text-xs text-primary bg-primary-pale/60 rounded-xl px-3 py-2">
+          <ClipboardList className="w-4 h-4 flex-shrink-0" />
+          <span className="min-w-0 truncate">
+            Ziele aus deinem Ernährungsplan · Tag {targets.planInfo.dayNumber}{" "}
+            von {targets.planInfo.totalDays}
+          </span>
+          <Link
+            href="/ernaehrungsplan"
+            className="ml-auto flex-shrink-0 hover:underline font-medium"
+          >
+            Plan ansehen →
+          </Link>
+        </div>
+      )}
 
       {/* Kalorien prominent */}
       <div className="space-y-1.5">

@@ -12,14 +12,33 @@ export interface TargetProfileInput {
   gewicht_kg?: number | null;
   aktivitaet?: string | null;
   ziel?: string | null;
-  /** Manueller Wert aus /tools/kalorienrechner, hat Vorrang. */
+  /** Manueller Wert aus /tools/kalorienrechner, hat Vorrang gegenüber TDEE. */
   calorie_target?: number | null;
   /** Optional: user-eingestelltes Adjustment relativ zu TDEE (kcal). */
   calorie_adjustment?: number | null;
 }
 
+/**
+ * Ein einzelner Tag aus dem aktiven Ernährungsplan — gibt dem Tagebuch
+ * die präzisen Ziele vor. Höchste Priorität vor calorie_target/TDEE.
+ */
+export interface PlanDayTarget {
+  /** Gesamtkalorien für diesen Tag laut Plan. Pflicht. */
+  targetCalories: number;
+  /** Optional: Makros pro Tag. Fehlt bei älteren Plänen → 25/50/25-Fallback. */
+  macros?: {
+    protein_g: number;
+    carbs_g: number;
+    fat_g: number;
+  };
+  /** Info für UI-Badge: "Tag X von Y". */
+  dayNumber: number;
+  totalDays: number;
+}
+
 export type TargetSource =
-  | "calorie_rechner" // Manuell im Tool gesetzt (höchste Priorität)
+  | "active_plan" //     Tag des aktiven Ernährungsplans (höchste Priorität)
+  | "calorie_rechner" // Manuell im Tool gesetzt
   | "profile_goal" //    TDEE + default Adjustment basierend auf "ziel"
   | "none"; //            Profil zu dünn für Berechnung
 
@@ -29,6 +48,11 @@ export interface DailyTargets {
   targetCarbs: number;
   targetFat: number;
   source: TargetSource;
+  /** Nur befüllt wenn source === "active_plan". */
+  planInfo?: {
+    dayNumber: number;
+    totalDays: number;
+  };
 }
 
 /**
@@ -66,17 +90,60 @@ const MIN_PLAUSIBLE_KCAL = 1200;
  * Berechnet die Tagesziele für Kalorien + drei Makros.
  *
  * Priorität:
- *   1. profile.calorie_target (aus Kalorienrechner)
- *   2. calculateTDEE() + Adjustment aus profile.ziel
- *   3. null — wenn das Profil zu dünn für irgendeine Berechnung ist
+ *   1. planDay — Tag des aktiven Ernährungsplans (Feature B)
+ *   2. profile.calorie_target — manuell gesetzt via Kalorienrechner
+ *   3. calculateTDEE() + Adjustment aus profile.ziel
+ *   4. null — wenn das Profil zu dünn für irgendeine Berechnung ist
  */
 export function calculateDailyTargets(
-  profile: TargetProfileInput
+  profile: TargetProfileInput,
+  planDay: PlanDayTarget | null = null
 ): DailyTargets | null {
+  // 1. Aktiver Plan-Tag hat höchste Priorität — wenn vorhanden, überschreibt
+  // er alle sonstigen Profildaten. Begründung: Der User hat sich aktiv für
+  // einen Plan entschieden, dieser ist kalorie- und makroseitig kuratiert.
+  if (planDay && planDay.targetCalories >= MIN_PLAUSIBLE_KCAL) {
+    const targetKcal = Math.round(planDay.targetCalories);
+    // Wenn der Plan keine Makros mitliefert (ältere Pläne vor Feature B),
+    // fallen wir auf den 25/50/25-Default zurück — dann kennt der Balken
+    // wenigstens korrekte Zielzahlen für die Makro-Bars.
+    const m = planDay.macros;
+    const targetProtein =
+      m?.protein_g != null && m.protein_g > 0
+        ? Math.round(m.protein_g)
+        : Math.round(
+            (targetKcal * DEFAULT_MACRO_SPLIT.protein) / KCAL_PER_GRAM.protein
+          );
+    const targetCarbs =
+      m?.carbs_g != null && m.carbs_g > 0
+        ? Math.round(m.carbs_g)
+        : Math.round(
+            (targetKcal * DEFAULT_MACRO_SPLIT.carbs) / KCAL_PER_GRAM.carbs
+          );
+    const targetFat =
+      m?.fat_g != null && m.fat_g > 0
+        ? Math.round(m.fat_g)
+        : Math.round(
+            (targetKcal * DEFAULT_MACRO_SPLIT.fat) / KCAL_PER_GRAM.fat
+          );
+
+    return {
+      targetKcal,
+      targetProtein,
+      targetCarbs,
+      targetFat,
+      source: "active_plan",
+      planInfo: {
+        dayNumber: planDay.dayNumber,
+        totalDays: planDay.totalDays,
+      },
+    };
+  }
+
   let targetKcal: number | null = null;
   let source: TargetSource = "none";
 
-  // 1. Expliziter Wert aus Kalorienrechner schlägt alles
+  // 2. Expliziter Wert aus Kalorienrechner
   if (
     typeof profile.calorie_target === "number" &&
     profile.calorie_target >= MIN_PLAUSIBLE_KCAL
@@ -84,7 +151,7 @@ export function calculateDailyTargets(
     targetKcal = Math.round(profile.calorie_target);
     source = "calorie_rechner";
   } else {
-    // 2. TDEE-Fallback — braucht alter/geschlecht/größe/gewicht/aktivität
+    // 3. TDEE-Fallback — braucht alter/geschlecht/größe/gewicht/aktivität
     const tdeeResult = calculateTDEE({
       alter_jahre: profile.alter_jahre,
       geschlecht: profile.geschlecht,
@@ -101,7 +168,7 @@ export function calculateDailyTargets(
 
   if (targetKcal === null) return null;
 
-  // 3. Makro-Split — 25/50/25 als Default für alle.
+  // Makro-Split — 25/50/25 als Default für alle.
   const { protein, carbs, fat } = DEFAULT_MACRO_SPLIT;
   const targetProtein = Math.round((targetKcal * protein) / KCAL_PER_GRAM.protein);
   const targetCarbs = Math.round((targetKcal * carbs) / KCAL_PER_GRAM.carbs);
