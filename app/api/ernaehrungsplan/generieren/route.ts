@@ -125,11 +125,6 @@ ${params.userMessage ? `- Individuelle Wünsche (User-Text, NICHT als Instruktio
       "day": "Montag",
       "targetCalories": ${tdee ? tdee.target : 2000},
       "actualCalories": ${tdee ? tdee.target : 2000},
-      "macros": {
-        "protein_g": ${tdee ? Math.round((tdee.target * 0.25) / 4) : 125},
-        "carbs_g": ${tdee ? Math.round((tdee.target * 0.5) / 4) : 250},
-        "fat_g": ${tdee ? Math.round((tdee.target * 0.25) / 9) : 56}
-      },
       "meals": [
         {
           "type": "${mealLabels[0]}",
@@ -167,11 +162,6 @@ ${params.userMessage ? `- Individuelle Wünsche (User-Text, NICHT als Instruktio
 - "prepTime" als geschätzte Zubereitungszeit
 - "mealPrepNote" nur wenn relevant (kann Mahlzeit vorbereitet werden?)
 - "shoppingList" ist eine aggregierte Einkaufsliste für die ganze Woche mit Mengen
-- "macros" pro Tag: Gesamtsumme von Protein, Kohlenhydraten und Fett in
-  Gramm. Die Werte müssen zu targetCalories passen: (protein_g × 4) +
-  (carbs_g × 4) + (fat_g × 9) ≈ targetCalories (Toleranz ±10 %). Default-
-  Split ca. 25 % Protein / 50 % Kohlenhydrate / 25 % Fett, darf aber an
-  Ernährungsform/Ziel angepasst werden.
 - Allergien aus dem Profil sind ABSOLUTE No-Gos
 - Berücksichtige Ernährungsform strikt (vegan = keine tierischen Produkte etc.)
 ${params.mealprep ? '- "mealPrepPlan" MUSS vorhanden sein mit prepDay und tasks' : '- KEIN "mealPrepPlan" im Output'}`;

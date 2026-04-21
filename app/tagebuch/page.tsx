@@ -88,9 +88,11 @@ export default async function TagebuchPage() {
           dp.targetCalories ||
           (calFromMeals > 0 ? calFromMeals : planData.dailyTarget || 0);
         if (targetCalories > 0) {
+          // Makros bewusst NICHT übernommen — Tagebuch zeigt nur Ist-Werte
+          // für Makros. Der Plan darf intern Makros speichern, aber sie
+          // werden nicht als Ziel im Tagebuch dargestellt.
           planDay = {
             targetCalories,
-            macros: dp.macros,
             dayNumber: dayIndex + 1,
             totalDays: days.length,
           };

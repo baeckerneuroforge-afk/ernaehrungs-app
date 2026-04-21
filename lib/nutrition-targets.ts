@@ -20,17 +20,14 @@ export interface TargetProfileInput {
 
 /**
  * Ein einzelner Tag aus dem aktiven Ernährungsplan — gibt dem Tagebuch
- * die präzisen Ziele vor. Höchste Priorität vor calorie_target/TDEE.
+ * die präzisen Kalorien-Ziele vor. Höchste Priorität vor calorie_target/TDEE.
+ *
+ * Bewusst OHNE Makro-Ziele: Wir zeigen im Tagebuch nur Ist-Werte für
+ * Makros, keine Soll-Werte. Siehe Kommentar unten bei DailyTargets.
  */
 export interface PlanDayTarget {
   /** Gesamtkalorien für diesen Tag laut Plan. Pflicht. */
   targetCalories: number;
-  /** Optional: Makros pro Tag. Fehlt bei älteren Plänen → 25/50/25-Fallback. */
-  macros?: {
-    protein_g: number;
-    carbs_g: number;
-    fat_g: number;
-  };
   /** Info für UI-Badge: "Tag X von Y". */
   dayNumber: number;
   totalDays: number;
@@ -42,11 +39,19 @@ export type TargetSource =
   | "profile_goal" //    TDEE + default Adjustment basierend auf "ziel"
   | "none"; //            Profil zu dünn für Berechnung
 
+/**
+ * Tages-Zielvorgaben fürs Tagebuch.
+ *
+ * Enthält BEWUSST nur Kalorien — keine Makro-Ziele. Das Kalorienziel
+ * kommt aus einer individualisierten Quelle (Kalorienrechner,
+ * Plan-Tag, oder TDEE-Schätzung mit User-Zielrichtung). Makros dagegen
+ * würden eine allgemeine Empfehlung implizieren (25/50/25 oder ähnlich)
+ * — das wollen wir nicht: die App gibt keine Ernährungs-Empfehlungen
+ * ab, sondern trackt nur. Im UI werden Makros als Ist-Werte ohne
+ * Balken und ohne Ziel gezeigt.
+ */
 export interface DailyTargets {
   targetKcal: number;
-  targetProtein: number;
-  targetCarbs: number;
-  targetFat: number;
   source: TargetSource;
   /** Nur befüllt wenn source === "active_plan". */
   planInfo?: {
@@ -56,82 +61,28 @@ export interface DailyTargets {
 }
 
 /**
- * Default Makro-Verteilung für ALLE User (keine krankheitsbasierte
- * Automatik — das wäre medizinische Beratung und ist explizit in den
- * AGB ausgeschlossen). Eine manuelle Anpassung durch den User
- * (Custom-Percent-Felder) kommt in einem späteren Feature.
- *
- * Rationale: 25/50/25 ist eine breit anerkannte, ausgewogene Baseline,
- * die weder Low-Carb noch High-Protein stark zieht und in den meisten
- * Ernährungs-Lehrbüchern als Einstieg gilt.
- */
-const DEFAULT_MACRO_SPLIT = {
-  protein: 0.25,
-  carbs: 0.5,
-  fat: 0.25,
-} as const;
-
-/**
- * Kalorien pro Gramm (physikalisch konstant — Atwater-Werte).
- */
-const KCAL_PER_GRAM = {
-  protein: 4,
-  carbs: 4,
-  fat: 9,
-} as const;
-
-/**
  * Minimaler plausibler Target-Wert. Unterhalb dessen zeigen wir
- * keine Balken — das wäre kein gesundes Ziel mehr.
+ * keinen Balken — das wäre kein gesundes Ziel mehr.
  */
 const MIN_PLAUSIBLE_KCAL = 1200;
 
 /**
- * Berechnet die Tagesziele für Kalorien + drei Makros.
+ * Berechnet das Tages-Kalorienziel.
  *
  * Priorität:
- *   1. planDay — Tag des aktiven Ernährungsplans (Feature B)
+ *   1. planDay — Tag des aktiven Ernährungsplans
  *   2. profile.calorie_target — manuell gesetzt via Kalorienrechner
  *   3. calculateTDEE() + Adjustment aus profile.ziel
- *   4. null — wenn das Profil zu dünn für irgendeine Berechnung ist
+ *   4. null — wenn Profil zu dünn für irgendeine Berechnung ist
  */
 export function calculateDailyTargets(
   profile: TargetProfileInput,
   planDay: PlanDayTarget | null = null
 ): DailyTargets | null {
-  // 1. Aktiver Plan-Tag hat höchste Priorität — wenn vorhanden, überschreibt
-  // er alle sonstigen Profildaten. Begründung: Der User hat sich aktiv für
-  // einen Plan entschieden, dieser ist kalorie- und makroseitig kuratiert.
+  // 1. Aktiver Plan-Tag hat höchste Priorität.
   if (planDay && planDay.targetCalories >= MIN_PLAUSIBLE_KCAL) {
-    const targetKcal = Math.round(planDay.targetCalories);
-    // Wenn der Plan keine Makros mitliefert (ältere Pläne vor Feature B),
-    // fallen wir auf den 25/50/25-Default zurück — dann kennt der Balken
-    // wenigstens korrekte Zielzahlen für die Makro-Bars.
-    const m = planDay.macros;
-    const targetProtein =
-      m?.protein_g != null && m.protein_g > 0
-        ? Math.round(m.protein_g)
-        : Math.round(
-            (targetKcal * DEFAULT_MACRO_SPLIT.protein) / KCAL_PER_GRAM.protein
-          );
-    const targetCarbs =
-      m?.carbs_g != null && m.carbs_g > 0
-        ? Math.round(m.carbs_g)
-        : Math.round(
-            (targetKcal * DEFAULT_MACRO_SPLIT.carbs) / KCAL_PER_GRAM.carbs
-          );
-    const targetFat =
-      m?.fat_g != null && m.fat_g > 0
-        ? Math.round(m.fat_g)
-        : Math.round(
-            (targetKcal * DEFAULT_MACRO_SPLIT.fat) / KCAL_PER_GRAM.fat
-          );
-
     return {
-      targetKcal,
-      targetProtein,
-      targetCarbs,
-      targetFat,
+      targetKcal: Math.round(planDay.targetCalories),
       source: "active_plan",
       planInfo: {
         dayNumber: planDay.dayNumber,
@@ -140,51 +91,38 @@ export function calculateDailyTargets(
     };
   }
 
-  let targetKcal: number | null = null;
-  let source: TargetSource = "none";
-
-  // 2. Expliziter Wert aus Kalorienrechner
+  // 2. Kalorienrechner-Wert
   if (
     typeof profile.calorie_target === "number" &&
     profile.calorie_target >= MIN_PLAUSIBLE_KCAL
   ) {
-    targetKcal = Math.round(profile.calorie_target);
-    source = "calorie_rechner";
-  } else {
-    // 3. TDEE-Fallback — braucht alter/geschlecht/größe/gewicht/aktivität
-    const tdeeResult = calculateTDEE({
-      alter_jahre: profile.alter_jahre,
-      geschlecht: profile.geschlecht,
-      groesse_cm: profile.groesse_cm,
-      gewicht_kg: profile.gewicht_kg,
-      aktivitaet: profile.aktivitaet,
-      ziel: profile.ziel,
-    });
-    if (tdeeResult && tdeeResult.target >= MIN_PLAUSIBLE_KCAL) {
-      targetKcal = Math.round(tdeeResult.target);
-      source = "profile_goal";
-    }
+    return {
+      targetKcal: Math.round(profile.calorie_target),
+      source: "calorie_rechner",
+    };
   }
 
-  if (targetKcal === null) return null;
+  // 3. TDEE-Fallback
+  const tdeeResult = calculateTDEE({
+    alter_jahre: profile.alter_jahre,
+    geschlecht: profile.geschlecht,
+    groesse_cm: profile.groesse_cm,
+    gewicht_kg: profile.gewicht_kg,
+    aktivitaet: profile.aktivitaet,
+    ziel: profile.ziel,
+  });
+  if (tdeeResult && tdeeResult.target >= MIN_PLAUSIBLE_KCAL) {
+    return {
+      targetKcal: Math.round(tdeeResult.target),
+      source: "profile_goal",
+    };
+  }
 
-  // Makro-Split — 25/50/25 als Default für alle.
-  const { protein, carbs, fat } = DEFAULT_MACRO_SPLIT;
-  const targetProtein = Math.round((targetKcal * protein) / KCAL_PER_GRAM.protein);
-  const targetCarbs = Math.round((targetKcal * carbs) / KCAL_PER_GRAM.carbs);
-  const targetFat = Math.round((targetKcal * fat) / KCAL_PER_GRAM.fat);
-
-  return {
-    targetKcal,
-    targetProtein,
-    targetCarbs,
-    targetFat,
-    source,
-  };
+  return null;
 }
 
 /**
- * Farbschicht für den Kalorien-Balken. Stufen entsprechen den Labels
+ * Farbstufen für den Kalorien-Balken. Stufen entsprechen den Labels
  * in der UI — der Component-Layer wendet sie auf die Balken-Farbe und
  * die Text-Farbe der Sub-Zeile an.
  */

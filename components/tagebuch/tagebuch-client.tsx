@@ -1656,7 +1656,9 @@ function ProgressCard({
         </div>
       )}
 
-      {/* Kalorien prominent */}
+      {/* Kalorien prominent — mit Ziel-Balken (das Kalorienziel ist
+          individuell aus Kalorienrechner oder Plan abgeleitet, nicht
+          aus einer pauschalen Empfehlung). */}
       <div className="space-y-1.5">
         <div className="flex items-baseline justify-between">
           <span className="text-sm font-medium text-ink">Kalorien</span>
@@ -1676,31 +1678,37 @@ function ProgressCard({
         <p className={`text-xs ${remainingClass}`}>{remainingText}</p>
       </div>
 
-      {/* 3 Makros */}
-      <div className="grid grid-cols-3 gap-3 pt-3 border-t border-border">
-        <MacroBar
-          label="Protein"
-          consumed={consumedProtein}
-          target={targets.targetProtein}
-          color="rose"
-        />
-        <MacroBar
-          label="Kohlenh."
-          consumed={consumedCarbs}
-          target={targets.targetCarbs}
-          color="amber"
-        />
-        <MacroBar
-          label="Fett"
-          consumed={consumedFat}
-          target={targets.targetFat}
-          color="blue"
-        />
+      {/* Makros — NUR Ist-Werte, keine Balken, kein Soll. Wir geben
+          bewusst keine Makro-Empfehlung ab (wäre Ernährungs-/
+          medizinische Beratung). Der User sieht was er gegessen hat. */}
+      <div className="grid grid-cols-3 gap-4 pt-3 border-t border-border">
+        <div className="text-center">
+          <p className="text-xs text-ink-muted mb-1">Protein</p>
+          <p className="text-lg font-bold text-ink">
+            {consumedProtein}
+            <span className="text-sm text-ink-muted font-normal">g</span>
+          </p>
+        </div>
+        <div className="text-center">
+          <p className="text-xs text-ink-muted mb-1">Kohlenhydrate</p>
+          <p className="text-lg font-bold text-ink">
+            {consumedCarbs}
+            <span className="text-sm text-ink-muted font-normal">g</span>
+          </p>
+        </div>
+        <div className="text-center">
+          <p className="text-xs text-ink-muted mb-1">Fett</p>
+          <p className="text-lg font-bold text-ink">
+            {consumedFat}
+            <span className="text-sm text-ink-muted font-normal">g</span>
+          </p>
+        </div>
       </div>
 
       {targets.source === "profile_goal" && (
         <p className="text-[10px] text-ink-faint pt-1 border-t border-border">
-          Ziel geschätzt aus deinem Profil. Für einen präzisen Wert den{" "}
+          Kalorienziel geschätzt aus deinem Profil. Für einen präzisen Wert
+          den{" "}
           <Link
             href="/tools/kalorienrechner"
             className="text-primary hover:underline"
@@ -1710,47 +1718,6 @@ function ProgressCard({
           nutzen.
         </p>
       )}
-    </div>
-  );
-}
-
-type MacroColor = "rose" | "amber" | "blue";
-const MACRO_BAR_CLASS: Record<MacroColor, string> = {
-  rose: "bg-rose-400 dark:bg-rose-500",
-  amber: "bg-amber-400 dark:bg-amber-500",
-  blue: "bg-blue-400 dark:bg-blue-500",
-};
-
-function MacroBar({
-  label,
-  consumed,
-  target,
-  color,
-}: {
-  label: string;
-  consumed: number;
-  target: number;
-  color: MacroColor;
-}) {
-  const percent = Math.min(
-    100,
-    target > 0 ? (consumed / target) * 100 : 0
-  );
-  return (
-    <div className="space-y-1">
-      <div className="flex items-baseline justify-between">
-        <span className="text-xs text-ink-muted">{label}</span>
-        <span className="text-xs font-medium text-ink">{consumed}g</span>
-      </div>
-      <div className="w-full bg-surface-muted rounded-full h-1.5 overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all duration-500 ${MACRO_BAR_CLASS[color]}`}
-          style={{ width: `${percent}%` }}
-        />
-      </div>
-      <span className="block text-[10px] text-ink-faint">
-        / {target}g
-      </span>
     </div>
   );
 }
