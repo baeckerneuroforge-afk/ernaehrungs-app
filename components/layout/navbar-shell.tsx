@@ -33,13 +33,19 @@ export function NavbarShell() {
   const [menuOpen, setMenuOpen] = useState(false);
   const pathname = usePathname();
 
-  // Sign-Out needs a HARD navigation, not Clerk's built-in `redirectUrl`
-  // (which is a Next router push — Server Components on the current route
-  // don't re-render, so any `requireOnboardedUser()` layout guards keep
-  // their signed-in render and the navbar flickers stale until the user
-  // reloads). The earlier race between `signOut()` (fire-and-forget) and
-  // `window.location.assign()` is fixed by awaiting signOut first so the
-  // session cookie is definitely gone before we navigate.
+  // Sign-Out needs to fully reset client-side state. Just signOut() +
+  // Clerk's built-in redirect isn't enough because:
+  //   1. A Next router push leaves Server Component renders (especially
+  //      the app layouts with requireOnboardedUser()) mounted with their
+  //      signed-in output → navbar flickers stale.
+  //   2. The Service Worker caches static assets tied to the previous
+  //      session's chunk hashes; Safari/Firefox will happily serve an
+  //      old navbar bundle back after a hard navigation.
+  //   3. Back-Forward Cache (BFCache) on Safari/Firefox freezes the tab
+  //      including React state; Back-button can resurrect the signed-in
+  //      navbar.
+  // We address all three: delete all SW caches, unregister the SW, then
+  // hard-navigate with a cache-busting query string.
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -48,7 +54,25 @@ export function NavbarShell() {
       // want to navigate so the user isn't stranded on a signed-in page.
       console.error("[navbar] signOut error (continuing anyway):", err);
     }
-    window.location.href = "/";
+
+    // Best-effort Browser-State-Invalidation. Any failure here is non-fatal —
+    // the hard navigation below is the real guarantee.
+    try {
+      if (typeof window !== "undefined" && "caches" in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k)));
+      }
+      if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((r) => r.unregister()));
+      }
+    } catch (err) {
+      console.warn("[navbar] cache/SW cleanup failed (non-fatal):", err);
+    }
+
+    // Hard navigation with cache-bust — defeats BFCache and any stale
+    // HTTP-cached /-response the browser might try to serve.
+    window.location.href = `/?_t=${Date.now()}`;
   };
 
   // Fetch plan + admin status whenever the signed-in user changes
