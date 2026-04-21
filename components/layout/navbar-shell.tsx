@@ -187,6 +187,27 @@ export function NavbarShell() {
                     })}
                   </SignedIn>
                   <SignedOut>
+                    {/* Public-Navigation — Anker-Links auf Landing-Sections
+                        plus Blog. Reihenfolge: Funktionen, Preise, Über Janine,
+                        Blog. Der Blog-Link bleibt unverändert wie vorher. */}
+                    <Link
+                      href="/#funktionen"
+                      className="px-3.5 py-1.5 rounded-full text-sm transition-all duration-200 text-ink-muted hover:text-ink hover:bg-surface-muted"
+                    >
+                      Funktionen
+                    </Link>
+                    <Link
+                      href="/#preise"
+                      className="px-3.5 py-1.5 rounded-full text-sm transition-all duration-200 text-ink-muted hover:text-ink hover:bg-surface-muted"
+                    >
+                      Preise
+                    </Link>
+                    <Link
+                      href="/#janine"
+                      className="px-3.5 py-1.5 rounded-full text-sm transition-all duration-200 text-ink-muted hover:text-ink hover:bg-surface-muted"
+                    >
+                      Über Janine
+                    </Link>
                     <Link
                       href="/blog"
                       className={`px-3.5 py-1.5 rounded-full text-sm transition-all duration-200 ${
@@ -256,7 +277,7 @@ export function NavbarShell() {
                   <SignedOut>
                     <Link
                       href="/sign-in"
-                      className="text-sm font-medium text-ink-muted hover:text-primary transition-all duration-200 px-3 py-1.5"
+                      className="hidden sm:inline-flex text-sm font-medium text-ink-muted hover:text-primary transition-all duration-200 px-3 py-1.5"
                     >
                       Anmelden
                     </Link>
@@ -266,6 +287,15 @@ export function NavbarShell() {
                     >
                       Kostenlos starten
                     </Link>
+                    {/* Mobile hamburger für Public-User — öffnet den
+                        SignedOut-Drawer weiter unten. */}
+                    <button
+                      className="md:hidden p-3 w-11 h-11 flex items-center justify-center rounded-lg text-ink-muted cursor-pointer hover:text-ink hover:bg-surface-muted transition"
+                      onClick={() => setMenuOpen(true)}
+                      aria-label="Menü öffnen"
+                    >
+                      <Menu className="w-5 h-5" />
+                    </button>
                   </SignedOut>
                 </>
               )}
@@ -369,6 +399,83 @@ export function NavbarShell() {
           </div>
         </aside>
       </SignedIn>
+
+      {/* Mobile slide-in drawer — SignedOut-Version.
+          Spiegelt die Desktop-Public-Nav (Anker-Links + Blog) und hat
+          unten die beiden CTAs (Anmelden, Kostenlos starten). */}
+      <SignedOut>
+        <div
+          className={`fixed inset-0 z-50 bg-black/30 md:hidden transition-opacity duration-200 ${
+            menuOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+          }`}
+          onClick={() => setMenuOpen(false)}
+        />
+        <aside
+          className={`fixed top-0 right-0 bottom-0 z-50 w-[82%] max-w-sm bg-white shadow-pop md:hidden transition-transform duration-300 ease-out ${
+            menuOpen ? "translate-x-0" : "translate-x-full"
+          }`}
+        >
+          <div className="flex items-center justify-between px-5 py-5 border-b border-border">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center">
+                <Leaf className="w-[18px] h-[18px] text-white" />
+              </div>
+              <span className="font-serif text-base font-semibold text-ink">
+                Menü
+              </span>
+            </div>
+            <button
+              onClick={() => setMenuOpen(false)}
+              className="p-2 rounded-full hover:bg-surface-muted text-ink-muted transition"
+              aria-label="Menü schließen"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <nav className="px-3 py-4 space-y-1">
+            <Link
+              href="/#funktionen"
+              className="flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] text-ink-muted hover:text-ink hover:bg-surface-muted transition-all duration-200"
+            >
+              Funktionen
+            </Link>
+            <Link
+              href="/#preise"
+              className="flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] text-ink-muted hover:text-ink hover:bg-surface-muted transition-all duration-200"
+            >
+              Preise
+            </Link>
+            <Link
+              href="/#janine"
+              className="flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] text-ink-muted hover:text-ink hover:bg-surface-muted transition-all duration-200"
+            >
+              Über Janine
+            </Link>
+            <Link
+              href="/blog"
+              className="flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] text-ink-muted hover:text-ink hover:bg-surface-muted transition-all duration-200"
+            >
+              Blog
+            </Link>
+          </nav>
+
+          <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border space-y-2">
+            <Link
+              href="/sign-in"
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-full text-sm text-ink-muted hover:text-primary hover:bg-surface-muted border border-border transition-all duration-200"
+            >
+              Anmelden
+            </Link>
+            <Link
+              href="/sign-up"
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-full text-sm font-medium bg-primary text-white hover:bg-primary-hover shadow-card transition-all duration-200"
+            >
+              Kostenlos starten
+            </Link>
+          </div>
+        </aside>
+      </SignedOut>
     </>
   );
 }

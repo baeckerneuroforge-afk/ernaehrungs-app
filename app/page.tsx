@@ -35,6 +35,7 @@ import {
   Target,
   Calculator,
   RefreshCw,
+  Wand2,
 } from "lucide-react";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -70,6 +71,7 @@ export default function LandingPage() {
         <TrustBar />
         <HowItWorksSection />
         <FeaturesSection />
+        <SmartLogSection />
         <PhotoAiSection />
         <ClosedLoopSection />
         <ExampleQuestionsSection />
@@ -638,7 +640,10 @@ function FeaturesSection() {
   const ref = useScrollReveal();
 
   return (
-    <section className="relative bg-gradient-to-b from-sage-faint/50 via-surface-bg to-surface-bg border-y border-sage-light/30">
+    <section
+      id="funktionen"
+      className="relative bg-gradient-to-b from-sage-faint/50 via-surface-bg to-surface-bg border-y border-sage-light/30"
+    >
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-28">
         <div className="text-center mb-16">
           <p className="text-xs font-semibold text-primary tracking-[0.2em] uppercase mb-3">
@@ -790,6 +795,145 @@ function ReviewPreview() {
           <p className="text-[10px] font-semibold text-warm-dark">{b.value}</p>
         </div>
       ))}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   4a. SMART LOG — Premium feature spotlight (compact)
+   ═══════════════════════════════════════════════════════════════ */
+function SmartLogSection() {
+  const ref = useScrollReveal();
+  return (
+    <section className="relative overflow-hidden bg-white border-y border-accent-warmLight/30">
+      {/* Subtle amber gradient blobs — same system as PhotoAi */}
+      <div
+        aria-hidden
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(ellipse at 15% 25%, rgba(245,212,155,0.22) 0%, rgba(245,212,155,0) 55%), radial-gradient(ellipse at 85% 75%, rgba(253,230,192,0.25) 0%, rgba(253,230,192,0) 60%)",
+        }}
+      />
+
+      <div
+        ref={ref}
+        className="reveal relative max-w-6xl mx-auto px-4 sm:px-6 py-24"
+      >
+        <div className="grid md:grid-cols-[3fr_2fr] gap-10 lg:gap-14 items-center">
+          {/* Left — Text + CTA */}
+          <div className="anim-fade-left">
+            <p className="inline-flex items-center gap-1.5 text-xs font-bold text-accent-warm tracking-[0.2em] uppercase mb-4">
+              <Crown className="w-3 h-3" />
+              Premium-Feature
+            </p>
+            <h2 className="font-serif text-3xl sm:text-4xl font-semibold text-warm-dark mb-4 tracking-tight leading-[1.08]">
+              Smart Log —
+              <br />
+              <span className="italic text-accent-warm">
+                beschreibe, die KI trägt ein.
+              </span>
+            </h2>
+            <p className="text-warm-muted leading-relaxed font-light text-lg max-w-xl mb-4">
+              Kein mühsames Eintragen mehr. Schreib einfach{" "}
+              <span className="italic text-warm-dark">
+                „Haferflocken zum Frühstück, Salat mit Hähnchen mittags, abends
+                Brot mit Käse“
+              </span>{" "}
+              — Nutriva erkennt die Mahlzeiten, schätzt Kalorien und Makros, du
+              bestätigst. Fertig.
+            </p>
+            <p className="text-sm text-warm-muted mb-8">
+              Drei Tippvorgänge statt 15 Formularfeldern.
+            </p>
+
+            <Link
+              href="/#preise"
+              className="inline-flex items-center gap-2 bg-gradient-to-r from-accent-warm to-amber-600 text-white px-6 py-3.5 rounded-full text-sm font-semibold hover:scale-[1.02] transition-all shadow-lg shadow-amber-600/25"
+            >
+              Premium testen
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+
+          {/* Right — compact phone mockup */}
+          <div className="anim-fade-right delay-2 flex justify-center md:justify-end">
+            <SmartLogMockup />
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function SmartLogMockup() {
+  const entries = [
+    { type: "Frühstück", name: "Haferflocken mit Banane", kcal: 380 },
+    { type: "Mittag", name: "Salat mit Hähnchen", kcal: 520 },
+    { type: "Abend", name: "Brot mit Käse", kcal: 340 },
+  ];
+  return (
+    <div className="relative w-[260px] sm:w-[280px]">
+      <div className="absolute -inset-3 bg-gradient-to-br from-accent-warm/20 to-amber-400/20 rounded-[2.5rem] blur-2xl" />
+      <div className="relative bg-[#1C1917] rounded-[2rem] p-2.5 shadow-2xl">
+        <div className="bg-surface-bg rounded-[1.6rem] overflow-hidden min-h-[360px]">
+          {/* Status bar */}
+          <div className="h-5" />
+          {/* Input card */}
+          <div className="mx-3 bg-white rounded-2xl p-3 border border-border shadow-sm">
+            <div className="flex items-center gap-1.5 mb-2">
+              <Wand2 className="w-3 h-3 text-accent-warm" />
+              <span className="text-[10px] font-semibold text-warm-dark">
+                Smart Log
+              </span>
+              <span className="text-[8px] bg-accent-warmPale text-accent-warm px-1.5 py-0.5 rounded-full font-medium uppercase tracking-wide ml-auto">
+                Premium
+              </span>
+            </div>
+            <p className="text-[11px] text-warm-dark leading-relaxed">
+              Haferflocken zum Frühstück, Salat mit Hähnchen mittags, abends
+              Brot mit Käse
+            </p>
+            <div className="flex justify-end mt-2">
+              <div className="inline-flex items-center gap-1 bg-gradient-to-r from-accent-warm to-amber-600 text-white text-[9px] font-semibold px-2.5 py-1 rounded-full">
+                <Sparkles className="w-2.5 h-2.5" />
+                Analysieren
+              </div>
+            </div>
+          </div>
+          {/* Arrow */}
+          <div className="flex justify-center my-2">
+            <ChevronDown className="w-4 h-4 text-accent-warm" />
+          </div>
+          {/* Preview card */}
+          <div className="mx-3 bg-white rounded-2xl p-3 border border-border shadow-sm">
+            <p className="text-[9px] uppercase tracking-wide text-warm-muted mb-2">
+              Vorschau · 3 Einträge
+            </p>
+            <div className="space-y-1.5">
+              {entries.map((e) => (
+                <div
+                  key={e.type}
+                  className="flex items-center justify-between bg-surface-bg rounded-lg px-2 py-1.5"
+                >
+                  <div className="min-w-0">
+                    <p className="text-[9px] uppercase tracking-wide text-warm-light">
+                      {e.type}
+                    </p>
+                    <p className="text-[11px] text-warm-dark font-medium truncate">
+                      {e.name}
+                    </p>
+                  </div>
+                  <span className="text-[10px] font-semibold text-warm-dark whitespace-nowrap ml-2">
+                    {e.kcal} kcal
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="h-3" />
+        </div>
+      </div>
     </div>
   );
 }
@@ -1809,7 +1953,7 @@ function JanineSection() {
   ];
 
   return (
-    <section className="relative overflow-hidden">
+    <section id="janine" className="relative overflow-hidden">
       <div
         aria-hidden
         className="absolute inset-0 bg-gradient-to-br from-primary-faint via-sage-faint to-accent-warmPale/40 dark:bg-none dark:bg-[#142820]"
