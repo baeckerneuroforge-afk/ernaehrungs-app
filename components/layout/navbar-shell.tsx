@@ -19,6 +19,7 @@ import {
   HelpCircle,
   FileText,
   Home,
+  Mail,
 } from "lucide-react";
 import { CreditBadge } from "@/components/credit-badge";
 import { hasFeatureAccess, type Feature } from "@/lib/feature-gates";
@@ -188,8 +189,8 @@ export function NavbarShell() {
                   </SignedIn>
                   <SignedOut>
                     {/* Public-Navigation — Anker-Links auf Landing-Sections
-                        plus Blog. Reihenfolge: Funktionen, Preise, Über Janine,
-                        Blog. Der Blog-Link bleibt unverändert wie vorher. */}
+                        plus Blog + Hilfe. Reihenfolge: Funktionen, Preise,
+                        Über Janine, Blog, Hilfe. */}
                     <Link
                       href="/#funktionen"
                       className="px-3.5 py-1.5 rounded-full text-sm transition-all duration-200 text-ink-muted hover:text-ink hover:bg-surface-muted"
@@ -218,6 +219,16 @@ export function NavbarShell() {
                     >
                       Blog
                     </Link>
+                    <Link
+                      href="/hilfe"
+                      className={`px-3.5 py-1.5 rounded-full text-sm transition-all duration-200 ${
+                        isActive("/hilfe")
+                          ? "bg-primary-pale text-primary font-medium"
+                          : "text-ink-muted hover:text-ink hover:bg-surface-muted"
+                      }`}
+                    >
+                      Hilfe
+                    </Link>
                   </SignedOut>
                 </>
               )}
@@ -234,10 +245,10 @@ export function NavbarShell() {
                       <CreditBadge isAdmin={isAdmin} />
                     </div>
                     <Link
-                      href="/support"
+                      href="/hilfe"
                       className="hidden md:flex items-center justify-center w-8 h-8 rounded-full text-ink-muted hover:text-primary hover:bg-primary-pale transition-all duration-200"
-                      aria-label="Hilfe & Support"
-                      title="Hilfe & Support"
+                      aria-label="Hilfe"
+                      title="Hilfe"
                     >
                       <HelpCircle className="w-[18px] h-[18px]" />
                     </Link>
@@ -371,11 +382,18 @@ export function NavbarShell() {
               Einstellungen
             </Link>
             <Link
-              href="/support"
+              href="/hilfe"
               className="flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] text-ink-muted hover:text-primary hover:bg-primary-pale transition-all duration-200"
             >
               <HelpCircle className="w-[18px] h-[18px]" />
-              Hilfe & Support
+              Hilfe
+            </Link>
+            <Link
+              href="/support"
+              className="flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] text-ink-muted hover:text-primary hover:bg-primary-pale transition-all duration-200"
+            >
+              <Mail className="w-[18px] h-[18px]" />
+              Kontakt
             </Link>
             {isAdmin && (
               <Link
@@ -457,6 +475,12 @@ export function NavbarShell() {
               className="flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] text-ink-muted hover:text-ink hover:bg-surface-muted transition-all duration-200"
             >
               Blog
+            </Link>
+            <Link
+              href="/hilfe"
+              className="flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] text-ink-muted hover:text-ink hover:bg-surface-muted transition-all duration-200"
+            >
+              Hilfe
             </Link>
           </nav>
 
