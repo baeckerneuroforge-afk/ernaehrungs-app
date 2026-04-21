@@ -1620,6 +1620,11 @@ function PricingSection() {
                 accent: "amber",
               },
               {
+                text: "Smart Log: in einem Satz beschreiben, KI trägt ein",
+                highlight: true,
+                accent: "amber",
+              },
+              {
                 text: "Direktnachrichten an Janine",
                 highlight: true,
                 accent: "amber",

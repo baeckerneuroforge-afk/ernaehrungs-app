@@ -10,7 +10,8 @@ export type Feature =
   | "monthly_report"
   | "shopping_list"
   | "barcode_scanner"
-  | "csv_import";
+  | "csv_import"
+  | "smart_log";
 
 export type SubscriptionPlan = "free" | "pro" | "pro_plus" | "admin";
 
@@ -30,6 +31,7 @@ const FEATURE_ACCESS: Record<SubscriptionPlan, Feature[]> = {
     "monthly_report",
     "barcode_scanner",
     "csv_import",
+    "smart_log",
   ],
   admin: [
     "chat",
@@ -44,6 +46,7 @@ const FEATURE_ACCESS: Record<SubscriptionPlan, Feature[]> = {
     "monthly_report",
     "barcode_scanner",
     "csv_import",
+    "smart_log",
   ],
 };
 
@@ -63,7 +66,8 @@ export function requiredPlanFor(feature: Feature): SubscriptionPlan {
     feature === "chat_image" ||
     feature === "monthly_report" ||
     feature === "barcode_scanner" ||
-    feature === "csv_import"
+    feature === "csv_import" ||
+    feature === "smart_log"
   )
     return "pro_plus";
   if (feature === "plan" || feature === "review" || feature === "shopping_list")
@@ -85,6 +89,7 @@ export function getUpgradeMessage(feature: Feature): string {
     monthly_report: "Monatliche Fortschrittsreports sind im Premium-Plan verfügbar.",
     barcode_scanner: "Der Barcode-Scanner ist im Premium-Plan verfügbar. Scanne Lebensmittel und erfasse Nährwerte automatisch.",
     csv_import: "CSV-Import ist im Premium-Plan verfügbar. Importiere deine Daten aus MyFitnessPal, Yazio, Lifesum und mehr.",
+    smart_log: "Smart Log ist im Premium-Plan verfügbar. Beschreibe einfach was du gegessen hast — die KI erstellt strukturierte Einträge mit Kalorien und Makros.",
   };
   return messages[feature];
 }

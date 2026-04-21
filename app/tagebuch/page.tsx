@@ -29,6 +29,7 @@ export default async function TagebuchPage() {
 
   const canUsePhoto = hasFeatureAccess(plan, "foto_tracking");
   const canImport = hasFeatureAccess(plan, "csv_import");
+  const canSmartLog = hasFeatureAccess(plan, "smart_log");
 
   return (
     <div className="min-h-screen flex flex-col bg-surface-bg">
@@ -55,6 +56,7 @@ export default async function TagebuchPage() {
           initialEntries={data || []}
           today={today}
           canUsePhoto={canUsePhoto}
+          canSmartLog={canSmartLog}
         />
       </main>
       <Footer />

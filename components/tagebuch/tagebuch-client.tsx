@@ -20,13 +20,27 @@ import {
   ImageIcon,
   ThumbsUp,
   ThumbsDown,
+  Info,
+  Wand2,
 } from "lucide-react";
+import Link from "next/link";
 
 interface Props {
   initialEntries: FoodLog[];
   today: string;
   canUsePhoto: boolean;
+  canSmartLog: boolean;
 }
+
+// Smart-Log Preview-Struktur (server-side sanitized)
+type SmartLogEntry = {
+  mahlzeit_typ: MealTyp;
+  description: string;
+  kalorien_geschaetzt: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+};
 
 type Confidence = "sicher" | "mittel" | "unsicher";
 type PhotoAnalysis = {
@@ -185,13 +199,31 @@ async function compressImage(file: File): Promise<File> {
   );
 }
 
-export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
+export function TagebuchClient({
+  initialEntries,
+  today,
+  canUsePhoto,
+  canSmartLog,
+}: Props) {
   const [datum, setDatum] = useState(today);
   const [entries, setEntries] = useState<FoodLog[]>(initialEntries);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Makros-Toggle im Eintragungs-Formular. Default: offen — User-Feedback
+  // hat gezeigt, dass die versteckten Felder oft übersehen werden und
+  // dadurch Profile-Analysen dünn bleiben.
+  const [showMacros, setShowMacros] = useState(true);
+
+  // Smart-Log State (nur für Premium sichtbar)
+  const [smartLogInput, setSmartLogInput] = useState("");
+  const [isSmartLogging, setIsSmartLogging] = useState(false);
+  const [smartLogPreview, setSmartLogPreview] = useState<SmartLogEntry[] | null>(
+    null
+  );
+  const [smartLogSaving, setSmartLogSaving] = useState(false);
 
   // Form state
   const [formTyp, setFormTyp] = useState<MealTyp>("fruehstueck");
@@ -488,6 +520,119 @@ export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
     }
   }
 
+  // --- Smart Log ---------------------------------------------------------
+  async function handleSmartLog() {
+    if (!canSmartLog) return;
+    const text = smartLogInput.trim();
+    if (text.length < 3) return;
+
+    setIsSmartLogging(true);
+    try {
+      const res = await fetch("/api/tagebuch/smart-log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, datum }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        entries?: SmartLogEntry[];
+        message?: string;
+        error?: string;
+      };
+      if (!res.ok) {
+        toast.error(data.message || "Smart Log fehlgeschlagen.");
+        return;
+      }
+      if (!data.entries?.length) {
+        toast.error(data.message || "Keine Mahlzeiten erkannt.");
+        return;
+      }
+      setSmartLogPreview(data.entries);
+    } catch (err) {
+      console.error("[smart-log] network error:", err);
+      toast.error("Netzwerk-Fehler. Bitte erneut versuchen.");
+    } finally {
+      setIsSmartLogging(false);
+    }
+  }
+
+  function updateSmartLogEntry<K extends keyof SmartLogEntry>(
+    index: number,
+    field: K,
+    value: SmartLogEntry[K]
+  ) {
+    setSmartLogPreview((prev) => {
+      if (!prev) return prev;
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: value };
+      return next;
+    });
+  }
+
+  function removeSmartLogEntry(index: number) {
+    setSmartLogPreview((prev) => {
+      if (!prev) return prev;
+      const next = prev.filter((_, i) => i !== index);
+      return next.length > 0 ? next : null;
+    });
+  }
+
+  async function confirmSmartLog() {
+    if (!smartLogPreview || smartLogPreview.length === 0) return;
+    setSmartLogSaving(true);
+    let success = 0;
+    let failed = 0;
+    const saved: FoodLog[] = [];
+
+    for (const entry of smartLogPreview) {
+      try {
+        const res = await fetch("/api/tagebuch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mahlzeit_typ: entry.mahlzeit_typ,
+            beschreibung: entry.description,
+            kalorien_geschaetzt: entry.kalorien_geschaetzt || null,
+            protein_g: entry.protein_g || null,
+            carbs_g: entry.carbs_g || null,
+            fat_g: entry.fat_g || null,
+            source: "manual",
+            datum,
+          }),
+        });
+        if (res.ok) {
+          const row = (await res.json()) as FoodLog;
+          if (row?.id) saved.push(row);
+          success++;
+        } else {
+          failed++;
+        }
+      } catch {
+        failed++;
+      }
+    }
+
+    if (saved.length) {
+      setEntries((prev) => [...prev, ...saved]);
+    }
+    setSmartLogSaving(false);
+    setSmartLogPreview(null);
+    setSmartLogInput("");
+
+    if (failed === 0) {
+      toast.success(
+        success === 1
+          ? "1 Eintrag gespeichert"
+          : `${success} Einträge gespeichert`
+      );
+    } else if (success > 0) {
+      toast.warning(
+        `${success} gespeichert, ${failed} fehlgeschlagen`
+      );
+    } else {
+      toast.error("Keine Einträge gespeichert.");
+    }
+  }
+
   // Group by meal type
   const grouped = MAHLZEIT_TYPEN.map((typ) => ({
     ...typ,
@@ -520,6 +665,92 @@ export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
 
   return (
     <div className="space-y-6">
+      {/* Datenqualität-Hinweis — einmal ganz oben, dezent. */}
+      <div className="bg-primary-pale/50 border border-primary/20 rounded-2xl p-3 flex items-start gap-3">
+        <Info className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+        <div className="text-sm">
+          <p className="font-medium text-ink">
+            Je genauer du einträgst, desto besser helfe ich dir.
+          </p>
+          <p className="text-ink-muted mt-0.5 leading-relaxed">
+            Mit präzisen Makros (Protein, Kohlenhydrate, Fett) kann ich deinen
+            Fortschritt exakter analysieren, passendere Empfehlungen geben und
+            deinen Ernährungsplan besser auf dich abstimmen.
+          </p>
+        </div>
+      </div>
+
+      {/* Smart Log — Premium, oder Locked-Teaser für Free/Basis. */}
+      {canSmartLog ? (
+        <div className="bg-white rounded-2xl p-4 border border-border shadow-card space-y-3">
+          <div className="flex items-center gap-2">
+            <Wand2 className="w-4 h-4 text-primary" />
+            <h3 className="font-semibold text-sm text-ink">Smart Log</h3>
+            <span className="text-[10px] bg-primary-pale text-primary px-2 py-0.5 rounded-full font-medium uppercase tracking-wide">
+              Premium
+            </span>
+          </div>
+          <p className="text-xs text-ink-muted">
+            Beschreibe in einem Satz was du heute gegessen hast — die KI
+            erstellt strukturierte Einträge mit geschätzten Kalorien und Makros.
+          </p>
+          <textarea
+            value={smartLogInput}
+            onChange={(e) => setSmartLogInput(e.target.value)}
+            placeholder="z.B. Haferflocken mit Banane und Honig zum Frühstück, Hähnchensalat mittags, abends zwei Scheiben Vollkornbrot mit Käse"
+            maxLength={2000}
+            rows={3}
+            disabled={isSmartLogging}
+            className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface-bg resize-none disabled:opacity-60"
+          />
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <span className="text-[11px] text-ink-faint">
+              Kostet 2 Credits
+            </span>
+            <button
+              type="button"
+              onClick={handleSmartLog}
+              disabled={
+                isSmartLogging ||
+                smartLogInput.trim().length < 3 ||
+                !!smartLogPreview
+              }
+              className="inline-flex items-center gap-2 bg-primary hover:bg-primary-hover text-white text-sm font-medium rounded-full px-4 py-2 transition disabled:opacity-50"
+            >
+              {isSmartLogging ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Analysiere…
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4" />
+                  Analysieren
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl p-4 border border-dashed border-border space-y-2 opacity-90">
+          <div className="flex items-center gap-2">
+            <Wand2 className="w-4 h-4 text-primary" />
+            <h3 className="font-semibold text-sm text-ink">Smart Log</h3>
+            <Lock className="w-3 h-3 text-ink-faint" />
+          </div>
+          <p className="text-xs text-ink-muted">
+            Beschreibe in einem Satz was du gegessen hast — die KI erstellt
+            strukturierte Einträge mit Kalorien und Makros automatisch.
+          </p>
+          <Link
+            href="/#preise"
+            className="inline-block text-xs text-primary hover:underline font-medium"
+          >
+            Mit Premium freischalten →
+          </Link>
+        </div>
+      )}
+
       {/* Horizontal 7-day calendar */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
@@ -1036,13 +1267,20 @@ export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
                 </div>
               </div>
 
-              {/* Expandable macro fields */}
-              <details className="group">
-                <summary className="text-xs text-ink-faint cursor-pointer hover:text-ink-muted transition select-none flex items-center gap-1">
-                  <span className="group-open:hidden">▸</span>
-                  <span className="hidden group-open:inline">▾</span>
-                  Makros hinzufügen (optional)
-                </summary>
+              {/* Macro fields — default open. Fundierte Profile-Analysen
+                  brauchen Makros, versteckte Felder werden oft übersehen. */}
+              <button
+                type="button"
+                onClick={() => setShowMacros((v) => !v)}
+                className="text-xs text-ink-faint hover:text-ink-muted transition select-none flex items-center gap-1"
+                aria-expanded={showMacros}
+              >
+                <span>{showMacros ? "▾" : "▸"}</span>
+                {showMacros
+                  ? "Makros einklappen"
+                  : "Makros hinzufügen (optional)"}
+              </button>
+              {showMacros && (
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
                   <div>
                     <label className="block text-[10px] text-ink-faint mb-1">Protein (g)</label>
@@ -1081,7 +1319,7 @@ export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
                     />
                   </div>
                 </div>
-              </details>
+              )}
 
               <div className="flex gap-2 pt-2">
                 <button
@@ -1111,6 +1349,176 @@ export function TagebuchClient({ initialEntries, today, canUsePhoto }: Props) {
           </div>
         </div>
       )}
+
+      {/* Smart-Log Preview-Modal — User bestätigt die geparsten Einträge
+          bevor sie als echte Tagebuch-Rows gespeichert werden. */}
+      {smartLogPreview && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90vh] flex flex-col shadow-pop">
+            <div className="p-4 border-b border-border flex items-start justify-between">
+              <div>
+                <h3 className="font-serif text-lg text-ink">
+                  Vorschau — {smartLogPreview.length}{" "}
+                  {smartLogPreview.length === 1 ? "Eintrag" : "Einträge"}
+                </h3>
+                <p className="text-xs text-ink-muted mt-0.5">
+                  Passe die Schätzungen an, dann speichern.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  !smartLogSaving && setSmartLogPreview(null)
+                }
+                disabled={smartLogSaving}
+                className="text-ink-faint hover:text-ink transition p-1"
+                aria-label="Schließen"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {smartLogPreview.map((entry, i) => {
+                const style = MEAL_STYLES[entry.mahlzeit_typ];
+                return (
+                  <div
+                    key={i}
+                    className="bg-surface-muted rounded-xl p-3 space-y-2.5"
+                  >
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={entry.mahlzeit_typ}
+                        onChange={(e) =>
+                          updateSmartLogEntry(
+                            i,
+                            "mahlzeit_typ",
+                            e.target.value as MealTyp
+                          )
+                        }
+                        className={`text-[11px] font-semibold px-2 py-1 rounded-full bg-transparent border border-current ${style.badge}`}
+                      >
+                        <option value="fruehstueck">Frühstück</option>
+                        <option value="mittag">Mittagessen</option>
+                        <option value="abend">Abendessen</option>
+                        <option value="snack">Snack</option>
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => removeSmartLogEntry(i)}
+                        className="ml-auto p-1 text-ink-faint hover:text-red-500 transition"
+                        aria-label="Eintrag entfernen"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      value={entry.description}
+                      onChange={(e) =>
+                        updateSmartLogEntry(i, "description", e.target.value)
+                      }
+                      maxLength={200}
+                      className="w-full border border-border rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                    />
+                    <div className="grid grid-cols-4 gap-2">
+                      <SmartEditField
+                        label="kcal"
+                        value={entry.kalorien_geschaetzt}
+                        onChange={(v) =>
+                          updateSmartLogEntry(i, "kalorien_geschaetzt", v)
+                        }
+                      />
+                      <SmartEditField
+                        label="Protein"
+                        value={entry.protein_g}
+                        onChange={(v) =>
+                          updateSmartLogEntry(i, "protein_g", v)
+                        }
+                      />
+                      <SmartEditField
+                        label="Carbs"
+                        value={entry.carbs_g}
+                        onChange={(v) =>
+                          updateSmartLogEntry(i, "carbs_g", v)
+                        }
+                      />
+                      <SmartEditField
+                        label="Fett"
+                        value={entry.fat_g}
+                        onChange={(v) => updateSmartLogEntry(i, "fat_g", v)}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="p-4 border-t border-border flex gap-2 bg-white">
+              <button
+                type="button"
+                onClick={() =>
+                  !smartLogSaving && setSmartLogPreview(null)
+                }
+                disabled={smartLogSaving}
+                className="flex-1 text-sm text-ink-muted py-2.5 rounded-full border border-border hover:bg-surface-muted transition disabled:opacity-50"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                onClick={confirmSmartLog}
+                disabled={
+                  smartLogSaving || smartLogPreview.length === 0
+                }
+                className="flex-1 inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary-hover text-white text-sm font-medium py-2.5 rounded-full transition disabled:opacity-50"
+              >
+                {smartLogSaving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Speichere…
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4" />
+                    Alle speichern
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+// Inline-Edit-Feld für die Smart-Log-Vorschau — kleiner kompakter
+// Number-Input mit Label darüber.
+function SmartEditField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <label className="flex flex-col gap-0.5">
+      <span className="text-[10px] text-ink-faint uppercase tracking-wide">
+        {label}
+      </span>
+      <input
+        type="number"
+        value={value}
+        min={0}
+        onChange={(e) => {
+          const n = Number(e.target.value);
+          onChange(Number.isFinite(n) && n >= 0 ? n : 0);
+        }}
+        className="w-full border border-border rounded-lg px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+      />
+    </label>
   );
 }

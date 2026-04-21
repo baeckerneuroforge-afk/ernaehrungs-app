@@ -11,6 +11,7 @@ export const CREDIT_COSTS = {
   review: 4, // Wochenreview (Opus 4.7)
   foto_analysis: 3, // Opus 4.7 Vision
   monthly_report: 7, // Monatsreport (Opus 4.7)
+  smart_log: 2, // Free-Text → Tagebuch-Einträge parsen (Haiku)
 } as const;
 
 // Credits granted per plan per month
@@ -44,6 +45,7 @@ export type CreditActionType =
   | "review"
   | "foto_analysis"
   | "monthly_report"
+  | "smart_log"
   | "manual_adjustment"
   | "expiry_reset"
   | "refund";

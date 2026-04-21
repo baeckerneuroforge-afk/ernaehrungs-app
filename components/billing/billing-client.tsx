@@ -365,6 +365,7 @@ export function BillingClient({
                 "Sonnet KI-Modell (Premium-Qualität)",
                 "Foto-Tracking: Essen fotografieren",
                 "Restaurant-Guide: Speisekarte fotografieren",
+                "Smart Log: Satz → Tagebuch-Einträge",
                 "Monatlicher Fortschrittsreport",
                 "Voller Wochenreview",
                 "Janine direkt",
