@@ -7,7 +7,6 @@ import {
   Plus,
   Trash2,
   Loader2,
-  UtensilsCrossed,
   Sunrise,
   Sun,
   Moon,
@@ -698,77 +697,6 @@ export function TagebuchClient({
 
   return (
     <div className="space-y-6">
-      {/* Smart Log — Premium, oder Locked-Teaser für Free/Basis. */}
-      {canSmartLog ? (
-        <div className="bg-white rounded-2xl p-4 border border-border shadow-card space-y-3">
-          <div className="flex items-center gap-2">
-            <Wand2 className="w-4 h-4 text-primary" />
-            <h3 className="font-semibold text-sm text-ink">Smart Log</h3>
-            <span className="text-[10px] bg-primary-pale text-primary px-2 py-0.5 rounded-full font-medium uppercase tracking-wide">
-              Premium
-            </span>
-          </div>
-          <p className="text-xs text-ink-muted">
-            Beschreibe in einem Satz was du heute gegessen hast — die KI
-            erstellt strukturierte Einträge mit geschätzten Kalorien und Makros.
-          </p>
-          <textarea
-            value={smartLogInput}
-            onChange={(e) => setSmartLogInput(e.target.value)}
-            placeholder="z.B. Haferflocken mit Banane und Honig zum Frühstück, Hähnchensalat mittags, abends zwei Scheiben Vollkornbrot mit Käse"
-            maxLength={2000}
-            rows={3}
-            disabled={isSmartLogging}
-            className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface-bg resize-none disabled:opacity-60"
-          />
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <span className="text-[11px] text-ink-faint">
-              Kostet 2 Credits
-            </span>
-            <button
-              type="button"
-              onClick={handleSmartLog}
-              disabled={
-                isSmartLogging ||
-                smartLogInput.trim().length < 3 ||
-                !!smartLogPreview
-              }
-              className="inline-flex items-center gap-2 bg-primary hover:bg-primary-hover text-white text-sm font-medium rounded-full px-4 py-2 transition disabled:opacity-50"
-            >
-              {isSmartLogging ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Analysiere…
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4" />
-                  Analysieren
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="bg-white rounded-2xl p-4 border border-dashed border-border space-y-2 opacity-90">
-          <div className="flex items-center gap-2">
-            <Wand2 className="w-4 h-4 text-primary" />
-            <h3 className="font-semibold text-sm text-ink">Smart Log</h3>
-            <Lock className="w-3 h-3 text-ink-faint" />
-          </div>
-          <p className="text-xs text-ink-muted">
-            Beschreibe in einem Satz was du gegessen hast — die KI erstellt
-            strukturierte Einträge mit Kalorien und Makros automatisch.
-          </p>
-          <Link
-            href="/#preise"
-            className="inline-block text-xs text-primary hover:underline font-medium"
-          >
-            Mit Premium freischalten →
-          </Link>
-        </div>
-      )}
-
       {/* Horizontal 7-day calendar */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
@@ -854,86 +782,46 @@ export function TagebuchClient({
         </div>
       )}
 
-      {/* Datenqualitäts-Hinweis — direkt unter dem Progress-Tracker,
-          erklärt warum präzise Makros den Mehrwert heben. */}
-      <div className="bg-primary-pale/50 border border-primary/20 rounded-2xl p-3 flex items-start gap-3">
-        <Info className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-        <div className="text-sm">
-          <p className="font-medium text-ink">
-            Je präziser du einträgst, desto besser helfe ich dir.
-          </p>
-          <p className="text-ink-muted mt-0.5 text-xs leading-relaxed">
-            Mit genauen Makros kann ich deinen Fortschritt exakter analysieren
-            und bessere Empfehlungen geben.
-          </p>
-        </div>
-      </div>
-
-      {/* Banner B: Ziel gesetzt, aber kein aktiver Plan → Einladung.
-          Dismissable, bleibt dismissed via localStorage. */}
-      {targets && !hasActivePlan && !planBannerDismissed && (
-        <div className="bg-primary/5 border border-primary/20 rounded-2xl p-3 flex items-start gap-3">
-          <Sparkles className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-ink">
-              Lass dir einen Ernährungsplan erstellen
-            </p>
-            <p className="text-xs text-ink-muted mt-0.5 leading-relaxed">
-              Dein Ziel: {targets.targetKcal} kcal pro Tag. Ich erstelle dir
-              einen Plan der genau dazu passt — inklusive Einkaufsliste.
-            </p>
-            <Link
-              href="/ernaehrungsplan"
-              className="text-xs text-primary hover:underline inline-block mt-1.5 font-medium"
-            >
-              Plan erstellen →
-            </Link>
-          </div>
-          <button
-            type="button"
-            onClick={dismissPlanBanner}
-            className="text-ink-faint hover:text-ink transition p-1 -m-1 flex-shrink-0"
-            aria-label="Banner schließen"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-
-      {/* Desktop primary CTA — full width under the macro bar */}
-      <button
-        onClick={openForm}
-        className="hidden md:flex w-full items-center justify-center gap-2 bg-primary hover:bg-primary-hover text-white text-sm font-medium py-3.5 rounded-full shadow-card transition"
-      >
-        <Plus className="w-4 h-4" />
-        Mahlzeit eintragen
-      </button>
-
+      {/* KERN-AREA: Mahlzeit eintragen — der HAUPT-CTA der Seite. */}
       {loading ? (
         <div className="flex justify-center py-12">
           <Loader2 className="w-5 h-5 animate-spin text-ink-faint" />
         </div>
       ) : entries.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-border p-10 text-center animate-fade-in">
-          <div className="w-14 h-14 rounded-full bg-primary-faint flex items-center justify-center mx-auto mb-4">
-            <UtensilsCrossed className="w-6 h-6 text-primary" />
+        // Kein Eintrag heute → große einladende CTA-Karte.
+        // Dashed primary border signalisiert "hier beginnt etwas Neues";
+        // der ganze Block ist klickbar damit auch Daumen-Treffer zählen.
+        <button
+          type="button"
+          onClick={openForm}
+          className="w-full bg-primary/5 hover:bg-primary/10 border-2 border-dashed border-primary/30 rounded-2xl p-8 flex flex-col items-center gap-3 transition-colors animate-fade-in"
+        >
+          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+            <Plus className="w-6 h-6 text-primary" />
           </div>
-          <h3 className="font-serif text-lg text-ink mb-1">
-            Noch keine Einträge
-          </h3>
-          <p className="text-sm text-ink-muted mb-5">
-            Trage ein, was du heute gegessen hast.
-          </p>
-          <button
-            onClick={openForm}
-            className="inline-flex items-center gap-2 bg-primary hover:bg-primary-hover text-white text-sm font-medium px-6 py-2.5 rounded-full shadow-card transition"
-          >
-            Erste Mahlzeit eintragen
-            <span aria-hidden>→</span>
-          </button>
-        </div>
+          <div className="text-center">
+            <p className="font-semibold text-ink">Was hast du gegessen?</p>
+            <p className="text-sm text-ink-muted mt-1">
+              Trag deine erste Mahlzeit für heute ein
+            </p>
+          </div>
+        </button>
       ) : (
-        <div className="space-y-6 animate-fade-in">
+        // Einträge vorhanden → Header mit inline "Eintrag hinzufügen" + Liste.
+        <div className="space-y-4 animate-fade-in">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="font-serif text-lg text-ink">
+              Deine Einträge heute
+            </h2>
+            <button
+              onClick={openForm}
+              className="inline-flex items-center gap-2 bg-primary hover:bg-primary-hover text-white text-sm font-medium rounded-full px-4 py-2 shadow-card transition flex-shrink-0"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">Eintrag hinzufügen</span>
+              <span className="sm:hidden">Eintragen</span>
+            </button>
+          </div>
           {/* Tages-Foto-Galerie — nur wenn mindestens 1 Foto existiert */}
           {photoEntries.length > 0 && (
             <div className="space-y-2">
@@ -1122,6 +1010,128 @@ export function TagebuchClient({
           })}
         </div>
       )}
+
+      {/* Banner B: Ziel gesetzt, aber kein aktiver Plan → Einladung.
+          Dismissable. Jetzt mittig zwischen Einträge-Liste und Smart Log
+          — fällt nicht über die Haupt-Interaktion. */}
+      {targets && !hasActivePlan && !planBannerDismissed && (
+        <div className="bg-primary/5 border border-primary/20 rounded-2xl p-3 flex items-start gap-3">
+          <Sparkles className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-ink">
+              Lass dir einen Ernährungsplan erstellen
+            </p>
+            <p className="text-xs text-ink-muted mt-0.5 leading-relaxed">
+              Dein Ziel: {targets.targetKcal} kcal pro Tag. Ich erstelle dir
+              einen Plan der genau dazu passt — inklusive Einkaufsliste.
+            </p>
+            <Link
+              href="/ernaehrungsplan"
+              className="text-xs text-primary hover:underline inline-block mt-1.5 font-medium"
+            >
+              Plan erstellen →
+            </Link>
+          </div>
+          <button
+            type="button"
+            onClick={dismissPlanBanner}
+            className="text-ink-faint hover:text-ink transition p-1 -m-1 flex-shrink-0"
+            aria-label="Banner schließen"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Sekundär-Bereich: Smart Log + dezenter Datenqualitäts-Hinweis.
+          Klar abgegrenzt durch Trennlinie + Abschnitts-Label — Haupt-
+          Interaktion (Eintragen + Einträge) bleibt oben unangetastet. */}
+      <div className="mt-8 pt-6 border-t border-border space-y-4">
+        <h3 className="text-xs font-medium text-ink-faint uppercase tracking-wide">
+          Schnellere Eingabe
+        </h3>
+
+        {canSmartLog ? (
+          <div className="bg-white rounded-2xl p-4 border border-border shadow-card space-y-3">
+            <div className="flex items-center gap-2">
+              <Wand2 className="w-4 h-4 text-primary" />
+              <h4 className="font-semibold text-sm text-ink">Smart Log</h4>
+              <span className="text-[10px] bg-primary-pale text-primary px-2 py-0.5 rounded-full font-medium uppercase tracking-wide">
+                Premium
+              </span>
+            </div>
+            <p className="text-xs text-ink-muted">
+              Beschreibe in einem Satz was du heute gegessen hast — die KI
+              erstellt strukturierte Einträge mit geschätzten Kalorien und
+              Makros.
+            </p>
+            <textarea
+              value={smartLogInput}
+              onChange={(e) => setSmartLogInput(e.target.value)}
+              placeholder="z.B. Haferflocken mit Banane und Honig zum Frühstück, Hähnchensalat mittags, abends zwei Scheiben Vollkornbrot mit Käse"
+              maxLength={2000}
+              rows={3}
+              disabled={isSmartLogging}
+              className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface-bg resize-none disabled:opacity-60"
+            />
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <span className="text-[11px] text-ink-faint">
+                Kostet 2 Credits
+              </span>
+              <button
+                type="button"
+                onClick={handleSmartLog}
+                disabled={
+                  isSmartLogging ||
+                  smartLogInput.trim().length < 3 ||
+                  !!smartLogPreview
+                }
+                className="inline-flex items-center gap-2 bg-primary hover:bg-primary-hover text-white text-sm font-medium rounded-full px-4 py-2 transition disabled:opacity-50"
+              >
+                {isSmartLogging ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Analysiere…
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    Analysieren
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-white rounded-2xl p-4 border border-dashed border-border space-y-2 opacity-90">
+            <div className="flex items-center gap-2">
+              <Wand2 className="w-4 h-4 text-primary" />
+              <h4 className="font-semibold text-sm text-ink">Smart Log</h4>
+              <Lock className="w-3 h-3 text-ink-faint" />
+            </div>
+            <p className="text-xs text-ink-muted">
+              Beschreibe in einem Satz was du gegessen hast — die KI erstellt
+              strukturierte Einträge mit Kalorien und Makros automatisch.
+            </p>
+            <Link
+              href="/#preise"
+              className="inline-block text-xs text-primary hover:underline font-medium"
+            >
+              Mit Premium freischalten →
+            </Link>
+          </div>
+        )}
+
+        {/* Datenqualitäts-Hinweis — dezent, am Seitenende. Kein Farb-Banner
+            mehr, nur Info-Line als Hinweis-Textblock. */}
+        <p className="text-xs text-ink-faint flex items-start gap-2 px-1">
+          <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+          <span className="leading-relaxed">
+            Je präziser du einträgst, desto besser helfe ich dir — mit
+            genauen Makros kann ich deinen Fortschritt exakter analysieren.
+          </span>
+        </p>
+      </div>
 
       {/* Mobile FAB — 56px, above bottom nav, z-50 */}
       <button
