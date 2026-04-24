@@ -3,7 +3,7 @@ import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 
 export const metadata = {
-  title: "Impressum – Ernährungsberatung",
+  title: "Impressum – Nutriva-AI",
   description: "Impressum und rechtliche Angaben gemäß § 5 TMG.",
 };
 
@@ -31,11 +31,13 @@ export default function ImpressumPage() {
               <p>
                 André Bäcker
                 <br />
-                Hephaistos Systems
+                Nutriva-AI
                 <br />
-                Alicenstraße 48
+                Hopstener Straße 25
                 <br />
-                35390 Gießen
+                49479 Ibbenbüren
+                <br />
+                Deutschland
               </p>
             </Section>
 
@@ -65,9 +67,11 @@ export default function ImpressumPage() {
               <p>
                 André Bäcker
                 <br />
-                Alicenstraße 48
+                Hopstener Straße 25
                 <br />
-                35390 Gießen
+                49479 Ibbenbüren
+                <br />
+                Deutschland
               </p>
             </Section>
 

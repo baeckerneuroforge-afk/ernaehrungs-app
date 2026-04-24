@@ -3,7 +3,7 @@ import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 
 export const metadata = {
-  title: "Datenschutzerklärung – Ernährungsberatung",
+  title: "Datenschutzerklärung – Nutriva-AI",
   description:
     "Informationen zur Verarbeitung personenbezogener Daten gemäß DSGVO.",
 };
@@ -35,11 +35,13 @@ export default function DatenschutzPage() {
               <p>
                 André Bäcker
                 <br />
-                Hephaistos Systems
+                Nutriva-AI
                 <br />
-                Alicenstraße 48
+                Hopstener Straße 25
                 <br />
-                35390 Gießen
+                49479 Ibbenbüren
+                <br />
+                Deutschland
                 <br />
                 E-Mail:{" "}
                 <a
@@ -257,10 +259,10 @@ export default function DatenschutzPage() {
                 <li>
                   Beschwerderecht bei der zuständigen Aufsichtsbehörde:
                   <br />
-                  Der Hessische Beauftragte für Datenschutz und
-                  Informationsfreiheit
+                  Landesbeauftragte für Datenschutz und Informationsfreiheit
+                  Nordrhein-Westfalen
                   <br />
-                  Postfach 3163, 65021 Wiesbaden
+                  Kavalleriestraße 2–4, 40213 Düsseldorf
                 </li>
               </ul>
             </Section>
