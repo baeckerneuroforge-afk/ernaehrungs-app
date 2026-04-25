@@ -193,6 +193,33 @@ export default function DatenschutzPage() {
               </p>
             </Section>
 
+            <Section title="Sprach-Eingabe">
+              <p>
+                In Smart Log und im Chat kannst du deine Eingaben per Sprache
+                erfassen. Dabei wird dein Audio direkt von deinem Browser
+                verarbeitet:
+              </p>
+              <ul className="list-disc pl-5 space-y-2 mt-2">
+                <li>
+                  Bei Chrome, Edge, Opera: Über Google-Spracherkennungsserver
+                </li>
+                <li>
+                  Bei Safari (Desktop und iOS): Über
+                  Apple-Spracherkennungsserver
+                </li>
+              </ul>
+              <p className="mt-3">
+                Wir speichern weder das Audio noch leiten es über unsere
+                Server. Wir erhalten ausschließlich den transkribierten Text —
+                und nur dann wenn du den Mikrofon-Button aktiv anklickst.
+              </p>
+              <p className="mt-3">
+                Die Verarbeitung durch Google bzw. Apple unterliegt deren
+                jeweiligen Datenschutzbestimmungen. Für Chromium-basierte
+                Browser ist Google verantwortlicher Dritter, für Safari Apple.
+              </p>
+            </Section>
+
             <Section title="Minderjährige">
               <p>
                 Unsere Dienste richten sich an Personen ab 16 Jahren. Für

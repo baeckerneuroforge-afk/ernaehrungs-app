@@ -27,6 +27,7 @@ import {
 import Link from "next/link";
 import type { DailyTargets } from "@/lib/nutrition-targets";
 import { calorieStatus } from "@/lib/nutrition-targets";
+import { VoiceInputButton } from "@/components/ui/voice-input-button";
 
 interface Props {
   initialEntries: FoodLog[];
@@ -1075,9 +1076,18 @@ export function TagebuchClient({
               className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-surface-bg resize-none disabled:opacity-60"
             />
             <div className="flex items-center justify-between flex-wrap gap-2">
-              <span className="text-[11px] text-ink-faint">
-                Kostet 2 Credits
-              </span>
+              <div className="flex items-center gap-3">
+                <VoiceInputButton
+                  premium
+                  isPremium={canSmartLog}
+                  disabled={isSmartLogging || !!smartLogPreview}
+                  onTranscript={(text) => setSmartLogInput(text)}
+                  onFinal={(text) => setSmartLogInput(text)}
+                />
+                <span className="text-[11px] text-ink-faint">
+                  Kostet 2 Credits
+                </span>
+              </div>
               <button
                 type="button"
                 onClick={handleSmartLog}

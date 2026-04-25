@@ -9,6 +9,7 @@ import { DirectMessagePanel } from "./direct-message-panel";
 import { DmToast } from "./dm-toast";
 import { CreditTopupModal } from "@/components/credit-topup-modal";
 import { CreditBadge } from "@/components/credit-badge";
+import { VoiceInputButton } from "@/components/ui/voice-input-button";
 import { createClient } from "@/lib/supabase/client";
 
 interface Message {
@@ -917,7 +918,18 @@ export function ChatClient({ userId, userName, initialPlan }: ChatClientProps) {
                     onKeyDown={handleKeyDown}
                     placeholder={pendingImage ? "Frage zum Bild (optional)…" : historyMode ? "Schreibe weiter im bisherigen Gespräch…" : "Stelle eine Ernährungsfrage…"}
                     rows={1}
-                    className="w-full resize-none pl-4 pr-12 py-3 border border-border rounded-2xl text-sm bg-stone-50 placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white transition-all duration-200 max-h-32"
+                    className="w-full resize-none pl-4 pr-24 py-3 border border-border rounded-2xl text-sm bg-stone-50 placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white transition-all duration-200 max-h-32"
+                  />
+                  {/* Voice input — Web Speech API, available to all tiers in chat. */}
+                  <VoiceInputButton
+                    size="sm"
+                    disabled={isStreaming}
+                    onTranscript={(text) => setInput(text)}
+                    onFinal={(text) => {
+                      setInput(text);
+                      inputRef.current?.focus();
+                    }}
+                    className="absolute right-12 bottom-2"
                   />
                   <button
                     onClick={handleSend}

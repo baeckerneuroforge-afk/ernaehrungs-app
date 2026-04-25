@@ -312,6 +312,20 @@ html {
   }
 }
 
+/* Voice-input button — pulsing red ring while recording. Driven by the
+   `voice-recording` class on <VoiceInputButton> when active. Red is
+   intentional (universally legible "live mic" signal) and not themed. */
+@keyframes voice-pulse-ring {
+  0%   { box-shadow: 0 0 0 0   rgba(239, 68, 68, 0.45); }
+  100% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+}
+.voice-recording {
+  animation: voice-pulse-ring 1.5s ease-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .voice-recording { animation: none; }
+}
+
 /* Steps vertical line (mobile) */
 .steps-line-v {
   position: relative;
