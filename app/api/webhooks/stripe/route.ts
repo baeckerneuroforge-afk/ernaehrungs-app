@@ -3,6 +3,7 @@ import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { addCredits, resetSubscriptionCredits, PLAN_CREDITS, PLAN_LABELS, PLAN_PRICES } from "@/lib/credits";
 import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
+import { getPostHogClient } from "@/lib/posthog-server";
 import type { PlanType, SubscriptionStatus } from "@/lib/stripe";
 
 export async function POST(request: Request) {
@@ -67,6 +68,13 @@ export async function POST(request: Request) {
             "topup_purchase",
             `Top-Up: ${credits} Credits gekauft (${metadata.package})`
           );
+          const posthog = getPostHogClient();
+          posthog.capture({
+            distinctId: clerkId,
+            event: "credits_topup_purchased",
+            properties: { credits, package: metadata.package },
+          });
+          await posthog.shutdown();
         }
         break;
       }
@@ -105,6 +113,13 @@ export async function POST(request: Request) {
           );
           void sendEmail({ to: userRow.email, subject: template.subject, html: template.html });
         }
+        const posthog = getPostHogClient();
+        posthog.capture({
+          distinctId: clerkId,
+          event: "subscription_activated",
+          properties: { plan },
+        });
+        await posthog.shutdown();
       }
       break;
     }
@@ -179,6 +194,14 @@ export async function POST(request: Request) {
 
       if (user) {
         await resetSubscriptionCredits(user.clerk_id, PLAN_CREDITS.free);
+
+        const posthog = getPostHogClient();
+        posthog.capture({
+          distinctId: user.clerk_id,
+          event: "subscription_cancelled",
+          properties: {},
+        });
+        await posthog.shutdown();
 
         if (user.email) {
           // Stripe's cancel_at_period_end timestamp would be ideal here but

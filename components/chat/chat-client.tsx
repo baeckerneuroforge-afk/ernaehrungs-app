@@ -10,6 +10,7 @@ import { DmToast } from "./dm-toast";
 import { CreditTopupModal } from "@/components/credit-topup-modal";
 import { CreditBadge } from "@/components/credit-badge";
 import { createClient } from "@/lib/supabase/client";
+import posthog from "posthog-js";
 
 interface Message {
   role: "user" | "assistant";
@@ -75,6 +76,7 @@ function markAllSeen(userId: string, ids: string[]) {
 }
 
 export function ChatClient({ userId, userName, initialPlan }: ChatClientProps) {
+  posthog.identify(userId, { name: userName });
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
@@ -276,6 +278,11 @@ export function ChatClient({ userId, userName, initialPlan }: ChatClientProps) {
 
     setInput("");
     setPendingImage(null);
+    posthog.capture("chat_message_sent", {
+      with_image: hasImage,
+      session_id: sessionIdRef.current,
+      plan: userPlan,
+    });
     const userMsg: Message = { role: "user", content: displayText, imageDataUrl };
     setMessages((prev) => [...prev, userMsg]);
     setIsStreaming(true);
@@ -443,6 +450,11 @@ export function ChatClient({ userId, userName, initialPlan }: ChatClientProps) {
         comment: feedbackComment,
       }),
     }).catch(() => {});
+    posthog.capture("feedback_submitted", {
+      rating: feedbackRating,
+      has_comment: feedbackComment.trim().length > 0,
+      session_id: sessionIdRef.current,
+    });
     setFeedbackState("done");
   }
 

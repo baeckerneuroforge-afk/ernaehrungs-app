@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
+import posthog from "posthog-js";
 import { FoodLog, MAHLZEIT_TYPEN } from "@/types";
 import {
   Plus,
@@ -418,6 +419,11 @@ export function TagebuchClient({
       setFormSource("photo");
       setFormPhotoTip(a.tip || null);
       setFormPhotoBudget(a.dailyBudgetPercent);
+      posthog.capture("photo_analysis_used", {
+        dish: a.dish,
+        confidence: a.confidence,
+        kalorien: a.calories,
+      });
     } catch (err) {
       console.error("[foto-client] unexpected error:", err);
       setAnalysisError(
@@ -479,6 +485,11 @@ export function TagebuchClient({
         setEntries((prev) => [...prev, entry]);
         closeForm();
         toast.success("Mahlzeit gespeichert");
+        posthog.capture("food_log_entry_added", {
+          mahlzeit_typ: formTyp,
+          source: formSource,
+          kalorien: formKcal ? parseInt(formKcal) : null,
+        });
         // Foto-Einträge: 5s lang Feedback-Leiste zeigen
         if (wasPhotoEntry && entry?.id) {
           setFeedbackPromptId(entry.id);
@@ -651,6 +662,12 @@ export function TagebuchClient({
     setSmartLogPreview(null);
     setSmartLogInput("");
 
+    if (success > 0) {
+      posthog.capture("smart_log_used", {
+        entries_saved: success,
+        entries_failed: failed,
+      });
+    }
     if (failed === 0) {
       toast.success(
         success === 1

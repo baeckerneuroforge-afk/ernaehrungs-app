@@ -40,3 +40,6 @@ next-env.d.ts
 
 # claude code skill data
 .claude/skills/
+.env.local
+.claude/
+posthog-setup-report.md

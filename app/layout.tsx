@@ -5,6 +5,7 @@ import { CookieBanner } from "@/components/cookie-banner";
 import { CreditWarning } from "@/components/credit-warning";
 import { PageTransition } from "@/components/layout/page-transition";
 import { Toaster } from "sonner";
+import { PostHogProvider } from "@/components/posthog-provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -65,6 +66,7 @@ export default function RootLayout({
         />
       </head>
       <body className="antialiased">
+        <PostHogProvider>
         <CreditWarning />
         <PageTransition>{children}</PageTransition>
         <CookieBanner />
@@ -83,6 +85,7 @@ export default function RootLayout({
             __html: `if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js')}`,
           }}
         />
+        </PostHogProvider>
       </body>
     </html>
   );

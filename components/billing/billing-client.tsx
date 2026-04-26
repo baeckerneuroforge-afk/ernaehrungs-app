@@ -13,6 +13,7 @@ import {
   Infinity as InfinityIcon,
 } from "lucide-react";
 import { CreditTopupModal } from "@/components/credit-topup-modal";
+import posthog from "posthog-js";
 
 type Plan = "free" | "pro" | "pro_plus" | "admin";
 
@@ -123,6 +124,11 @@ export function BillingClient({
     planLimit > 0 ? Math.min((subUsed / planLimit) * 100, 100) : 0;
 
   async function handleUpgrade(target: "pro" | "pro_plus") {
+    posthog.capture("upgrade_button_clicked", {
+      target_plan: target,
+      current_plan: plan,
+      interval: "monthly",
+    });
     setUpgrading(target);
     try {
       const res = await fetch("/api/stripe/checkout", {

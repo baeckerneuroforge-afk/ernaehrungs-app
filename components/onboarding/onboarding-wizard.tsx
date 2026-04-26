@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Leaf, ChevronRight, ChevronLeft, Check, Loader2, ShieldCheck, Eye, EyeOff, ChevronDown, ChevronUp, Sparkles, Ban, AlertCircle } from "lucide-react";
 import { GESCHLECHT, ZIELE, ERNAEHRUNGSFORMEN, ALLERGIEN, AKTIVITAET } from "@/types";
+import posthog from "posthog-js";
 
 interface Props {
   userId: string;
@@ -11,8 +12,7 @@ interface Props {
   initialStep?: number;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function OnboardingWizard({ userId: _userId, existingProfile, initialStep = 1 }: Props) {
+export function OnboardingWizard({ userId, existingProfile, initialStep = 1 }: Props) {
   const router = useRouter();
   const [step, setStep] = useState(initialStep);
   const [saving, setSaving] = useState(false);
@@ -247,6 +247,13 @@ export function OnboardingWizard({ userId: _userId, existingProfile, initialStep
     );
     setSaving(false);
     if (!doneOk) return;
+    posthog.identify(userId);
+    posthog.capture("onboarding_completed", {
+      ziel,
+      ernaehrungsform,
+      allergien_count: allergien.length,
+      geschlecht,
+    });
     // Router-Cache invalidieren, damit /chat den frischen DB-State liest
     // (sonst kann der SC-Cache review_consent noch als null sehen → Redirect-Loop).
     router.refresh();
