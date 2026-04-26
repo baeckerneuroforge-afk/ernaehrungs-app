@@ -191,6 +191,51 @@ export default function DatenschutzPage() {
               </p>
             </Section>
 
+            <Section title="Analyse mit PostHog">
+              <p>
+                Wir nutzen PostHog (PostHog Inc., gehostet auf EU-Servern in
+                Frankfurt) zur Analyse der App-Nutzung und zur Verbesserung
+                unserer Produktqualität. Erfasst werden:
+              </p>
+              <ul className="list-disc pl-5 space-y-2 mt-2">
+                <li>Seitenaufrufe und Klick-Aktionen innerhalb der App</li>
+                <li>
+                  Genutzte Features (Chat, Mahlzeit-Eintrag, Plan-Erstellung,
+                  Foto-Analyse, Smart Log)
+                </li>
+                <li>
+                  Conversion-Events (Registrierung, Plan-Aktivierung,
+                  Kündigung, Top-Up-Käufe)
+                </li>
+                <li>
+                  Deine User-ID und dein Vorname zur Verknüpfung der Events
+                  mit deinem Account
+                </li>
+              </ul>
+              <p className="mt-3">
+                Wir tracken NICHT die Inhalte deiner Chats, deiner Mahlzeiten,
+                dein Gewicht oder andere Gesundheitsdaten — nur welche
+                Aktionen ausgeführt wurden.
+              </p>
+              <p className="mt-3">
+                Die Daten werden ausschließlich auf EU-Servern verarbeitet und
+                sind nach 12 Monaten automatisch gelöscht.
+              </p>
+              <p className="mt-3">
+                Du kannst der Analyse jederzeit widersprechen über Profil →
+                Einstellungen → Tracking deaktivieren.
+              </p>
+              <p className="mt-3">
+                <strong>Rechtsgrundlage:</strong> Art. 6 Abs. 1 lit. f DSGVO
+                (berechtigtes Interesse an Produktverbesserung).
+              </p>
+              <p className="mt-3 text-sm text-ink-muted">
+                <strong>Anbieter:</strong> PostHog Inc., 2261 Market St #4008,
+                San Francisco, CA 94114, USA. EU-Hosting via PostHog EU GmbH,
+                gehostet bei Hetzner Frankfurt.
+              </p>
+            </Section>
+
             <Section title="Minderjährige">
               <p>
                 Unsere Dienste richten sich an Personen ab 16 Jahren. Für

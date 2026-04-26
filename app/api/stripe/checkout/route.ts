@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { stripe, PLANS } from "@/lib/stripe";
+import { getPostHogClient } from "@/lib/posthog-server";
 import { z } from "zod";
 
 const checkoutSchema = z.object({
@@ -95,6 +96,14 @@ export async function POST(request: Request) {
     cancel_url: `${appUrl}/chat?upgrade=canceled`,
     metadata: { clerk_id: userId, plan },
   });
+
+  const posthog = getPostHogClient();
+  posthog.capture({
+    distinctId: userId,
+    event: "subscription_checkout_started",
+    properties: { plan, interval: "monthly" },
+  });
+  await posthog.shutdown();
 
   return new Response(JSON.stringify({ url: session.url }), {
     headers: { "Content-Type": "application/json" },

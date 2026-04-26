@@ -2078,7 +2078,7 @@ function FaqSection() {
     {
       question: "Werden meine Daten an die KI weitergegeben?",
       answer:
-        "Dein Name wird nie an die KI gesendet. Nur anonymisierte Profildaten (Ziele, Allergien) fließen ein, damit die Antworten zu dir passen. Vollständig DSGVO-konform.",
+        "Dein Name wird nie an die KI-Modelle gesendet, kann jedoch zur Anrede in Push-Mitteilungen oder zur internen Account-Zuordnung verwendet werden. Nur anonymisierte Profildaten (Ziele, Allergien) fließen in die KI-Antworten ein. Vollständig DSGVO-konform.",
     },
     {
       question: "Kann ich die App auch vegan oder vegetarisch nutzen?",
