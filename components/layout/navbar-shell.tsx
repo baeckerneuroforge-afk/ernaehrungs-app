@@ -20,6 +20,7 @@ import {
   FileText,
   Home,
 } from "lucide-react";
+import posthog from "posthog-js";
 import { CreditBadge } from "@/components/credit-badge";
 import { hasFeatureAccess, type Feature } from "@/lib/feature-gates";
 
@@ -47,6 +48,15 @@ export function NavbarShell() {
   // We address all three: delete all SW caches, unregister the SW, then
   // hard-navigate with a cache-busting query string.
   const handleSignOut = async () => {
+    // Disconnect PostHog session-id from the previous user before Clerk
+    // tears auth down. Otherwise the next signed-in user on this browser
+    // would inherit events until the next identify() fires.
+    try {
+      posthog.reset();
+    } catch (err) {
+      console.warn("[navbar] posthog.reset failed (non-fatal):", err);
+    }
+
     try {
       await signOut();
     } catch (err) {

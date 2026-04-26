@@ -76,7 +76,14 @@ function markAllSeen(userId: string, ids: string[]) {
 }
 
 export function ChatClient({ userId, userName, initialPlan }: ChatClientProps) {
-  posthog.identify(userId, { name: userName });
+  // Identify on mount / when the user identity actually changes — not
+  // every render. PostHog dedupes internally but a body-level call is
+  // a smell that hides intent and burns work on every re-render.
+  useEffect(() => {
+    if (userId && userName) {
+      posthog.identify(userId, { name: userName });
+    }
+  }, [userId, userName]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
