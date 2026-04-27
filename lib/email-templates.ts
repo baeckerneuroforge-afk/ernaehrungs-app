@@ -10,7 +10,7 @@ const HEADER = `
 
 const FOOTER = `
   <div style="padding: 16px; text-align: center; color: #A8A29E; font-size: 12px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
-    <p style="margin: 4px 0;">Nutriva-AI · Hephaistos Systems · Alicenstraße 48 · 35390 Gießen</p>
+    <p style="margin: 4px 0;">Nutriva-AI · André Bäcker · Hopstener Straße 25 · 49479 Ibbenbüren</p>
     <p style="margin: 4px 0;"><a href="https://www.nutriva-ai.de/datenschutz" style="color: #A8A29E;">Datenschutz</a> · <a href="https://www.nutriva-ai.de/impressum" style="color: #A8A29E;">Impressum</a></p>
   </div>
 `;

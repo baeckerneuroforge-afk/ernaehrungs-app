@@ -19,14 +19,8 @@ export const stripe = new Proxy({} as Stripe, {
 });
 
 export const PLANS = {
-  pro: {
-    monthly: process.env.STRIPE_PRICE_PRO_MONTHLY!,
-    yearly: process.env.STRIPE_PRICE_PRO_YEARLY!,
-  },
-  pro_plus: {
-    monthly: process.env.STRIPE_PRICE_PROPLUS_MONTHLY!,
-    quarterly: process.env.STRIPE_PRICE_PROPLUS_QUARTERLY!,
-  },
+  pro: process.env.STRIPE_PRICE_PRO_MONTHLY!,
+  pro_plus: process.env.STRIPE_PRICE_PROPLUS_MONTHLY!,
 } as const;
 
 export type PlanType = "free" | "pro" | "pro_plus";

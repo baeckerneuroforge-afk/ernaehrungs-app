@@ -6,7 +6,6 @@ import { z } from "zod";
 
 const checkoutSchema = z.object({
   plan: z.enum(["pro", "pro_plus"]),
-  interval: z.enum(["monthly", "quarterly", "yearly"]).optional(),
 });
 
 export async function POST(request: Request) {
@@ -47,20 +46,8 @@ export async function POST(request: Request) {
     );
   }
 
-  const { plan, interval } = parsed.data;
-
-  // Determine price ID
-  let priceId: string;
-  if (plan === "pro" && interval === "monthly") priceId = PLANS.pro.monthly;
-  else if (plan === "pro" && interval === "yearly") priceId = PLANS.pro.yearly;
-  else if (plan === "pro_plus" && interval === "monthly") priceId = PLANS.pro_plus.monthly;
-  else if (plan === "pro_plus" && interval === "quarterly") priceId = PLANS.pro_plus.quarterly;
-  else {
-    return new Response(
-      JSON.stringify({ error: "invalid_plan", message: "Ungültiger Plan." }),
-      { status: 400, headers: { "Content-Type": "application/json" } },
-    );
-  }
+  const { plan } = parsed.data;
+  const priceId = PLANS[plan];
 
   const supabase = createSupabaseAdmin();
 

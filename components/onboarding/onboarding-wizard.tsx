@@ -623,7 +623,7 @@ export function OnboardingWizard({ userId, existingProfile, initialStep = 1 }: P
                       <strong className="text-gray-700">Rechtsgrundlage:</strong> Art. 6 Abs. 1 lit. a DSGVO (Einwilligung) sowie Art. 9 Abs. 2 lit. a DSGVO.
                     </p>
                     <p className="text-xs text-gray-500 leading-relaxed">
-                      <strong className="text-gray-700">Verantwortlicher:</strong> André Bäcker, Hephaistos Systems, Alicenstraße 48, 35390 Gießen, kontakt@nutriva-ai.de
+                      <strong className="text-gray-700">Verantwortlicher:</strong> André Bäcker, Nutriva-AI, Hopstener Straße 25, 49479 Ibbenbüren, kontakt@nutriva-ai.de
                     </p>
                     <p className="text-xs text-gray-500 leading-relaxed">
                       <strong className="text-gray-700">Widerruf:</strong> Jederzeit in den Profileinstellungen möglich.
@@ -754,7 +754,7 @@ export function OnboardingWizard({ userId, existingProfile, initialStep = 1 }: P
                       <strong className="text-gray-700">Widerruf:</strong> Du kannst diese Einwilligung jederzeit ohne Angabe von Gründen in deinen Profileinstellungen widerrufen. Der Widerruf berührt nicht die Rechtmäßigkeit der bis dahin erfolgten Verarbeitung.
                     </p>
                     <p className="text-xs text-gray-500 leading-relaxed">
-                      <strong className="text-gray-700">Verantwortlicher:</strong> Andre Baecker, Hephaistos Systems, Alicenstrasse 48, 35390 Giessen · kontakt@nutriva-ai.de
+                      <strong className="text-gray-700">Verantwortlicher:</strong> Andre Baecker, Nutriva-AI, Hopstener Strasse 25, 49479 Ibbenbueren · kontakt@nutriva-ai.de
                     </p>
                   </div>
                 )}

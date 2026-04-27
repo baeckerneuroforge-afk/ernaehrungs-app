@@ -3,9 +3,9 @@ import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 
 export const metadata = {
-  title: "AGB – Ernährungsberatung",
+  title: "AGB – Nutriva-AI",
   description:
-    "Allgemeine Nutzungsbedingungen für die Ernährungsberatungs-App.",
+    "Allgemeine Nutzungsbedingungen für Nutriva-AI.",
 };
 
 export default function AgbPage() {
@@ -33,9 +33,9 @@ export default function AgbPage() {
           <div className="space-y-10 text-warm-text">
             <Section title="§ 1 Geltungsbereich">
               <p>
-                Diese Nutzungsbedingungen gelten für die Nutzung der
-                Ernährungsberatungs-App („App&ldquo;), betrieben von André
-                Bäcker, Hephaistos Systems, Alicenstraße 48, 35390 Gießen
+                Diese Nutzungsbedingungen gelten für die Nutzung von
+                Nutriva-AI („App&ldquo;), betrieben von André
+                Bäcker, Nutriva-AI, Hopstener Straße 25, 49479 Ibbenbüren
                 („Betreiber&ldquo;).
               </p>
               <p className="mt-2">
@@ -151,8 +151,8 @@ export default function AgbPage() {
                 Angabe von Gründen diesen Vertrag zu widerrufen. Die
                 Widerrufsfrist beträgt vierzehn Tage ab dem Tag des
                 Vertragsschlusses. Um Ihr Widerrufsrecht auszuüben, müssen Sie
-                uns (André Bäcker, Hephaistos Systems, Alicenstraße 48, 35390
-                Gießen,{" "}
+                uns (André Bäcker, Nutriva-AI, Hopstener Straße 25, 49479
+                Ibbenbüren,{" "}
                 <a
                   href="mailto:kontakt@nutriva-ai.de"
                   className="text-primary hover:underline"

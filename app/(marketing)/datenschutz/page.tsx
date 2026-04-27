@@ -3,7 +3,7 @@ import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 
 export const metadata = {
-  title: "Datenschutzerklärung – Ernährungsberatung",
+  title: "Datenschutzerklärung – Nutriva-AI",
   description:
     "Informationen zur Verarbeitung personenbezogener Daten gemäß DSGVO.",
 };
@@ -35,11 +35,13 @@ export default function DatenschutzPage() {
               <p>
                 André Bäcker
                 <br />
-                Hephaistos Systems
+                Nutriva-AI
                 <br />
-                Alicenstraße 48
+                Hopstener Straße 25
                 <br />
-                35390 Gießen
+                49479 Ibbenbüren
+                <br />
+                Deutschland
                 <br />
                 E-Mail:{" "}
                 <a
@@ -236,6 +238,33 @@ export default function DatenschutzPage() {
               </p>
             </Section>
 
+            <Section title="Sprach-Eingabe">
+              <p>
+                In Smart Log und im Chat kannst du deine Eingaben per Sprache
+                erfassen. Dabei wird dein Audio direkt von deinem Browser
+                verarbeitet:
+              </p>
+              <ul className="list-disc pl-5 space-y-2 mt-2">
+                <li>
+                  Bei Chrome, Edge, Opera: Über Google-Spracherkennungsserver
+                </li>
+                <li>
+                  Bei Safari (Desktop und iOS): Über
+                  Apple-Spracherkennungsserver
+                </li>
+              </ul>
+              <p className="mt-3">
+                Wir speichern weder das Audio noch leiten es über unsere
+                Server. Wir erhalten ausschließlich den transkribierten Text —
+                und nur dann wenn du den Mikrofon-Button aktiv anklickst.
+              </p>
+              <p className="mt-3">
+                Die Verarbeitung durch Google bzw. Apple unterliegt deren
+                jeweiligen Datenschutzbestimmungen. Für Chromium-basierte
+                Browser ist Google verantwortlicher Dritter, für Safari Apple.
+              </p>
+            </Section>
+
             <Section title="Minderjährige">
               <p>
                 Unsere Dienste richten sich an Personen ab 16 Jahren. Für
@@ -302,10 +331,10 @@ export default function DatenschutzPage() {
                 <li>
                   Beschwerderecht bei der zuständigen Aufsichtsbehörde:
                   <br />
-                  Der Hessische Beauftragte für Datenschutz und
-                  Informationsfreiheit
+                  Landesbeauftragte für Datenschutz und Informationsfreiheit
+                  Nordrhein-Westfalen
                   <br />
-                  Postfach 3163, 65021 Wiesbaden
+                  Kavalleriestraße 2–4, 40213 Düsseldorf
                 </li>
               </ul>
             </Section>

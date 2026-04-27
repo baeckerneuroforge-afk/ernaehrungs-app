@@ -134,7 +134,7 @@ export function BillingClient({
       const res = await fetch("/api/stripe/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: target, interval: "monthly" }),
+        body: JSON.stringify({ plan: target }),
       });
       const data = await res.json();
       if (data.url) {
