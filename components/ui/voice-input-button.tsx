@@ -34,6 +34,7 @@ interface SpeechRecognitionInstance {
   lang: string;
   continuous: boolean;
   interimResults: boolean;
+  onstart: (() => void) | null;
   onresult: ((event: SpeechRecognitionEvent) => void) | null;
   onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
   onend: (() => void) | null;
@@ -59,6 +60,37 @@ function getSpeechRecognition(): SpeechRecognitionCtor | null {
  *  while the user still wants to record, capped at 60s to avoid runaway
  *  sessions / battery drain / mic-light fatigue. */
 const MAX_SESSION_MS = 60_000;
+
+/** localStorage flag set after the user actively confirms the onboarding
+ *  modal once. Survives across sessions; "Abbrechen" does NOT set it,
+ *  so users who dismiss can still get the explainer next time. */
+const ONBOARDING_KEY = "voice_onboarding_seen";
+
+/** localStorage flag set after the first time we successfully showed the
+ *  "✓ Mikrofon aktiviert" toast. One-shot — afterwards the user just sees
+ *  the recording state visually without further confirmation. */
+const FIRST_GRANT_KEY = "voice_first_grant_shown";
+
+/**
+ * Probe the browser's microphone permission state.
+ * Returns null when the Permissions API isn't available for `microphone`
+ * (true on iOS Safari at the time of writing) — caller treats that as
+ * "unknown" and falls through to start(), which triggers the native
+ * permission prompt; recognition.onerror handles a denial.
+ */
+async function checkMicrophonePermission(): Promise<PermissionState | null> {
+  if (typeof navigator === "undefined" || !navigator.permissions) return null;
+  try {
+    const status = await navigator.permissions.query({
+      // "microphone" is widely shipped but not in every TS lib.dom version
+      // of PermissionName, so we cast at the call site.
+      name: "microphone" as PermissionName,
+    });
+    return status.state;
+  } catch {
+    return null;
+  }
+}
 
 interface Props {
   /** Fires on every interim/final result with the running transcript. */
@@ -89,12 +121,21 @@ export function VoiceInputButton({
   const [supported, setSupported] = useState(false);
   const [recording, setRecording] = useState(false);
 
+  // Modal state. Both modals are mutually exclusive — onboarding leads to
+  // either start (success) or help (denied), never both at once.
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   // Tracks user intent vs. browser-driven onend. Without this, iOS Safari's
   // pause-driven onend would prematurely flip the UI back to "stopped".
   const intentRef = useRef<"on" | "off">("off");
   const transcriptRef = useRef<string>("");
   const sessionStartRef = useRef<number>(0);
+  /** Flips to true the moment the user accepts onboarding; consumed by
+   *  recognition.onstart to gate the one-shot success toast. Without this
+   *  flag we'd also toast on every silent recording start. */
+  const justGrantedRef = useRef<boolean>(false);
 
   useEffect(() => {
     setSupported(getSpeechRecognition() !== null);
@@ -109,6 +150,7 @@ export function VoiceInputButton({
       r.onresult = null;
       r.onerror = null;
       r.onend = null;
+      r.onstart = null;
       try {
         r.abort();
       } catch {
@@ -143,6 +185,22 @@ export function VoiceInputButton({
     transcriptRef.current = "";
     sessionStartRef.current = Date.now();
 
+    recognition.onstart = () => {
+      // Show the "✓ Mikrofon aktiviert" toast at most once per device, and
+      // only when this start was preceded by an explicit onboarding-grant
+      // (so silent re-starts during normal use never toast).
+      if (!justGrantedRef.current) return;
+      justGrantedRef.current = false;
+      try {
+        if (typeof window === "undefined") return;
+        if (localStorage.getItem(FIRST_GRANT_KEY) === "true") return;
+        toast.success("✓ Mikrofon aktiviert");
+        localStorage.setItem(FIRST_GRANT_KEY, "true");
+      } catch {
+        // localStorage unavailable — toast just won't show again. Acceptable.
+      }
+    };
+
     recognition.onresult = (event) => {
       let transcript = "";
       for (let i = 0; i < event.results.length; i++) {
@@ -159,9 +217,12 @@ export function VoiceInputButton({
       } else if (code === "audio-capture") {
         toast.error("Mikrofon nicht verfügbar.");
       } else if (code === "not-allowed" || code === "service-not-allowed") {
-        toast.error(
-          "Mikrofon-Zugriff wurde verweigert. Aktiviere ihn in den Browser-Einstellungen.",
-        );
+        // Native prompt was rejected, OR permission was already 'denied'
+        // but permissions.query failed/unsupported (Safari iOS) so we
+        // skipped the help modal earlier. Show it now.
+        setHelpOpen(true);
+      } else {
+        toast.error(`Spracherkennung-Fehler: ${code}`);
       }
       intentRef.current = "off";
       setRecording(false);
@@ -178,8 +239,7 @@ export function VoiceInputButton({
           recognition.start();
           return;
         } catch {
-          /* start() throws if the engine hasn't fully torn down yet —
-             fall through to "stopped" below. */
+          /* engine not ready, fall through */
         }
       }
       setRecording(false);
@@ -192,26 +252,91 @@ export function VoiceInputButton({
       recognitionRef.current = recognition;
       intentRef.current = "on";
       setRecording(true);
-    } catch {
-      toast.error("Spracherkennung konnte nicht gestartet werden.");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "unbekannt";
+      toast.error(`Spracherkennung konnte nicht gestartet werden: ${msg}`);
       intentRef.current = "off";
       setRecording(false);
     }
   }, [onTranscript, onFinal]);
 
-  const handleClick = useCallback(() => {
+  /**
+   * Permission-aware start. Returns immediately with a help-modal if the
+   * browser already knows microphone is denied. For 'granted' / 'prompt'
+   * we just call start(); the native dialog (if any) is handled by the
+   * browser, and recognition.onerror catches "not-allowed" as fallback
+   * for the cases where the Permissions API didn't surface 'denied'.
+   */
+  const startWithPermissionCheck = useCallback(async () => {
+    const state = await checkMicrophonePermission();
+    if (state === "denied") {
+      setHelpOpen(true);
+      return;
+    }
+    start();
+  }, [start]);
+
+  const handleClick = useCallback(async () => {
     if (disabled) return;
+
     if (premium && !isPremium) {
       toast("Sprach-Eingabe ist Teil von Premium");
       router.push("/#preise");
       return;
     }
+
     if (recording) {
       stop();
-    } else {
-      start();
+      return;
     }
-  }, [disabled, premium, isPremium, recording, router, start, stop]);
+
+    // First-ever click on this device: show onboarding before any mic call.
+    let onboardingSeen = false;
+    try {
+      onboardingSeen =
+        typeof window !== "undefined" &&
+        localStorage.getItem(ONBOARDING_KEY) === "true";
+    } catch {
+      // localStorage blocked → skip onboarding silently to avoid trapping
+      // the user behind a modal that can never be marked as seen.
+      onboardingSeen = true;
+    }
+
+    if (!onboardingSeen) {
+      setOnboardingOpen(true);
+      return;
+    }
+
+    await startWithPermissionCheck();
+  }, [
+    disabled,
+    premium,
+    isPremium,
+    recording,
+    router,
+    stop,
+    startWithPermissionCheck,
+  ]);
+
+  const handleOnboardingAccept = useCallback(async () => {
+    try {
+      localStorage.setItem(ONBOARDING_KEY, "true");
+    } catch {
+      // localStorage blocked — proceed without persisting. User may see
+      // onboarding again next visit, but they'll still get to record now.
+    }
+    setOnboardingOpen(false);
+    justGrantedRef.current = true;
+    await startWithPermissionCheck();
+  }, [startWithPermissionCheck]);
+
+  const handleOnboardingCancel = useCallback(() => {
+    setOnboardingOpen(false);
+  }, []);
+
+  const handleHelpClose = useCallback(() => {
+    setHelpOpen(false);
+  }, []);
 
   // Graceful degradation: Firefox + browsers without Web Speech API.
   if (!supported) return null;
@@ -228,24 +353,146 @@ export function VoiceInputButton({
     : "bg-white border-border text-ink-muted hover:border-primary/40 hover:text-primary hover:bg-primary-pale/40";
 
   return (
-    <button
-      type="button"
-      onClick={handleClick}
-      disabled={disabled}
-      title={
-        recording ? "Höre zu… Klicke zum Stoppen" : "Sprich deine Eingabe"
-      }
-      aria-label={
-        recording ? "Aufnahme stoppen" : "Sprach-Eingabe starten"
-      }
-      aria-pressed={recording}
-      className={`${dim} ${baseClasses} ${stateClasses} ${className ?? ""}`}
-    >
-      {recording ? (
-        <MicOff className={iconSize} />
-      ) : (
-        <Mic className={iconSize} />
+    <>
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={disabled}
+        title={
+          recording ? "Höre zu… Klicke zum Stoppen" : "Sprich deine Eingabe"
+        }
+        aria-label={recording ? "Aufnahme stoppen" : "Sprach-Eingabe starten"}
+        aria-pressed={recording}
+        className={`${dim} ${baseClasses} ${stateClasses} ${className ?? ""}`}
+      >
+        {recording ? (
+          <MicOff className={iconSize} />
+        ) : (
+          <Mic className={iconSize} />
+        )}
+      </button>
+
+      {onboardingOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="voice-onboarding-title"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-fade-in"
+          onClick={handleOnboardingCancel}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-pop max-w-sm w-full p-6 border border-border"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3
+              id="voice-onboarding-title"
+              className="font-serif text-lg text-ink mb-2"
+            >
+              🎤 Sprach-Eingabe aktivieren
+            </h3>
+            <p className="text-sm text-ink-muted leading-relaxed mb-5">
+              Nutriva braucht einmalig Zugriff auf dein Mikrofon. Audio
+              wird nicht gespeichert — direkter Browser-zu-Apple/Google Pfad.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={handleOnboardingCancel}
+                className="text-sm font-medium border border-border hover:bg-surface-muted text-ink-muted px-4 py-2 rounded-full transition"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                onClick={handleOnboardingAccept}
+                className="text-sm font-medium bg-primary hover:bg-primary-hover text-white px-5 py-2 rounded-full transition"
+              >
+                Mikrofon erlauben
+              </button>
+            </div>
+          </div>
+        </div>
       )}
-    </button>
+
+      {helpOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="voice-help-title"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-fade-in"
+          onClick={handleHelpClose}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-pop max-w-md w-full p-6 border border-border max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3
+              id="voice-help-title"
+              className="font-serif text-lg text-ink mb-2"
+            >
+              Mikrofon ist blockiert
+            </h3>
+            <p className="text-sm text-ink-muted leading-relaxed mb-4">
+              Dein Browser hat den Mikrofon-Zugriff für diese Seite gesperrt.
+              So kannst du ihn wieder aktivieren:
+            </p>
+
+            <div className="space-y-4 mb-5">
+              <div>
+                <p className="text-sm font-semibold text-ink mb-1">iOS Safari</p>
+                <ol className="text-xs text-ink-muted leading-relaxed list-decimal pl-4 space-y-0.5">
+                  <li>
+                    Tippe in der Adressleiste auf das{" "}
+                    <strong>AA-Symbol</strong> (links neben der URL)
+                  </li>
+                  <li>
+                    Wähle „Webseiten-Einstellungen&ldquo; → „Mikrofon&ldquo;
+                  </li>
+                  <li>Setze auf „Erlauben&ldquo; und lade die Seite neu</li>
+                </ol>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-ink mb-1">
+                  Android Chrome
+                </p>
+                <ol className="text-xs text-ink-muted leading-relaxed list-decimal pl-4 space-y-0.5">
+                  <li>
+                    Tippe in der Adressleiste auf das{" "}
+                    <strong>Schloss-Symbol</strong> links neben der URL
+                  </li>
+                  <li>Wähle „Berechtigungen&ldquo; → „Mikrofon&ldquo;</li>
+                  <li>
+                    Aktiviere die Berechtigung und lade die Seite neu
+                  </li>
+                </ol>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-ink mb-1">
+                  Desktop (Chrome / Edge / Safari / Firefox)
+                </p>
+                <ol className="text-xs text-ink-muted leading-relaxed list-decimal pl-4 space-y-0.5">
+                  <li>
+                    Klicke in der Adressleiste auf das{" "}
+                    <strong>Schloss-Symbol</strong> oder das Site-Info-Symbol
+                  </li>
+                  <li>Setze „Mikrofon&ldquo; auf „Erlauben&ldquo;</li>
+                  <li>Lade die Seite neu (⌘R / Strg+R)</li>
+                </ol>
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={handleHelpClose}
+                className="text-sm font-medium bg-primary hover:bg-primary-hover text-white px-5 py-2 rounded-full transition"
+              >
+                OK, hab&rsquo;s gesehen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
