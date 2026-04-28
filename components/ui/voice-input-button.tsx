@@ -72,6 +72,62 @@ const ONBOARDING_KEY = "voice_onboarding_seen";
  *  confirmation when they come back to the tab in a new session. */
 const SESSION_TOAST_KEY = "voice_session_toast_shown";
 
+type MicrophoneAccessProbe =
+  | { status: "granted" }
+  | { status: "denied" }
+  | { status: "unavailable"; message: string }
+  | { status: "unknown" };
+
+function getBrowserErrorName(err: unknown): string {
+  if (typeof DOMException !== "undefined" && err instanceof DOMException) {
+    return err.name;
+  }
+  if (err instanceof Error) {
+    return err.name;
+  }
+  return "";
+}
+
+async function probeLiveMicrophoneAccess(): Promise<MicrophoneAccessProbe> {
+  if (typeof navigator === "undefined") return { status: "unknown" };
+
+  const mediaDevices = navigator.mediaDevices;
+  if (!mediaDevices?.getUserMedia) return { status: "unknown" };
+
+  try {
+    const stream = await mediaDevices.getUserMedia({ audio: true });
+    stream.getTracks().forEach((track) => track.stop());
+    return { status: "granted" };
+  } catch (err) {
+    const name = getBrowserErrorName(err);
+
+    if (
+      name === "NotAllowedError" ||
+      name === "PermissionDeniedError" ||
+      name === "SecurityError"
+    ) {
+      return { status: "denied" };
+    }
+
+    if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+      return {
+        status: "unavailable",
+        message: "Kein Mikrofon gefunden.",
+      };
+    }
+
+    if (name === "NotReadableError" || name === "TrackStartError") {
+      return {
+        status: "unavailable",
+        message:
+          "Mikrofon nicht verfügbar — nutzt eine andere App gerade das Mikro?",
+      };
+    }
+
+    return { status: "unknown" };
+  }
+}
+
 interface Props {
   /** Fires on every interim/final result with the running transcript. */
   onTranscript: (text: string) => void;
@@ -96,9 +152,8 @@ interface Props {
  * behavior across browsers (iOS Safari doesn't expose "microphone",
  * Chrome can return stale state right after a settings change). Instead
  * we just call `recognition.start()` and let the browser handle the
- * permission flow natively. If the user has denied, we get
- * recognition.onerror with code "not-allowed" and surface the help
- * modal at that moment.
+ * permission flow natively. If Chrome reports "not-allowed", we verify
+ * live microphone capture before showing the browser-settings help modal.
  */
 export function VoiceInputButton({
   onTranscript,
@@ -167,6 +222,38 @@ export function VoiceInputButton({
     }
   }, []);
 
+  const handleSpeechPermissionError = useCallback(() => {
+    // `SpeechRecognitionErrorEvent.error === "not-allowed"` does not prove
+    // that the site-level microphone permission is blocked. Chrome can also
+    // report it when the Web Speech service refuses to start while ordinary
+    // microphone capture is already granted. Verify live mic access before
+    // showing the browser-settings help modal.
+    justGrantedRef.current = false;
+
+    void probeLiveMicrophoneAccess().then((access) => {
+      if (access.status === "denied") {
+        setHelpOpen(true);
+        return;
+      }
+
+      if (access.status === "unavailable") {
+        toast.error(access.message);
+        return;
+      }
+
+      if (access.status === "granted") {
+        toast.error(
+          "Mikrofon ist erlaubt, aber Chrome konnte die Spracherkennung nicht starten. Bitte Seite neu laden und erneut versuchen.",
+        );
+        return;
+      }
+
+      toast.error(
+        "Spracherkennung wurde vom Browser abgelehnt. Bitte prüfe Chrome- und Mikrofon-Einstellungen.",
+      );
+    });
+  }, []);
+
   const start = useCallback(() => {
     const Ctor = getSpeechRecognition();
     if (!Ctor) return;
@@ -214,11 +301,7 @@ export function VoiceInputButton({
           "Mikrofon nicht verfügbar — wird eine andere App das Mikro nutzen?",
         );
       } else if (code === "not-allowed" || code === "service-not-allowed") {
-        // The browser handled the permission flow and the user denied.
-        // Reset the toast gate so a future grant doesn't fire a stale
-        // "✓ Mikrofon aktiviert" attached to the wrong activation.
-        justGrantedRef.current = false;
-        setHelpOpen(true);
+        handleSpeechPermissionError();
       } else {
         toast.error(`Spracherkennung-Fehler: ${code}`);
       }
@@ -256,7 +339,7 @@ export function VoiceInputButton({
       intentRef.current = "off";
       setRecording(false);
     }
-  }, [onTranscript, onFinal]);
+  }, [onTranscript, onFinal, handleSpeechPermissionError]);
 
   const handleClick = useCallback(() => {
     if (disabled) return;
