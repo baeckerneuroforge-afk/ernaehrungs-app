@@ -68,45 +68,9 @@ const ONBOARDING_KEY = "voice_onboarding_seen";
 
 /** sessionStorage flag set after we showed the "✓ Mikrofon aktiviert"
  *  toast in this browser-tab session. Per-session (not per-device) so
- *  a user who revoked + re-granted in Chrome settings still sees the
+ *  a user who revoked + re-granted in browser settings still sees the
  *  confirmation when they come back to the tab in a new session. */
 const SESSION_TOAST_KEY = "voice_session_toast_shown";
-
-/**
- * Probe the browser's microphone permission state.
- * Returns null when the Permissions API isn't available for `microphone`
- * (true on iOS Safari at the time of writing) — caller treats that as
- * "unknown" and falls through to start(), which triggers the native
- * permission prompt; recognition.onerror handles a denial.
- */
-async function checkMicrophonePermission(): Promise<PermissionState | null> {
-  if (typeof navigator === "undefined" || !navigator.permissions) {
-    console.log("[VoiceInput] permissions API not available", {
-      hasNavigator: typeof navigator !== "undefined",
-      hasPermissions: typeof navigator !== "undefined" && !!navigator.permissions,
-    });
-    return null;
-  }
-  try {
-    const status = await navigator.permissions.query({
-      // "microphone" is widely shipped but not in every TS lib.dom version
-      // of PermissionName, so we cast at the call site.
-      name: "microphone" as PermissionName,
-    });
-    console.log("[VoiceInput] permissions.query result", {
-      state: status.state,
-      // PermissionStatus also exposes onchange — useful to confirm we got
-      // a real status object back, not something funky.
-      hasOnChange: "onchange" in status,
-    });
-    return status.state;
-  } catch (err) {
-    console.log("[VoiceInput] permissions.query threw", {
-      message: err instanceof Error ? err.message : String(err),
-    });
-    return null;
-  }
-}
 
 interface Props {
   /** Fires on every interim/final result with the running transcript. */
@@ -124,6 +88,18 @@ interface Props {
   className?: string;
 }
 
+/**
+ * Voice-input button using the browser's Web Speech API.
+ *
+ * Permission model: try-then-handle-error. We deliberately do NOT call
+ * `navigator.permissions.query()` first — that API has inconsistent
+ * behavior across browsers (iOS Safari doesn't expose "microphone",
+ * Chrome can return stale state right after a settings change). Instead
+ * we just call `recognition.start()` and let the browser handle the
+ * permission flow natively. If the user has denied, we get
+ * recognition.onerror with code "not-allowed" and surface the help
+ * modal at that moment.
+ */
 export function VoiceInputButton({
   onTranscript,
   onFinal,
@@ -137,8 +113,8 @@ export function VoiceInputButton({
   const [supported, setSupported] = useState(false);
   const [recording, setRecording] = useState(false);
 
-  // Modal state. Both modals are mutually exclusive — onboarding leads to
-  // either start (success) or help (denied), never both at once.
+  // Modal state. Both modals are mutually exclusive in normal flow —
+  // onboarding leads to either start (success) or help (denied via onerror).
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
 
@@ -148,9 +124,11 @@ export function VoiceInputButton({
   const intentRef = useRef<"on" | "off">("off");
   const transcriptRef = useRef<string>("");
   const sessionStartRef = useRef<number>(0);
-  /** Flips to true the moment the user accepts onboarding; consumed by
-   *  recognition.onstart to gate the one-shot success toast. Without this
-   *  flag we'd also toast on every silent recording start. */
+  /** Set to true on every user-initiated start (handleClick post-onboarding
+   *  or handleOnboardingAccept). Consumed exactly once by recognition.onstart
+   *  to gate the "✓ Mikrofon aktiviert" toast. iOS Safari auto-restarts the
+   *  same recognition instance after silence pauses; those re-fire onstart
+   *  but the ref has already been consumed, so they don't re-toast. */
   const justGrantedRef = useRef<boolean>(false);
 
   useEffect(() => {
@@ -202,15 +180,10 @@ export function VoiceInputButton({
     sessionStartRef.current = Date.now();
 
     recognition.onstart = () => {
-      console.log("[VoiceInput] recognition.onstart fired", {
-        justGranted: justGrantedRef.current,
-      });
-      // Show the "✓ Mikrofon aktiviert" toast once per browser-tab session
-      // and only when this start was preceded by a permission check that
-      // resolved positively (justGrantedRef set in startWithPermissionCheck).
-      // iOS Safari auto-restarts the recognition on silence pauses; those
-      // re-fire onstart on the same instance — sessionStorage gating
-      // prevents double-toasting in that case.
+      // Show "✓ Mikrofon aktiviert" once per browser-tab session, only
+      // when this start was preceded by a user-initiated click (not by
+      // the iOS auto-restart loop). justGrantedRef is set in the click
+      // handlers and consumed exactly once here.
       if (!justGrantedRef.current) return;
       justGrantedRef.current = false;
       try {
@@ -234,23 +207,19 @@ export function VoiceInputButton({
 
     recognition.onerror = (event) => {
       const code = event.error;
-      console.log("[VoiceInput] recognition.onerror", { code });
       if (code === "no-speech") {
-        console.log("[VoiceInput] branch: onerror.no-speech → soft toast");
         toast("Nichts gehört. Sprich etwas lauter.");
       } else if (code === "audio-capture") {
-        console.log("[VoiceInput] branch: onerror.audio-capture → red toast");
-        toast.error("Mikrofon nicht verfügbar.");
+        toast.error(
+          "Mikrofon nicht verfügbar — wird eine andere App das Mikro nutzen?",
+        );
       } else if (code === "not-allowed" || code === "service-not-allowed") {
-        console.log("[VoiceInput] branch: onerror.not-allowed → help modal");
-        // Native prompt was rejected, OR permission was already 'denied'
-        // but permissions.query failed/unsupported (Safari iOS) so we
-        // skipped the help modal earlier. Show it now. Reset the toast
-        // gate so a future grant doesn't fire a stale "✓ Mikrofon aktiviert".
+        // The browser handled the permission flow and the user denied.
+        // Reset the toast gate so a future grant doesn't fire a stale
+        // "✓ Mikrofon aktiviert" attached to the wrong activation.
         justGrantedRef.current = false;
         setHelpOpen(true);
       } else {
-        console.log("[VoiceInput] branch: onerror.unknown → generic red toast");
         toast.error(`Spracherkennung-Fehler: ${code}`);
       }
       intentRef.current = "off";
@@ -277,82 +246,34 @@ export function VoiceInputButton({
     };
 
     try {
-      console.log("[VoiceInput] calling recognition.start()");
       recognition.start();
       recognitionRef.current = recognition;
       intentRef.current = "on";
       setRecording(true);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "unbekannt";
-      console.log("[VoiceInput] recognition.start() threw synchronously", { msg });
       toast.error(`Spracherkennung konnte nicht gestartet werden: ${msg}`);
       intentRef.current = "off";
       setRecording(false);
     }
   }, [onTranscript, onFinal]);
 
-  /**
-   * Permission-aware start. Re-queries the Permissions API on every
-   * invocation — explicitly NO state cache, NO localStorage memory of
-   * previous denials. This is the key invariant: if the user revoked
-   * then re-granted microphone access via the browser settings, the
-   * very next click reflects the new state.
-   *
-   * - 'granted': start immediately
-   * - 'prompt' : call start(), browser will show its native prompt
-   * - 'denied' : open the help modal, don't touch the mic
-   * - null     : Permissions API unsupported (iOS Safari for "microphone").
-   *              Fall through to start(); recognition.onerror catches
-   *              "not-allowed" if the user has denied previously.
-   *
-   * For all paths that proceed to start() we mark justGrantedRef so the
-   * next successful onstart can fire the once-per-session toast.
-   */
-  const startWithPermissionCheck = useCallback(async () => {
-    console.log("[VoiceInput] startWithPermissionCheck: querying...");
-    const state = await checkMicrophonePermission();
-    console.log("[VoiceInput] startWithPermissionCheck: state resolved", { state });
-    if (state === "denied") {
-      console.log("[VoiceInput] branch: denied → opening help modal");
-      setHelpOpen(true);
-      return;
-    }
-    console.log("[VoiceInput] branch:", state ?? "null", "→ start()");
-    justGrantedRef.current = true;
-    start();
-  }, [start]);
-
-  const handleClick = useCallback(async () => {
-    console.log("[VoiceInput] click", {
-      disabled,
-      premium,
-      isPremium,
-      recording,
-      onboardingOpen,
-      helpOpen,
-    });
-
-    if (disabled) {
-      console.log("[VoiceInput] branch: disabled → noop");
-      return;
-    }
+  const handleClick = useCallback(() => {
+    if (disabled) return;
 
     if (premium && !isPremium) {
-      console.log("[VoiceInput] branch: premium-gate → redirect /#preise");
       toast("Sprach-Eingabe ist Teil von Premium");
       router.push("/#preise");
       return;
     }
 
     if (recording) {
-      console.log("[VoiceInput] branch: was-recording → stop()");
       stop();
       return;
     }
 
     // First-ever click on this device: show onboarding before any mic call.
     let onboardingSeen = false;
-    let storageReadable = true;
     try {
       onboardingSeen =
         typeof window !== "undefined" &&
@@ -361,36 +282,21 @@ export function VoiceInputButton({
       // localStorage blocked → skip onboarding silently to avoid trapping
       // the user behind a modal that can never be marked as seen.
       onboardingSeen = true;
-      storageReadable = false;
     }
-    console.log("[VoiceInput] localStorage check", {
-      key: ONBOARDING_KEY,
-      onboardingSeen,
-      storageReadable,
-    });
 
     if (!onboardingSeen) {
-      console.log("[VoiceInput] branch: onboarding-not-seen → opening onboarding modal");
       setOnboardingOpen(true);
       return;
     }
 
-    console.log("[VoiceInput] branch: onboarding-seen → permission check");
-    await startWithPermissionCheck();
-  }, [
-    disabled,
-    premium,
-    isPremium,
-    recording,
-    onboardingOpen,
-    helpOpen,
-    router,
-    stop,
-    startWithPermissionCheck,
-  ]);
+    // No permission probe — call start() directly and let the browser
+    // surface its native permission prompt (if needed) or just record
+    // (if already granted). recognition.onerror catches "not-allowed".
+    justGrantedRef.current = true;
+    start();
+  }, [disabled, premium, isPremium, recording, router, stop, start]);
 
-  const handleOnboardingAccept = useCallback(async () => {
-    console.log("[VoiceInput] onboarding: accept clicked");
+  const handleOnboardingAccept = useCallback(() => {
     try {
       localStorage.setItem(ONBOARDING_KEY, "true");
     } catch {
@@ -398,11 +304,9 @@ export function VoiceInputButton({
       // onboarding again next visit, but they'll still get to record now.
     }
     setOnboardingOpen(false);
-    // justGrantedRef gets set inside startWithPermissionCheck once the
-    // actual permission state is known. Setting it here unconditionally
-    // would cause a stale toast if the permission turns out to be denied.
-    await startWithPermissionCheck();
-  }, [startWithPermissionCheck]);
+    justGrantedRef.current = true;
+    start();
+  }, [start]);
 
   const handleOnboardingCancel = useCallback(() => {
     setOnboardingOpen(false);
