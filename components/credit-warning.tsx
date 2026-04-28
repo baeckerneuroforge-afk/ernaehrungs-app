@@ -76,7 +76,7 @@ export function CreditWarning() {
           {isEmpty ? (
             <>
               <Link
-                href="/#pricing"
+                href="/#preise"
                 className="hidden sm:inline-flex items-center gap-1 text-xs font-medium bg-primary text-white rounded-full px-3 py-1.5 hover:bg-primary-hover transition"
               >
                 <Sparkles className="w-3 h-3" />
@@ -91,7 +91,7 @@ export function CreditWarning() {
             </>
           ) : (
             <Link
-              href="/#pricing"
+              href="/#preise"
               className="text-xs font-medium text-ink hover:text-primary px-3 py-1.5 rounded-full bg-white/60 hover:bg-white transition"
             >
               Pläne ansehen

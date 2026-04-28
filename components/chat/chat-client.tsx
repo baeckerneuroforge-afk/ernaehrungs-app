@@ -814,7 +814,7 @@ export function ChatClient({ userId, userName, initialPlan }: ChatClientProps) {
                         </p>
                       </div>
                       <Link
-                        href="/#pricing"
+                        href="/#preise"
                         className="block w-full text-center text-xs font-medium bg-primary text-white rounded-full px-3 py-2 hover:bg-primary-hover transition mt-2"
                       >
                         Premium ansehen
@@ -915,7 +915,7 @@ export function ChatClient({ userId, userName, initialPlan }: ChatClientProps) {
                         </p>
                       </div>
                       <Link
-                        href="/#pricing"
+                        href="/#preise"
                         className="block w-full text-center text-xs font-medium bg-primary text-white rounded-full px-3 py-2 hover:bg-primary-hover transition mt-2"
                       >
                         Premium ansehen

@@ -20,7 +20,7 @@ export function UpgradeCard({
   description,
   features,
   ctaLabel,
-  ctaHref = "/#pricing",
+  ctaHref = "/#preise",
   requiredPlan = "pro",
 }: UpgradeCardProps) {
   const planLabel = requiredPlan === "pro_plus" ? "Premium" : "Basis";

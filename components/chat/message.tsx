@@ -25,7 +25,7 @@ export function ChatMessage({ content, isStreaming }: ChatMessageProps) {
         <MarkdownContent content={mainContent} />
         <div className="mt-4 rounded-xl border-2 border-primary/30 bg-primary-bg/20 p-4">
           <Link
-            href="/#pricing"
+            href="/#preise"
             className="block text-center no-underline"
           >
             <span className="text-sm font-semibold text-primary">

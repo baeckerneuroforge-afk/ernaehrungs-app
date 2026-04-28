@@ -37,6 +37,7 @@ import {
   RefreshCw,
   Wand2,
 } from "lucide-react";
+import { PLAN_CREDITS } from "@/lib/plans";
 
 /* ═══════════════════════════════════════════════════════════════
    SCROLL REVEAL HOOK
@@ -193,7 +194,7 @@ function HeroSection() {
             <div className="inline-flex items-center gap-2 bg-white/60 backdrop-blur-sm border border-border rounded-full px-4 py-2">
               <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
               <span className="text-xs text-warm-muted">
-                Kein Abo nötig · 15 Credits gratis
+                Kein Abo nötig · {PLAN_CREDITS.free} Credits gratis
               </span>
             </div>
           </div>
@@ -1689,12 +1690,10 @@ function PricingSection() {
             price="0"
             suffix=""
             features={[
-              { text: "15 Credits / Monat" },
+              { text: `${PLAN_CREDITS.free} Credits / Monat` },
               { text: "KI-Chat" },
-              { text: "Ernährungsplan" },
               { text: "Tagebuch & Gewichtstracker" },
               { text: "Kalorienrechner (Grundberechnung)" },
-              { text: "Wochenreview" },
             ]}
             ctaLabel="Kostenlos starten"
             ctaVariant="outline"
@@ -1711,7 +1710,7 @@ function PricingSection() {
             badge={{ label: "Beliebt", color: "bg-primary text-white" }}
             featured
             features={[
-              { text: "60 Credits · Haiku KI-Modell", highlight: true },
+              { text: `${PLAN_CREDITS.pro} Credits · Haiku KI-Modell`, highlight: true },
               { text: "Alles aus Kostenlos, plus:" },
               { text: "Individueller Kalorienrechner mit Slider", highlight: true },
               { text: "Zeitplan-Berechnung mit Zieldatum", highlight: true },
@@ -1744,7 +1743,7 @@ function PricingSection() {
             features={[
               { text: "Alles aus Basis" },
               {
-                text: "250 Credits · Sonnet KI-Modell (Premium-Qualität)",
+                text: `${PLAN_CREDITS.pro_plus} Credits · Sonnet KI-Modell (Premium-Qualität)`,
                 highlight: true,
                 accent: "amber",
               },
@@ -1786,7 +1785,7 @@ function PricingSection() {
         </div>
 
         <p className="text-center text-xs text-warm-light mt-10">
-          ✓ Alle Pläne starten mit 15 kostenlosen Credits · Jederzeit kündbar
+          ✓ Alle Pläne starten mit {PLAN_CREDITS.free} kostenlosen Credits · Jederzeit kündbar
         </p>
       </div>
     </section>
@@ -2237,7 +2236,7 @@ function CtaFooterSection() {
           <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
         </Link>
         <p className="text-xs text-white/60 mt-6">
-          15 Credits gratis · Keine Kreditkarte · Jederzeit kündbar
+          {PLAN_CREDITS.free} Credits gratis · Keine Kreditkarte · Jederzeit kündbar
         </p>
       </div>
     </section>

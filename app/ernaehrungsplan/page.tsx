@@ -163,7 +163,7 @@ export default function ErnaehrungsplanPage() {
               "Automatische Einkaufsliste und Mealprep-Anleitung",
             ]}
             ctaLabel="Ab €15,99/Monat — Basis wählen"
-            ctaHref="/#pricing"
+            ctaHref="/#preise"
             requiredPlan="pro"
           />
         </main>

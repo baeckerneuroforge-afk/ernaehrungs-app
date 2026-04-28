@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
+import { PLAN_CREDITS } from "@/lib/plans";
 
 const FAQ_ITEMS: { question: string; answer: string }[] = [
   {
     question: "Wie funktioniert das Credit-System?",
-    answer:
-      "Jede Chat-Nachricht kostet 1 Credit, ein kompletter Ernährungsplan 5 Credits und ein Wochenreview 4 Credits. Im Free-Plan bekommst du 15 Credits, im Basis-Plan 100 und im Premium-Plan 500 pro Monat. Ungenutzte Abo-Credits verfallen am Monatsende — zusätzlich gekaufte Top-up-Credits bleiben erhalten.",
+    answer: `Jede Chat-Nachricht kostet 1 Credit, ein kompletter Ernährungsplan 5 Credits und ein Wochenreview 4 Credits. Im Free-Plan bekommst du ${PLAN_CREDITS.free} Credits, im Basis-Plan ${PLAN_CREDITS.pro} und im Premium-Plan ${PLAN_CREDITS.pro_plus} pro Monat. Ungenutzte Abo-Credits verfallen am Monatsende — zusätzlich gekaufte Top-up-Credits bleiben erhalten.`,
   },
   {
     question: "Wie kann ich mein Abo kündigen?",

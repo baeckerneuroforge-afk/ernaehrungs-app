@@ -13,6 +13,7 @@ import {
   Infinity as InfinityIcon,
 } from "lucide-react";
 import { CreditTopupModal } from "@/components/credit-topup-modal";
+import { PLAN_CREDITS } from "@/lib/plans";
 import posthog from "posthog-js";
 
 type Plan = "free" | "pro" | "pro_plus" | "admin";
@@ -50,21 +51,21 @@ const PLAN_META: Record<
   free: {
     label: "Free",
     price: "Kostenlos",
-    credits: 15,
+    credits: PLAN_CREDITS.free,
     badgeClass: "bg-surface-muted text-ink-muted border-border",
     icon: Sparkles,
   },
   pro: {
     label: "Basis",
     price: "15,99 € / Monat",
-    credits: 60,
+    credits: PLAN_CREDITS.pro,
     badgeClass: "bg-primary-pale text-primary border-primary/30",
     icon: TrendingUp,
   },
   pro_plus: {
     label: "Premium",
     price: "49,99 € / Monat",
-    credits: 250,
+    credits: PLAN_CREDITS.pro_plus,
     badgeClass: "bg-amber-50 text-amber-700 border-amber-200",
     icon: Crown,
   },
@@ -332,7 +333,7 @@ export function BillingClient({
               name="Free"
               price="0 €"
               priceSub="für immer"
-              credits={15}
+              credits={PLAN_CREDITS.free}
               features={["Chat", "Tagebuch", "Tracker"]}
               active={plan === "free"}
               actionLabel={plan === "free" ? undefined : undefined}
@@ -342,7 +343,7 @@ export function BillingClient({
               name="Basis"
               price="15,99 €"
               priceSub="/ Monat"
-              credits={100}
+              credits={PLAN_CREDITS.pro}
               features={[
                 "Alles aus Free",
                 "Haiku KI-Modell (1 Credit/Chat)",
@@ -365,7 +366,7 @@ export function BillingClient({
               name="Premium"
               price="49,99 €"
               priceSub="/ Monat"
-              credits={400}
+              credits={PLAN_CREDITS.pro_plus}
               features={[
                 "Alles aus Basis",
                 "Sonnet KI-Modell (Premium-Qualität)",
@@ -511,8 +512,8 @@ export function BillingClient({
             <p className="text-sm text-ink-muted mb-5">
               Dein Zugang bleibt bis{" "}
               <strong>{fmtDate(periodEnd) || "zum Periodenende"}</strong>{" "}
-              bestehen. Danach wechselst du automatisch auf den Free-Plan (15
-              Credits / Monat).
+              bestehen. Danach wechselst du automatisch auf den Free-Plan ({PLAN_CREDITS.free}
+              {" "}Credits / Monat).
             </p>
             <div className="flex gap-2 justify-end">
               <button
