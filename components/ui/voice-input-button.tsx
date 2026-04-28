@@ -66,10 +66,11 @@ const MAX_SESSION_MS = 60_000;
  *  so users who dismiss can still get the explainer next time. */
 const ONBOARDING_KEY = "voice_onboarding_seen";
 
-/** localStorage flag set after the first time we successfully showed the
- *  "✓ Mikrofon aktiviert" toast. One-shot — afterwards the user just sees
- *  the recording state visually without further confirmation. */
-const FIRST_GRANT_KEY = "voice_first_grant_shown";
+/** sessionStorage flag set after we showed the "✓ Mikrofon aktiviert"
+ *  toast in this browser-tab session. Per-session (not per-device) so
+ *  a user who revoked + re-granted in Chrome settings still sees the
+ *  confirmation when they come back to the tab in a new session. */
+const SESSION_TOAST_KEY = "voice_session_toast_shown";
 
 /**
  * Probe the browser's microphone permission state.
@@ -186,18 +187,21 @@ export function VoiceInputButton({
     sessionStartRef.current = Date.now();
 
     recognition.onstart = () => {
-      // Show the "✓ Mikrofon aktiviert" toast at most once per device, and
-      // only when this start was preceded by an explicit onboarding-grant
-      // (so silent re-starts during normal use never toast).
+      // Show the "✓ Mikrofon aktiviert" toast once per browser-tab session
+      // and only when this start was preceded by a permission check that
+      // resolved positively (justGrantedRef set in startWithPermissionCheck).
+      // iOS Safari auto-restarts the recognition on silence pauses; those
+      // re-fire onstart on the same instance — sessionStorage gating
+      // prevents double-toasting in that case.
       if (!justGrantedRef.current) return;
       justGrantedRef.current = false;
       try {
         if (typeof window === "undefined") return;
-        if (localStorage.getItem(FIRST_GRANT_KEY) === "true") return;
+        if (sessionStorage.getItem(SESSION_TOAST_KEY) === "true") return;
         toast.success("✓ Mikrofon aktiviert");
-        localStorage.setItem(FIRST_GRANT_KEY, "true");
+        sessionStorage.setItem(SESSION_TOAST_KEY, "true");
       } catch {
-        // localStorage unavailable — toast just won't show again. Acceptable.
+        // sessionStorage unavailable — toast simply won't fire again.
       }
     };
 
@@ -219,7 +223,9 @@ export function VoiceInputButton({
       } else if (code === "not-allowed" || code === "service-not-allowed") {
         // Native prompt was rejected, OR permission was already 'denied'
         // but permissions.query failed/unsupported (Safari iOS) so we
-        // skipped the help modal earlier. Show it now.
+        // skipped the help modal earlier. Show it now. Reset the toast
+        // gate so a future grant doesn't fire a stale "✓ Mikrofon aktiviert".
+        justGrantedRef.current = false;
         setHelpOpen(true);
       } else {
         toast.error(`Spracherkennung-Fehler: ${code}`);
@@ -261,11 +267,21 @@ export function VoiceInputButton({
   }, [onTranscript, onFinal]);
 
   /**
-   * Permission-aware start. Returns immediately with a help-modal if the
-   * browser already knows microphone is denied. For 'granted' / 'prompt'
-   * we just call start(); the native dialog (if any) is handled by the
-   * browser, and recognition.onerror catches "not-allowed" as fallback
-   * for the cases where the Permissions API didn't surface 'denied'.
+   * Permission-aware start. Re-queries the Permissions API on every
+   * invocation — explicitly NO state cache, NO localStorage memory of
+   * previous denials. This is the key invariant: if the user revoked
+   * then re-granted microphone access via the browser settings, the
+   * very next click reflects the new state.
+   *
+   * - 'granted': start immediately
+   * - 'prompt' : call start(), browser will show its native prompt
+   * - 'denied' : open the help modal, don't touch the mic
+   * - null     : Permissions API unsupported (iOS Safari for "microphone").
+   *              Fall through to start(); recognition.onerror catches
+   *              "not-allowed" if the user has denied previously.
+   *
+   * For all paths that proceed to start() we mark justGrantedRef so the
+   * next successful onstart can fire the once-per-session toast.
    */
   const startWithPermissionCheck = useCallback(async () => {
     const state = await checkMicrophonePermission();
@@ -273,6 +289,7 @@ export function VoiceInputButton({
       setHelpOpen(true);
       return;
     }
+    justGrantedRef.current = true;
     start();
   }, [start]);
 
@@ -326,7 +343,9 @@ export function VoiceInputButton({
       // onboarding again next visit, but they'll still get to record now.
     }
     setOnboardingOpen(false);
-    justGrantedRef.current = true;
+    // justGrantedRef gets set inside startWithPermissionCheck once the
+    // actual permission state is known. Setting it here unconditionally
+    // would cause a stale toast if the permission turns out to be denied.
     await startWithPermissionCheck();
   }, [startWithPermissionCheck]);
 
