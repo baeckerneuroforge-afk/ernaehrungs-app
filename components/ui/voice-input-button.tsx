@@ -80,15 +80,30 @@ const SESSION_TOAST_KEY = "voice_session_toast_shown";
  * permission prompt; recognition.onerror handles a denial.
  */
 async function checkMicrophonePermission(): Promise<PermissionState | null> {
-  if (typeof navigator === "undefined" || !navigator.permissions) return null;
+  if (typeof navigator === "undefined" || !navigator.permissions) {
+    console.log("[VoiceInput] permissions API not available", {
+      hasNavigator: typeof navigator !== "undefined",
+      hasPermissions: typeof navigator !== "undefined" && !!navigator.permissions,
+    });
+    return null;
+  }
   try {
     const status = await navigator.permissions.query({
       // "microphone" is widely shipped but not in every TS lib.dom version
       // of PermissionName, so we cast at the call site.
       name: "microphone" as PermissionName,
     });
+    console.log("[VoiceInput] permissions.query result", {
+      state: status.state,
+      // PermissionStatus also exposes onchange — useful to confirm we got
+      // a real status object back, not something funky.
+      hasOnChange: "onchange" in status,
+    });
     return status.state;
-  } catch {
+  } catch (err) {
+    console.log("[VoiceInput] permissions.query threw", {
+      message: err instanceof Error ? err.message : String(err),
+    });
     return null;
   }
 }
@@ -187,6 +202,9 @@ export function VoiceInputButton({
     sessionStartRef.current = Date.now();
 
     recognition.onstart = () => {
+      console.log("[VoiceInput] recognition.onstart fired", {
+        justGranted: justGrantedRef.current,
+      });
       // Show the "✓ Mikrofon aktiviert" toast once per browser-tab session
       // and only when this start was preceded by a permission check that
       // resolved positively (justGrantedRef set in startWithPermissionCheck).
@@ -216,11 +234,15 @@ export function VoiceInputButton({
 
     recognition.onerror = (event) => {
       const code = event.error;
+      console.log("[VoiceInput] recognition.onerror", { code });
       if (code === "no-speech") {
+        console.log("[VoiceInput] branch: onerror.no-speech → soft toast");
         toast("Nichts gehört. Sprich etwas lauter.");
       } else if (code === "audio-capture") {
+        console.log("[VoiceInput] branch: onerror.audio-capture → red toast");
         toast.error("Mikrofon nicht verfügbar.");
       } else if (code === "not-allowed" || code === "service-not-allowed") {
+        console.log("[VoiceInput] branch: onerror.not-allowed → help modal");
         // Native prompt was rejected, OR permission was already 'denied'
         // but permissions.query failed/unsupported (Safari iOS) so we
         // skipped the help modal earlier. Show it now. Reset the toast
@@ -228,6 +250,7 @@ export function VoiceInputButton({
         justGrantedRef.current = false;
         setHelpOpen(true);
       } else {
+        console.log("[VoiceInput] branch: onerror.unknown → generic red toast");
         toast.error(`Spracherkennung-Fehler: ${code}`);
       }
       intentRef.current = "off";
@@ -254,12 +277,14 @@ export function VoiceInputButton({
     };
 
     try {
+      console.log("[VoiceInput] calling recognition.start()");
       recognition.start();
       recognitionRef.current = recognition;
       intentRef.current = "on";
       setRecording(true);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "unbekannt";
+      console.log("[VoiceInput] recognition.start() threw synchronously", { msg });
       toast.error(`Spracherkennung konnte nicht gestartet werden: ${msg}`);
       intentRef.current = "off";
       setRecording(false);
@@ -284,31 +309,50 @@ export function VoiceInputButton({
    * next successful onstart can fire the once-per-session toast.
    */
   const startWithPermissionCheck = useCallback(async () => {
+    console.log("[VoiceInput] startWithPermissionCheck: querying...");
     const state = await checkMicrophonePermission();
+    console.log("[VoiceInput] startWithPermissionCheck: state resolved", { state });
     if (state === "denied") {
+      console.log("[VoiceInput] branch: denied → opening help modal");
       setHelpOpen(true);
       return;
     }
+    console.log("[VoiceInput] branch:", state ?? "null", "→ start()");
     justGrantedRef.current = true;
     start();
   }, [start]);
 
   const handleClick = useCallback(async () => {
-    if (disabled) return;
+    console.log("[VoiceInput] click", {
+      disabled,
+      premium,
+      isPremium,
+      recording,
+      onboardingOpen,
+      helpOpen,
+    });
+
+    if (disabled) {
+      console.log("[VoiceInput] branch: disabled → noop");
+      return;
+    }
 
     if (premium && !isPremium) {
+      console.log("[VoiceInput] branch: premium-gate → redirect /#preise");
       toast("Sprach-Eingabe ist Teil von Premium");
       router.push("/#preise");
       return;
     }
 
     if (recording) {
+      console.log("[VoiceInput] branch: was-recording → stop()");
       stop();
       return;
     }
 
     // First-ever click on this device: show onboarding before any mic call.
     let onboardingSeen = false;
+    let storageReadable = true;
     try {
       onboardingSeen =
         typeof window !== "undefined" &&
@@ -317,25 +361,36 @@ export function VoiceInputButton({
       // localStorage blocked → skip onboarding silently to avoid trapping
       // the user behind a modal that can never be marked as seen.
       onboardingSeen = true;
+      storageReadable = false;
     }
+    console.log("[VoiceInput] localStorage check", {
+      key: ONBOARDING_KEY,
+      onboardingSeen,
+      storageReadable,
+    });
 
     if (!onboardingSeen) {
+      console.log("[VoiceInput] branch: onboarding-not-seen → opening onboarding modal");
       setOnboardingOpen(true);
       return;
     }
 
+    console.log("[VoiceInput] branch: onboarding-seen → permission check");
     await startWithPermissionCheck();
   }, [
     disabled,
     premium,
     isPremium,
     recording,
+    onboardingOpen,
+    helpOpen,
     router,
     stop,
     startWithPermissionCheck,
   ]);
 
   const handleOnboardingAccept = useCallback(async () => {
+    console.log("[VoiceInput] onboarding: accept clicked");
     try {
       localStorage.setItem(ONBOARDING_KEY, "true");
     } catch {
