@@ -80,11 +80,12 @@ export function ChatClient({ userId, userName, initialPlan }: ChatClientProps) {
   // Identify on mount / when the user identity actually changes — not
   // every render. PostHog dedupes internally but a body-level call is
   // a smell that hides intent and burns work on every re-render.
+  // KEINE PII (name, email) als person property — siehe Datenschutz.
   useEffect(() => {
-    if (userId && userName) {
-      posthog.identify(userId, { name: userName });
+    if (userId) {
+      posthog.identify(userId);
     }
-  }, [userId, userName]);
+  }, [userId]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);

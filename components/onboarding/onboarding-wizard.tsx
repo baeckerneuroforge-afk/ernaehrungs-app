@@ -248,11 +248,11 @@ export function OnboardingWizard({ userId, existingProfile, initialStep = 1 }: P
     setSaving(false);
     if (!doneOk) return;
     posthog.identify(userId);
+    // Keine sensiblen Properties (geschlecht, ziel, ernaehrungsform). Für
+    // Funnel-Analyse zählt nur "wer hat das Onboarding abgeschlossen" plus
+    // ein anonymisierter Marker, ob Allergien angegeben wurden.
     posthog.capture("onboarding_completed", {
-      ziel,
-      ernaehrungsform,
-      allergien_count: allergien.length,
-      geschlecht,
+      has_allergies: allergien.length > 0,
     });
     // Router-Cache invalidieren, damit /chat den frischen DB-State liest
     // (sonst kann der SC-Cache review_consent noch als null sehen → Redirect-Loop).

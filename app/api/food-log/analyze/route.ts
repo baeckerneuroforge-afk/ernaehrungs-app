@@ -4,7 +4,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { randomUUID } from "node:crypto";
 import { hasFeatureAccess } from "@/lib/feature-gates";
 import { getUserPlan } from "@/lib/feature-gates-server";
-import { deductCredits, CREDIT_COSTS } from "@/lib/credits";
+import { deductCredits, refundCredits, CREDIT_COSTS } from "@/lib/credits";
 import { hasKiConsent } from "@/lib/consent";
 import { fotoLimiter, checkRateLimit } from "@/lib/rate-limit";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
@@ -230,7 +230,58 @@ export async function POST(request: Request) {
     );
   }
 
-  // Credits abziehen BEVOR wir Anthropic anrufen
+  // Lokale Validierung des Bildes — VOR Credit-Abzug, damit kaputte Uploads
+  // keine Credits verbrennen. Buffer-Aufbau + Magic-Byte-Prefix-Check sind
+  // rein lokal, kein externer Call.
+  const buffer = Buffer.from(await image.arrayBuffer());
+  const base64 = buffer.toString("base64");
+  const mediaType =
+    image.type === "image/png"
+      ? "image/png"
+      : image.type === "image/webp"
+      ? "image/webp"
+      : "image/jpeg";
+
+  // Sanity-Check: base64-Prefix muss zum angegebenen media_type passen.
+  // JPEG beginnt mit "/9j/", PNG mit "iVBOR", WEBP mit "UklGR".
+  // Wenn der Browser HEIC durchgereicht hat oder die Datei kaputt ist,
+  // lehnen wir HIER ab, statt Anthropic einen kaputten Stream zu füttern.
+  const prefix = base64.slice(0, 8);
+  const looksLikeJpeg = base64.startsWith("/9j/");
+  const looksLikePng = base64.startsWith("iVBOR");
+  const looksLikeWebp = base64.startsWith("UklGR");
+  const prefixMatchesType =
+    (mediaType === "image/jpeg" && looksLikeJpeg) ||
+    (mediaType === "image/png" && looksLikePng) ||
+    (mediaType === "image/webp" && looksLikeWebp);
+
+  if (!prefixMatchesType) {
+    console.error("[foto-analyze] base64 prefix does not match media_type", {
+      mediaType,
+      prefix,
+      looksLikeJpeg,
+      looksLikePng,
+      looksLikeWebp,
+    });
+    return NextResponse.json(
+      {
+        error: "invalid_image_data",
+        message:
+          "Das Bild ist beschädigt oder hat ein unerwartetes Format. Bitte ein anderes Foto wählen.",
+      },
+      { status: 400 }
+    );
+  }
+
+  console.log("[foto-analyze] step: buffer ready", {
+    bytes: buffer.byteLength,
+    base64Len: base64.length,
+    mediaType,
+  });
+
+  // Credits abziehen — JETZT, nach erfolgreicher lokaler Validierung.
+  // Ab hier wird bei jedem Fehler in externen Calls (Anthropic, Storage)
+  // ein Refund ausgelöst.
   const ok = await deductCredits(
     userId,
     CREDIT_COSTS.foto_analysis,
@@ -249,56 +300,6 @@ export async function POST(request: Request) {
   }
 
   try {
-    const buffer = Buffer.from(await image.arrayBuffer());
-    const base64 = buffer.toString("base64");
-    const mediaType =
-      image.type === "image/png"
-        ? "image/png"
-        : image.type === "image/webp"
-        ? "image/webp"
-        : "image/jpeg";
-
-    // Sanity-Check: base64-Prefix muss zum angegebenen media_type passen.
-    // JPEG beginnt mit "/9j/", PNG mit "iVBOR", WEBP mit "UklGR".
-    // Wenn der Browser HEIC durchgereicht hat oder die Datei kaputt ist,
-    // lehnen wir HIER ab, statt Anthropic einen kaputten Stream zu füttern
-    // (was dort als 500 zurückkommen würde).
-    const prefix = base64.slice(0, 8);
-    const looksLikeJpeg = base64.startsWith("/9j/");
-    const looksLikePng = base64.startsWith("iVBOR");
-    const looksLikeWebp = base64.startsWith("UklGR");
-    const prefixMatchesType =
-      (mediaType === "image/jpeg" && looksLikeJpeg) ||
-      (mediaType === "image/png" && looksLikePng) ||
-      (mediaType === "image/webp" && looksLikeWebp);
-
-    console.log("[foto-analyze] step: buffer ready", {
-      bytes: buffer.byteLength,
-      base64Len: base64.length,
-      mediaType,
-      base64Prefix: prefix,
-      prefixMatchesType,
-    });
-
-    if (!prefixMatchesType) {
-      console.error("[foto-analyze] base64 prefix does not match media_type", {
-        mediaType,
-        prefix,
-        looksLikeJpeg,
-        looksLikePng,
-        looksLikeWebp,
-      });
-      return NextResponse.json(
-        {
-          error: "invalid_image_data",
-          message:
-            "Das Bild ist beschädigt oder hat ein unerwartetes Format. Bitte ein anderes Foto wählen.",
-          detail: `media_type=${mediaType} prefix=${prefix}`,
-        },
-        { status: 400 }
-      );
-    }
-
     // Profil + TDEE für Kontext laden. Fehler hier sind nicht kritisch —
     // dann läuft die Analyse ohne Profil-Kontext.
     const { data: profile } = await supabase
@@ -360,11 +361,23 @@ export async function POST(request: Request) {
 
     const analysis = parseAnalysisJson(rawText);
     if (!analysis) {
+      // Refund — Anthropic hat etwas geliefert, aber unparsbar.
+      await refundCredits(
+        userId,
+        CREDIT_COSTS.foto_analysis,
+        "Foto-Analyse: Antwort nicht parsbar"
+      ).catch((e) =>
+        console.error("[foto-analyze] refund nach parse_failed fehlgeschlagen:", e)
+      );
+      console.error(
+        "[foto-analyze] parse_failed, raw response:",
+        rawText.slice(0, 500)
+      );
       return NextResponse.json(
         {
           error: "parse_failed",
-          message: "Konnte die Analyse nicht lesen. Bitte erneut versuchen.",
-          raw: rawText,
+          message:
+            "Konnte die Analyse nicht lesen. Bitte erneut versuchen — deine Credits wurden zurückerstattet.",
         },
         { status: 502 }
       );
@@ -393,7 +406,8 @@ export async function POST(request: Request) {
         name: uploadError.name,
         path,
       });
-      // Analyse trotzdem zurückgeben, nur ohne Foto-URL
+      // Analyse trotzdem zurückgeben, nur ohne Foto-URL — Storage-Fail
+      // ist nicht-kritisch, der eigentliche Wert (Analyse) ist schon da.
     } else {
       console.log("[foto-analyze] step: uploaded to storage", { path });
       // Signed URL mit 1 Jahr Gültigkeit — Bucket ist privat.
@@ -406,6 +420,17 @@ export async function POST(request: Request) {
     console.log("[foto-analyze] DONE", { userId, dish: analysis.dish, hasPhoto: !!photo_url });
     return NextResponse.json({ analysis, photo_url, photo_path: path });
   } catch (err) {
+    // Externe Calls (Anthropic, Storage) sind fehlgeschlagen → Refund.
+    // Refund-Fehler nur loggen, niemals werfen, sonst maskieren wir den
+    // ursprünglichen Fehler.
+    await refundCredits(
+      userId,
+      CREDIT_COSTS.foto_analysis,
+      "Foto-Analyse fehlgeschlagen"
+    ).catch((e) =>
+      console.error("[foto-analyze] refund nach catch fehlgeschlagen:", e)
+    );
+
     const e = err as Error & { status?: number; error?: unknown };
     Sentry.captureException(err, {
       extra: { userId, action: "foto_analysis" },
@@ -417,14 +442,12 @@ export async function POST(request: Request) {
       apiError: e?.error,
       stack: e?.stack,
     });
+    // Generische Client-Message — keine Anthropic-/Stack-Details leaken.
     return NextResponse.json(
       {
         error: "analysis_failed",
-        message: `Analyse fehlgeschlagen: ${e?.message || "unbekannt"}`,
-        detail: e?.message,
-        name: e?.name,
-        status: e?.status,
-        apiError: e?.error,
+        message:
+          "Analyse fehlgeschlagen. Bitte erneut versuchen — deine Credits wurden zurückerstattet.",
       },
       { status: 500 }
     );

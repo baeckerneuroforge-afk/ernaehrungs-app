@@ -30,20 +30,29 @@ export async function POST(request: Request) {
     return new Response("Missing svix headers", { status: 400 });
   }
 
-  const payload = await request.json();
-  const body = JSON.stringify(payload);
+  // Raw-Body-Verification: svix muss gegen den exakten, unveränderten
+  // Request-Body hashen. await request.json() + JSON.stringify würde
+  // Whitespace/Key-Order verändern und damit die HMAC-Verifikation
+  // unzuverlässig machen. Erst raw lesen → verify → dann parse.
+  const body = await request.text();
 
   const wh = new Webhook(WEBHOOK_SECRET);
-  let evt: ClerkWebhookEvent;
 
   try {
-    evt = wh.verify(body, {
+    wh.verify(body, {
       "svix-id": svixId,
       "svix-timestamp": svixTimestamp,
       "svix-signature": svixSignature,
-    }) as ClerkWebhookEvent;
+    });
   } catch {
     return new Response("Invalid signature", { status: 400 });
+  }
+
+  let evt: ClerkWebhookEvent;
+  try {
+    evt = JSON.parse(body) as ClerkWebhookEvent;
+  } catch {
+    return new Response("Invalid JSON", { status: 400 });
   }
 
   const supabase = createSupabaseAdmin();

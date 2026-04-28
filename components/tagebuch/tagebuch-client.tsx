@@ -420,10 +420,10 @@ export function TagebuchClient({
       setFormSource("photo");
       setFormPhotoTip(a.tip || null);
       setFormPhotoBudget(a.dailyBudgetPercent);
+      // Keine sensiblen Properties (Gericht, Kalorien) — nur die Confidence
+      // brauchen wir für Modell-Qualitätsanalyse.
       posthog.capture("photo_analysis_used", {
-        dish: a.dish,
         confidence: a.confidence,
-        kalorien: a.calories,
       });
     } catch (err) {
       console.error("[foto-client] unexpected error:", err);
@@ -486,10 +486,11 @@ export function TagebuchClient({
         setEntries((prev) => [...prev, entry]);
         closeForm();
         toast.success("Mahlzeit gespeichert");
+        // Keine Kalorien-Werte tracken — Mahlzeit-Typ und Eingabequelle
+        // reichen für Funnel- und Feature-Adoption-Analyse.
         posthog.capture("food_log_entry_added", {
           mahlzeit_typ: formTyp,
           source: formSource,
-          kalorien: formKcal ? parseInt(formKcal) : null,
         });
         // Foto-Einträge: 5s lang Feedback-Leiste zeigen
         if (wasPhotoEntry && entry?.id) {
