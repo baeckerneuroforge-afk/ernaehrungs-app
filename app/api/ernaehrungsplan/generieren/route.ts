@@ -16,6 +16,12 @@ import { MEAL_LABELS } from "@/types/meal-plan";
 import { calculateTDEE, type TDEEResult } from "@/lib/tdee";
 import { quoteField } from "@/lib/utils/prompt-safe";
 
+// 7-Tage-Pläne mit 8000 max_tokens + RAG-Embedding können den Vercel-Default
+// (60s auf Pro) sprengen. Wenn die Function geKillt wird bevor der Stream
+// fertig ist, sieht der Client einen abgebrochenen Stream → unvollständiges
+// JSON → "Plan konnte nicht erstellt werden". 300s ist das Vercel-Pro-Max.
+export const maxDuration = 300;
+
 // ---------------------------------------------------------------------------
 // 1. SYSTEM PROMPT – Structured JSON output
 // ---------------------------------------------------------------------------
