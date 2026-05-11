@@ -82,7 +82,13 @@ export default function RootLayout({
         />
         <script
           dangerouslySetInnerHTML={{
-            __html: `if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js')}`,
+            // Der Query-String erzwingt einen Byte-Unterschied, wenn sich
+            // die Version ändert → Browser holt sw.js neu und installiert
+            // die aktuelle Variante (Auth-Hardening v3) sofort, statt auf
+            // den nächsten Tab-Close zu warten. Der SW liegt physisch
+            // weiterhin auf /sw.js; der ?v wird vom Server ignoriert, aber
+            // vom Browser für die SW-Identität ausgewertet.
+            __html: `if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js?v=3').then(function(r){r.update()}).catch(function(){})}`,
           }}
         />
         </PostHogProvider>
