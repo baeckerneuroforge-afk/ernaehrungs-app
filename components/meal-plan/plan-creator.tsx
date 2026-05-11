@@ -259,6 +259,7 @@ export function PlanCreator({ onPlanGenerated, userPlan = "pro", calorieTarget }
       let buffer = "";
       let fullContent = "";
       let streamError: string | null = null;
+      let streamErrorCode: string | null = null;
 
       const handleEvent = (raw: string) => {
         // Ein Event kann mehrere `data: …`-Zeilen haben. Wir extrahieren
@@ -269,7 +270,12 @@ export function PlanCreator({ onPlanGenerated, userPlan = "pro", calorieTarget }
         if (!dataLine) return;
         const payload = dataLine.slice(6);
         if (!payload) return;
-        let data: { type?: string; text?: string; error?: string };
+        let data: {
+          type?: string;
+          text?: string;
+          error?: string;
+          code?: string;
+        };
         try {
           data = JSON.parse(payload);
         } catch {
@@ -282,6 +288,7 @@ export function PlanCreator({ onPlanGenerated, userPlan = "pro", calorieTarget }
         }
         if (data.type === "error" && data.error) {
           streamError = data.error;
+          streamErrorCode = data.code ?? null;
         }
       };
 
@@ -302,14 +309,24 @@ export function PlanCreator({ onPlanGenerated, userPlan = "pro", calorieTarget }
       buffer += decoder.decode();
       if (buffer.trim()) handleEvent(buffer);
 
-      if (streamError) throw new Error(streamError);
+      // Server hat max_tokens-Truncation oder einen anderen harten Fehler
+      // erkannt — die Message ist schon final formatiert (inkl. Credit-
+      // Refund-Hinweis), also direkt durchreichen.
+      if (streamError) {
+        const err = new Error(streamError);
+        // Code ans Catch durchschleifen — falls wir in Zukunft pro Code
+        // unterschiedlich reagieren wollen (z.B. Auto-Retry bei max_tokens
+        // mit weniger Tagen).
+        (err as Error & { code?: string }).code = streamErrorCode ?? undefined;
+        throw err;
+      }
 
       const jsonMatch = fullContent.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
-        // Stream zu früh abgebrochen (Vercel-Timeout) oder Claude hat
-        // garkein JSON geliefert.
+        // Stream zu früh abgebrochen ohne dass der Server stop_reason
+        // melden konnte (z.B. Vercel-Timeout vor message_delta).
         throw new Error(
-          "Die Plan-Generierung wurde unterbrochen. Bitte versuche es erneut — bei wiederholten Fehlern ein kürzerer Plan (3 Tage)."
+          "Die Plan-Generierung wurde unterbrochen. Bitte versuche es mit weniger Tagen erneut."
         );
       }
 
@@ -317,8 +334,11 @@ export function PlanCreator({ onPlanGenerated, userPlan = "pro", calorieTarget }
       try {
         planData = JSON.parse(jsonMatch[0]);
       } catch {
+        // JSON-Match gefunden, aber nicht parsebar. Bei korrekt funktionierendem
+        // Server sollte das durch streamError (max_tokens) abgefangen sein. Wenn
+        // wir hier landen, ist das ein "echter" Truncation-Fall ohne Server-Signal.
         throw new Error(
-          "Die Plan-Daten waren unvollständig. Bitte versuche es erneut."
+          "Der Plan wurde nicht vollständig geliefert. Versuche bitte einen kürzeren Plan (3 Tage statt 7) oder weniger Mahlzeiten pro Tag."
         );
       }
       onPlanGenerated(planData, params);
