@@ -18,8 +18,20 @@ const STORAGE_KEY = "ea_cookie_consent_v2";
 export function CookieBanner() {
   const [visible, setVisible] = useState(false);
   const pathname = usePathname();
-  const isAuthRoute =
-    pathname?.startsWith("/sign-up") || pathname?.startsWith("/sign-in");
+  // Banner darf den Auth-/Onboarding-Flow nicht stören. Auf Mobile überdeckte
+  // die vorherige bottom-bar-Variante Clerks Submit-Button, was als
+  // "Sign-up lädt nicht" gemeldet wurde. Wir verstecken den Banner komplett
+  // auf:
+  //   - /sign-up, /sign-in   → Clerk-Form
+  //   - /auth-callback        → kurzer Spinner zwischen Sign-in und Ziel
+  //   - /onboarding           → Wizard mit eigenen Submit-Buttons
+  // Nach abgeschlossenem Onboarding landet der User auf /chat oder /home,
+  // dort sieht er den Banner und kann eine Entscheidung treffen.
+  const hideOnRoute =
+    pathname?.startsWith("/sign-up") ||
+    pathname?.startsWith("/sign-in") ||
+    pathname?.startsWith("/auth-callback") ||
+    pathname?.startsWith("/onboarding");
 
   useEffect(() => {
     try {
@@ -59,62 +71,7 @@ export function CookieBanner() {
     setVisible(false);
   }
 
-  if (!visible) return null;
-
-  // Auf /sign-up & /sign-in: kompakte Mobile-Variante am unteren Rand,
-  // damit das Formular nicht überdeckt wird. Desktop bleibt wie gehabt.
-  if (isAuthRoute) {
-    return (
-      <div
-        role="dialog"
-        aria-live="polite"
-        aria-label="Cookie- und Tracking-Hinweis"
-        className="fixed bottom-0 left-0 right-0 sm:left-auto sm:right-6 sm:bottom-6 sm:max-w-md z-50 animate-fade-up"
-      >
-        <div className="bg-white border-t border-sage/40 sm:border sm:rounded-2xl shadow-lg px-4 py-2.5 sm:px-5 sm:py-4 flex items-center sm:items-start gap-2 sm:gap-3 sm:flex-col">
-          <p className="text-[11px] sm:text-sm text-warm-text leading-snug sm:leading-relaxed flex-1">
-            <span className="sm:hidden">
-              Wir nutzen Cookies & PostHog-Analytics.{" "}
-              <Link
-                href="/datenschutz"
-                className="text-primary hover:underline font-medium"
-              >
-                Datenschutz
-              </Link>
-              .
-            </span>
-            <span className="hidden sm:inline">
-              Wir nutzen technisch notwendige Cookies für die Anmeldung sowie
-              optionale Analyse-Tools (PostHog, EU-gehostet) zur
-              Produktverbesserung. Inhalte deiner Chats und Gesundheitsdaten
-              werden dabei nicht erfasst. Mehr in unserer{" "}
-              <Link
-                href="/datenschutz"
-                className="text-primary hover:underline font-medium"
-              >
-                Datenschutzerklärung
-              </Link>
-              .
-            </span>
-          </p>
-          <div className="flex items-center gap-1.5 sm:gap-2 sm:self-end flex-shrink-0">
-            <button
-              onClick={decline}
-              className="text-[11px] sm:text-xs font-medium border border-sage/40 hover:bg-sage/10 text-warm-dark px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full transition"
-            >
-              Ablehnen
-            </button>
-            <button
-              onClick={accept}
-              className="text-[11px] sm:text-xs font-medium bg-sage hover:bg-sage/80 text-warm-dark px-3 sm:px-5 py-1.5 sm:py-2 rounded-full transition"
-            >
-              Akzeptieren
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (!visible || hideOnRoute) return null;
 
   return (
     <div

@@ -18,6 +18,7 @@ interface ClerkWebhookEvent {
 export async function POST(request: Request) {
   const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET;
   if (!WEBHOOK_SECRET) {
+    console.error("[clerk-webhook] CLERK_WEBHOOK_SECRET not configured");
     return new Response("Webhook secret not configured", { status: 500 });
   }
 
@@ -27,6 +28,11 @@ export async function POST(request: Request) {
   const svixSignature = headerPayload.get("svix-signature");
 
   if (!svixId || !svixTimestamp || !svixSignature) {
+    console.warn("[clerk-webhook] missing svix headers", {
+      hasId: !!svixId,
+      hasTimestamp: !!svixTimestamp,
+      hasSignature: !!svixSignature,
+    });
     return new Response("Missing svix headers", { status: 400 });
   }
 
@@ -44,7 +50,11 @@ export async function POST(request: Request) {
       "svix-timestamp": svixTimestamp,
       "svix-signature": svixSignature,
     });
-  } catch {
+  } catch (err) {
+    console.error("[clerk-webhook] signature verify failed", {
+      svixId,
+      message: err instanceof Error ? err.message : String(err),
+    });
     return new Response("Invalid signature", { status: 400 });
   }
 
@@ -52,8 +62,15 @@ export async function POST(request: Request) {
   try {
     evt = JSON.parse(body) as ClerkWebhookEvent;
   } catch {
+    console.error("[clerk-webhook] invalid JSON body", { svixId });
     return new Response("Invalid JSON", { status: 400 });
   }
+
+  console.log("[clerk-webhook] received", {
+    type: evt.type,
+    userId: evt.data?.id,
+    svixId,
+  });
 
   const supabase = createSupabaseAdmin();
 
@@ -67,14 +84,21 @@ export async function POST(request: Request) {
     // Zwei-Query-Pattern: credits_subscription darf NUR beim INSERT gesetzt
     // werden. Ein blindes UPSERT mit credits_subscription im Payload würde
     // bezahlende Bestandsuser auf 15 zurücksetzen.
-    const { data: existing } = await supabase
+    const { data: existing, error: lookupError } = await supabase
       .from("ea_users")
       .select("clerk_id")
       .eq("clerk_id", id)
       .maybeSingle();
 
+    if (lookupError) {
+      console.error("[clerk-webhook] ea_users lookup failed", {
+        userId: id,
+        error: lookupError.message,
+      });
+    }
+
     if (existing) {
-      await supabase
+      const { error: updateError } = await supabase
         .from("ea_users")
         .update({
           email,
@@ -84,8 +108,16 @@ export async function POST(request: Request) {
           last_active_at: now,
         })
         .eq("clerk_id", id);
+      if (updateError) {
+        console.error("[clerk-webhook] ea_users update failed", {
+          userId: id,
+          error: updateError.message,
+        });
+      } else {
+        console.log("[clerk-webhook] ea_users updated", { userId: id });
+      }
     } else {
-      await supabase.from("ea_users").insert({
+      const { error: insertError } = await supabase.from("ea_users").insert({
         clerk_id: id,
         email,
         name,
@@ -96,11 +128,19 @@ export async function POST(request: Request) {
         updated_at: now,
         last_active_at: now,
       });
+      if (insertError) {
+        console.error("[clerk-webhook] ea_users insert failed", {
+          userId: id,
+          error: insertError.message,
+        });
+      } else {
+        console.log("[clerk-webhook] ea_users inserted", { userId: id, email });
+      }
 
       // Welcome email only on fresh insert, and only for user.created
       // (user.updated arriving before any INSERT would be an odd edge case
       // but we still guard against sending a welcome for it).
-      if (evt.type === "user.created" && email) {
+      if (evt.type === "user.created" && email && !insertError) {
         const template = emailTemplates.welcome(first_name || "dort");
         void sendEmail({ to: email, subject: template.subject, html: template.html });
       }
@@ -112,6 +152,7 @@ export async function POST(request: Request) {
     // Cascade: delete profile and related data
     await supabase.from("ea_profiles").delete().eq("user_id", id);
     await supabase.from("ea_users").delete().eq("clerk_id", id);
+    console.log("[clerk-webhook] ea_users deleted (cascade)", { userId: id });
   }
 
   return new Response("OK", { status: 200 });
