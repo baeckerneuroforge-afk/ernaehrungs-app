@@ -151,7 +151,9 @@ export function NavbarShell() {
 
   return (
     <>
-      <nav className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-border">
+      {/* pt-safe trägt den iOS-Notch / Dynamic-Island-Inset — vorher überlappte
+          die Status-Bar mit Logo + Hamburger. */}
+      <nav className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-border pt-safe">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
@@ -324,9 +326,9 @@ export function NavbarShell() {
           onClick={() => setMenuOpen(false)}
         />
 
-        {/* Drawer */}
+        {/* Drawer — pt-safe für Notch, Footer mit pb-safe weiter unten. */}
         <aside
-          className={`fixed top-0 right-0 bottom-0 z-50 w-[82%] max-w-sm bg-white shadow-pop md:hidden transition-transform duration-300 ease-out ${
+          className={`fixed top-0 right-0 bottom-0 z-50 w-[82%] max-w-sm bg-white shadow-pop md:hidden transition-transform duration-300 ease-out pt-safe ${
             menuOpen ? "translate-x-0" : "translate-x-full"
           }`}
         >
@@ -341,7 +343,7 @@ export function NavbarShell() {
             </div>
             <button
               onClick={() => setMenuOpen(false)}
-              className="p-2 rounded-full hover:bg-surface-muted text-ink-muted transition"
+              className="w-11 h-11 flex items-center justify-center rounded-full hover:bg-surface-muted text-ink-muted transition"
               aria-label="Menü schließen"
             >
               <X className="w-5 h-5" />
@@ -398,7 +400,7 @@ export function NavbarShell() {
             )}
           </nav>
 
-          <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border">
+          <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border pb-safe">
             <button
               onClick={handleSignOut}
               className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-full text-sm text-ink-muted hover:text-red-500 hover:bg-red-50 border border-border transition-all duration-200 cursor-pointer"
@@ -436,7 +438,7 @@ export function NavbarShell() {
             </div>
             <button
               onClick={() => setMenuOpen(false)}
-              className="p-2 rounded-full hover:bg-surface-muted text-ink-muted transition"
+              className="w-11 h-11 flex items-center justify-center rounded-full hover:bg-surface-muted text-ink-muted transition"
               aria-label="Menü schließen"
             >
               <X className="w-5 h-5" />
@@ -470,7 +472,7 @@ export function NavbarShell() {
             </Link>
           </nav>
 
-          <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border space-y-2">
+          <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border space-y-2 pb-safe">
             <Link
               href="/sign-in"
               className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-full text-sm text-ink-muted hover:text-primary hover:bg-surface-muted border border-border transition-all duration-200"

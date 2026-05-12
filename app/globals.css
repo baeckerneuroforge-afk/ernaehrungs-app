@@ -9,12 +9,58 @@ html, body {
   overflow-x: hidden;
 }
 
+/* Mobile-Foundation: 100dvh (dynamic viewport height) wirkt korrekt
+   wenn Mobile-Browser-URL-Bars ein-/ausgeklappt sind. 100vh würde
+   auf iOS dauerhaft die volle Höhe inkl. URL-Bar zählen — Elemente
+   am unteren Rand wären immer abgeschnitten. */
+html, body {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
 body {
   font-family: 'DM Sans', 'Inter', system-ui, -apple-system, sans-serif;
   background-color: #FAFAF5;
   color: #1C1917;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* iOS-Auto-Zoom-Fix: Wenn ein Input < 16px Font-Size hat, zoomt
+   Safari beim Focus automatisch rein und scrollt das Layout —
+   User landet im Zoom-Modus und sieht den Rest nicht mehr.
+   16px-Mindestgröße verhindert das. Visuell bleibt der Text durch
+   `text-sm`/`text-xs` Klassen am Element selbst klein dargestellt,
+   bis er den Focus hat — kompromisslos einheitlich auf alle Inputs.
+
+   Touch-Target-Mindesthöhe von 44px nach Apple HIG / WCAG 2.5.5. */
+@media (max-width: 768px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+/* Tap-Highlight aufräumen: iOS rendert auf <button>/<a> einen
+   blauen Block beim Tap, der unter Cards/Modals als Geist sichtbar
+   bleibt. Wir lassen die Custom-Hover-States das übernehmen. */
+button, a, [role="button"], [role="switch"], [role="tab"] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Safe-Area-Utilities — passend zu `pb-safe` weiter unten. */
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0);
+}
+.pl-safe {
+  padding-left: env(safe-area-inset-left, 0);
+}
+.pr-safe {
+  padding-right: env(safe-area-inset-right, 0);
+}
+.top-safe {
+  top: env(safe-area-inset-top, 0);
 }
 
 /* ----------------------------------------------------------------------
