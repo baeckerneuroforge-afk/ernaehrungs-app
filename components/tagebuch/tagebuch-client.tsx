@@ -303,7 +303,7 @@ export function TagebuchClient({
     setSaveError(null);
   }
 
-  function openForm() {
+  function applyFormDefaults() {
     const now = new Date();
     const hh = String(now.getHours()).padStart(2, "0");
     const mm = String(now.getMinutes()).padStart(2, "0");
@@ -314,8 +314,25 @@ export function TagebuchClient({
     else if (h < 15) setFormTyp("mittag");
     else if (h < 20) setFormTyp("abend");
     else setFormTyp("snack");
+  }
+
+  function openForm() {
+    applyFormDefaults();
     resetForm();
     setShowForm(true);
+  }
+
+  // Direkter Foto-Trigger von der Page-Ebene (Header-Quick-Action und
+  // Empty-State-CTA). Vorher war Foto-Analyse nur über "Eintrag hinzufügen
+  // → erste Modal-Section" erreichbar — eine Beta-Tester:in fand die
+  // Funktion deshalb gar nicht. Diese Funktion öffnet den File-Picker
+  // direkt; nach erfolgreicher Analyse macht handlePhotoSelected das
+  // Modal automatisch auf.
+  function openPhotoPicker() {
+    if (!canUsePhoto) return;
+    applyFormDefaults();
+    resetForm();
+    photoInputRef.current?.click();
   }
 
   function closeForm() {
@@ -420,6 +437,11 @@ export function TagebuchClient({
       setFormSource("photo");
       setFormPhotoTip(a.tip || null);
       setFormPhotoBudget(a.dailyBudgetPercent);
+      // Sobald die Analyse durch ist, das Modal aufmachen — sonst sieht
+      // der User (besonders wenn er den Photo-Picker vom Header aus
+      // startet) nirgendwo dass die Analyse fertig ist und welche Werte
+      // gleich gespeichert werden.
+      setShowForm(true);
       // Keine sensiblen Properties (Gericht, Kalorien) — nur die Confidence
       // brauchen wir für Modell-Qualitätsanalyse.
       posthog.capture("photo_analysis_used", {
@@ -716,6 +738,20 @@ export function TagebuchClient({
 
   return (
     <div className="space-y-6">
+      {/* Unconditional Photo-Input: vorher war das Element nur im
+          "Eintrag hinzufügen"-Modal verfügbar — Foto-Schnellzugriff von
+          der Page-Ebene aus war damit unmöglich (Beta-Tester:in fand
+          die Foto-Analyse gar nicht). Jetzt immer im DOM, sodass
+          openPhotoPicker() aus jedem Quick-Action-Button funktioniert. */}
+      <input
+        ref={photoInputRef}
+        type="file"
+        accept="image/*"
+        className="sr-only"
+        onChange={handlePhotoSelected}
+        aria-hidden
+      />
+
       {/* Horizontal 7-day calendar */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
@@ -807,39 +843,86 @@ export function TagebuchClient({
           <Loader2 className="w-5 h-5 animate-spin text-ink-faint" />
         </div>
       ) : entries.length === 0 ? (
-        // Kein Eintrag heute → große einladende CTA-Karte.
-        // Dashed primary border signalisiert "hier beginnt etwas Neues";
-        // der ganze Block ist klickbar damit auch Daumen-Treffer zählen.
-        <button
-          type="button"
-          onClick={openForm}
-          className="w-full bg-primary/5 hover:bg-primary/10 border-2 border-dashed border-primary/30 rounded-2xl p-8 flex flex-col items-center gap-3 transition-colors animate-fade-in"
-        >
-          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-            <Plus className="w-6 h-6 text-primary" />
-          </div>
-          <div className="text-center">
-            <p className="font-semibold text-ink">Was hast du gegessen?</p>
-            <p className="text-sm text-ink-muted mt-1">
-              Trag deine erste Mahlzeit für heute ein
-            </p>
-          </div>
-        </button>
+        // Kein Eintrag heute → zwei einladende CTA-Karten: manuell + Foto.
+        // Foto-Button steht prominent gleichberechtigt neben dem manuellen
+        // Eintrag, weil Tester:innen die Foto-Funktion bisher nicht fanden
+        // (sie war nur tief im Modal versteckt).
+        <div className="space-y-3 animate-fade-in">
+          <button
+            type="button"
+            onClick={openForm}
+            className="w-full bg-primary/5 hover:bg-primary/10 border-2 border-dashed border-primary/30 rounded-2xl p-6 sm:p-8 flex flex-col items-center gap-3 transition-colors"
+          >
+            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+              <Plus className="w-6 h-6 text-primary" />
+            </div>
+            <div className="text-center">
+              <p className="font-semibold text-ink">Was hast du gegessen?</p>
+              <p className="text-sm text-ink-muted mt-1">
+                Trag deine erste Mahlzeit für heute ein
+              </p>
+            </div>
+          </button>
+          {canUsePhoto && (
+            <button
+              type="button"
+              onClick={openPhotoPicker}
+              disabled={analyzing}
+              className="w-full bg-white hover:bg-primary-faint border border-border hover:border-primary/40 rounded-2xl p-4 flex items-center gap-3 transition shadow-card disabled:opacity-60"
+            >
+              <div className="w-10 h-10 rounded-full bg-primary-pale flex items-center justify-center flex-shrink-0">
+                {analyzing ? (
+                  <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                ) : (
+                  <Camera className="w-5 h-5 text-primary" />
+                )}
+              </div>
+              <div className="text-left flex-1 min-w-0">
+                <p className="text-sm font-medium text-ink">
+                  {analyzing ? "Analysiere…" : "Foto aufnehmen & analysieren"}
+                </p>
+                <p className="text-xs text-ink-muted truncate">
+                  KI schätzt Kalorien & Makros automatisch
+                </p>
+              </div>
+            </button>
+          )}
+          {analysisError && (
+            <p className="text-xs text-red-600 px-1">{analysisError}</p>
+          )}
+        </div>
       ) : (
         // Einträge vorhanden → Header mit inline "Eintrag hinzufügen" + Liste.
         <div className="space-y-4 animate-fade-in">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center justify-between gap-2">
             <h2 className="font-serif text-lg text-ink">
               Deine Einträge heute
             </h2>
-            <button
-              onClick={openForm}
-              className="inline-flex items-center gap-2 bg-primary hover:bg-primary-hover text-white text-sm font-medium rounded-full px-4 py-2 shadow-card transition flex-shrink-0"
-            >
-              <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">Eintrag hinzufügen</span>
-              <span className="sm:hidden">Eintragen</span>
-            </button>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {canUsePhoto && (
+                <button
+                  onClick={openPhotoPicker}
+                  disabled={analyzing}
+                  className="inline-flex items-center justify-center w-11 h-11 rounded-full border border-border bg-white text-primary hover:bg-primary-faint hover:border-primary/40 transition shadow-card disabled:opacity-60"
+                  aria-label="Mahlzeit per Foto erfassen"
+                  title="Foto aufnehmen & analysieren"
+                >
+                  {analyzing ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Camera className="w-4 h-4" />
+                  )}
+                </button>
+              )}
+              <button
+                onClick={openForm}
+                className="inline-flex items-center gap-2 bg-primary hover:bg-primary-hover text-white text-sm font-medium rounded-full px-4 py-2 shadow-card transition min-h-[44px]"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">Eintrag hinzufügen</span>
+                <span className="sm:hidden">Eintragen</span>
+              </button>
+            </div>
           </div>
           {/* Tages-Foto-Galerie — nur wenn mindestens 1 Foto existiert */}
           {photoEntries.length > 0 && (
@@ -1216,37 +1299,35 @@ export function TagebuchClient({
         </div>
       )}
 
-      {/* Add entry sheet / modal */}
+      {/* Add entry sheet / modal.
+          max-h-[90dvh] + flex-col + scrollable body: vorher konnte das
+          Formular auf kleinen Android-Screens (360x640) länger werden als
+          der Viewport — der Foto-Button und Submit waren unsichtbar.
+          Beta-Tester:in musste auf 80% Zoom, um den Modal-Inhalt zu sehen. */}
       {showForm && (
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
           <div
             className="absolute inset-0 bg-ink/40 animate-fade-in"
             onClick={() => !saving && closeForm()}
           />
-          <div className="relative w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-3xl shadow-card animate-slide-in-up sm:mb-0">
-            <div className="flex items-center justify-between px-5 pt-5 pb-3">
+          <div className="relative w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-3xl shadow-card animate-slide-in-up sm:mb-0 max-h-[90dvh] flex flex-col">
+            <div className="flex items-center justify-between px-5 pt-5 pb-3 flex-shrink-0">
               <h2 className="font-serif text-xl text-ink">
                 Eintrag hinzufügen
               </h2>
               <button
                 onClick={() => !saving && closeForm()}
-                className="text-ink-muted hover:text-ink transition p-1"
+                className="text-ink-muted hover:text-ink transition w-11 h-11 -mr-2 flex items-center justify-center rounded-full"
                 aria-label="Schließen"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="px-5 pb-6 space-y-4">
-              {/* Foto-Tracking (Premium) */}
+            <div className="px-5 pb-6 space-y-4 flex-1 overflow-y-auto" style={{ paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom, 0))" }}>
+              {/* Foto-Tracking (Premium). Das eigentliche <input type="file">
+                  liegt jetzt auf Page-Ebene damit auch Header-Buttons den
+                  Picker öffnen können — der Button hier ruft den selben Ref. */}
               <div>
-                <input
-                  ref={photoInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="sr-only"
-                  onChange={handlePhotoSelected}
-                  aria-hidden
-                />
                 {canUsePhoto ? (
                   <button
                     type="button"
