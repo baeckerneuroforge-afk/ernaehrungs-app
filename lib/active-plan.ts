@@ -130,3 +130,110 @@ function formatGrams(n: number): string {
   // Ganze Zahl wenn integer, sonst eine Nachkommastelle.
   return Number.isInteger(n) ? String(n) : n.toFixed(1);
 }
+
+/**
+ * Aggregierte Tagessumme aus den Pro-Meal-Werten. Bewusst generisch
+ * über Meal-Form (raw types/meal-plan.ts `Meal` mit optionalen number?-
+ * Feldern UND ActivePlanMeal mit number|null-Feldern) — gleiche
+ * Logik in beiden Welten.
+ *
+ * Verhalten:
+ *  - Fehlende Werte (null/undefined/NaN/negativ) zählen als 0 für die
+ *    Summe, aber sie kippen hasMacros nicht auf true.
+ *  - hasMacros = mindestens eine Mahlzeit hat MINDESTENS eines der drei
+ *    Makro-Felder als valide Zahl gesetzt. UIs sollen die Makro-Zeile
+ *    nur rendern wenn hasMacros true ist; sonst reicht die kcal-Zeile.
+ *  - kcal ist getrennt behandelt: kcal-Summe kann auch ohne Makros
+ *    sinnvoll sein (alte Pläne).
+ */
+export interface DayMacroTotals {
+  kcal: number | null;
+  protein: number | null;
+  carbs: number | null;
+  fat: number | null;
+  hasMacros: boolean;
+}
+
+type MealMacroInput = {
+  calories?: number | null;
+  protein?: number | null;
+  carbs?: number | null;
+  fat?: number | null;
+};
+
+export function calculateDayMacros(
+  meals: ReadonlyArray<MealMacroInput>
+): DayMacroTotals {
+  let kcalSum = 0;
+  let kcalSeen = false;
+  let proteinSum = 0;
+  let proteinSeen = false;
+  let carbsSum = 0;
+  let carbsSeen = false;
+  let fatSum = 0;
+  let fatSeen = false;
+
+  for (const m of meals) {
+    const c = pickPositiveNumber(m?.calories);
+    if (c != null) {
+      kcalSum += c;
+      kcalSeen = true;
+    }
+    const p = pickPositiveNumber(m?.protein);
+    if (p != null) {
+      proteinSum += p;
+      proteinSeen = true;
+    }
+    const k = pickPositiveNumber(m?.carbs);
+    if (k != null) {
+      carbsSum += k;
+      carbsSeen = true;
+    }
+    const f = pickPositiveNumber(m?.fat);
+    if (f != null) {
+      fatSum += f;
+      fatSeen = true;
+    }
+  }
+
+  return {
+    kcal: kcalSeen ? Math.round(kcalSum) : null,
+    protein: proteinSeen ? Math.round(proteinSum * 10) / 10 : null,
+    carbs: carbsSeen ? Math.round(carbsSum * 10) / 10 : null,
+    fat: fatSeen ? Math.round(fatSum * 10) / 10 : null,
+    hasMacros: proteinSeen || carbsSeen || fatSeen,
+  };
+}
+
+function pickPositiveNumber(v: unknown): number | null {
+  if (typeof v !== "number" || !Number.isFinite(v) || v < 0) return null;
+  return v;
+}
+
+/**
+ * Day-Stats für UI mit kcal: "1.840 kcal · 105g E · 210g K · 65g F".
+ * Tagessummen sind größere Zahlen — kcal mit deutschem Tausender-
+ * Trenner. Gibt null wenn der Tag komplett leer ist.
+ */
+export function formatDayStats(totals: DayMacroTotals): string | null {
+  const parts: string[] = [];
+  if (totals.kcal != null) parts.push(`${totals.kcal.toLocaleString("de-DE")} kcal`);
+  if (totals.protein != null) parts.push(`${formatGrams(totals.protein)}g E`);
+  if (totals.carbs != null) parts.push(`${formatGrams(totals.carbs)}g K`);
+  if (totals.fat != null) parts.push(`${formatGrams(totals.fat)}g F`);
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
+
+/**
+ * Nur die Makros, ohne kcal — für UIs die kcal schon woanders zeigen
+ * (z.B. die kcal-Ampel-Chip in WeekGrid). Gibt null wenn hasMacros
+ * false ist; UIs sollen die Zeile dann gar nicht rendern.
+ */
+export function formatDayMacros(totals: DayMacroTotals): string | null {
+  if (!totals.hasMacros) return null;
+  const parts: string[] = [];
+  if (totals.protein != null) parts.push(`${formatGrams(totals.protein)}g E`);
+  if (totals.carbs != null) parts.push(`${formatGrams(totals.carbs)}g K`);
+  if (totals.fat != null) parts.push(`${formatGrams(totals.fat)}g F`);
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
