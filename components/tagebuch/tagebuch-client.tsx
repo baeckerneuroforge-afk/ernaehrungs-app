@@ -1,9 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { toast } from "sonner";
 import posthog from "posthog-js";
 import { FoodLog, MAHLZEIT_TYPEN } from "@/types";
+import type { ActivePlanForTagebuch, ActivePlanMeal } from "@/lib/active-plan";
+import { PlanTodayCard } from "@/components/tagebuch/plan-today-card";
+import { PlanMealPicker } from "@/components/tagebuch/plan-meal-picker";
 import {
   Plus,
   Trash2,
@@ -39,9 +42,17 @@ interface Props {
   targets: DailyTargets | null;
   /** true wenn mindestens ein ea_meal_plans-Row mit status='active' existiert. */
   hasActivePlan: boolean;
+  /** Verdichteter aktiver Plan inkl. heutiger Tag-Index, oder null. */
+  activePlan?: ActivePlanForTagebuch | null;
 }
 
 const PLAN_BANNER_DISMISS_KEY = "nutriva:tagebuch-plan-banner-dismissed";
+
+// Stabiler leerer Set für Plan-Karte/Picker, damit React-Render nicht
+// jedes Mal eine neue Referenz sieht. Wir nutzen Pending-State momentan
+// nicht (optimistic ✓ ist schneller), die Komponenten verlangen die Prop
+// aber, damit Pending-Polish später ohne API-Änderung möglich ist.
+const EMPTY_REF_SET: Set<string> = new Set();
 
 // Smart-Log Preview-Struktur (server-side sanitized)
 type SmartLogEntry = {
@@ -217,6 +228,7 @@ export function TagebuchClient({
   canSmartLog,
   targets,
   hasActivePlan,
+  activePlan,
 }: Props) {
   const [datum, setDatum] = useState(today);
   const [entries, setEntries] = useState<FoodLog[]>(initialEntries);
@@ -287,6 +299,23 @@ export function TagebuchClient({
 
   // Lightbox für Foto-Galerie
   const [lightboxEntry, setLightboxEntry] = useState<FoodLog | null>(null);
+
+  // Plan-Picker (Bottom-Sheet auf Mobile, Modal auf Desktop).
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  // Plan-Mahlzeit-Refs, die heute schon übernommen wurden — direkt aus
+  // entries abgeleitet. Optimistic Insert in entries reicht damit aus,
+  // um die Karte sofort auf ✓ zu schalten.
+  const consumedRefs = useMemo(() => {
+    const set = new Set<string>();
+    if (!activePlan) return set;
+    for (const e of entries) {
+      if (e.plan_id === activePlan.id && e.plan_meal_ref) {
+        set.add(e.plan_meal_ref);
+      }
+    }
+    return set;
+  }, [entries, activePlan]);
 
   function resetForm() {
     setFormBeschreibung("");
@@ -588,6 +617,73 @@ export function TagebuchClient({
     }
   }
 
+  // --- Plan-Mahlzeit → Tagebuch -------------------------------------------
+  async function handleAddFromPlan(meal: ActivePlanMeal) {
+    if (!activePlan) return;
+    const [dayIndexStr, mealIndexStr] = meal.ref.split(":");
+    const dayIndex = Number(dayIndexStr);
+    const mealIndex = Number(mealIndexStr);
+    if (!Number.isInteger(dayIndex) || !Number.isInteger(mealIndex)) return;
+
+    // Optimistic: temporären Eintrag in entries einfügen, damit Karte
+    // sofort ✓ zeigt und die Mahlzeit in der Tages-Liste auftaucht.
+    const tempId = `tmp-${Date.now()}-${meal.ref}`;
+    const optimisticEntry: FoodLog = {
+      id: tempId,
+      user_id: "",
+      mahlzeit_typ: meal.slot,
+      beschreibung: meal.name || meal.shortDescription || "Plan-Mahlzeit",
+      kalorien_geschaetzt: meal.calories,
+      protein_g: null,
+      carbs_g: null,
+      fat_g: null,
+      uhrzeit: meal.time ? `${meal.time}:00` : null,
+      source: "manual",
+      photo_url: null,
+      photo_feedback: null,
+      photo_tip: null,
+      photo_daily_budget_percent: null,
+      datum: today,
+      created_at: new Date().toISOString(),
+      plan_id: activePlan.id,
+      plan_meal_ref: meal.ref,
+    };
+    setEntries((prev) => [...prev, optimisticEntry]);
+
+    try {
+      const res = await fetch("/api/tagebuch/from-plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          plan_id: activePlan.id,
+          day_index: dayIndex,
+          meal_index: mealIndex,
+        }),
+      });
+      if (res.ok) {
+        const real = (await res.json()) as FoodLog;
+        setEntries((prev) =>
+          prev.map((e) => (e.id === tempId ? real : e))
+        );
+        toast.success("Eingetragen ins Tagebuch");
+        posthog.capture("plan_meal_added_to_diary", {
+          slot: meal.slot,
+          is_today: dayIndex === activePlan.todayDayIndex,
+        });
+      } else {
+        const data = (await res
+          .json()
+          .catch(() => ({}))) as { message?: string };
+        setEntries((prev) => prev.filter((e) => e.id !== tempId));
+        toast.error(data.message || "Konnte nicht eingetragen werden");
+      }
+    } catch (err) {
+      console.error("[tagebuch from-plan] network error:", err);
+      setEntries((prev) => prev.filter((e) => e.id !== tempId));
+      toast.error("Netzwerk-Fehler. Bitte erneut versuchen.");
+    }
+  }
+
   // --- Smart Log ---------------------------------------------------------
   async function handleSmartLog() {
     if (!canSmartLog) return;
@@ -835,6 +931,19 @@ export function TagebuchClient({
             </Link>
           </div>
         </div>
+      )}
+
+      {/* Plan-Karte: nur heute, nur wenn aktiver Plan mit verwertbaren
+          Mahlzeiten. Auf anderen Tagen ausgeblendet — die Karte heißt
+          ja "Heute aus deinem Plan". */}
+      {datum === today && activePlan && (
+        <PlanTodayCard
+          plan={activePlan}
+          consumedRefs={consumedRefs}
+          pendingRefs={EMPTY_REF_SET}
+          onAdd={handleAddFromPlan}
+          onOpenPicker={() => setPickerOpen(true)}
+        />
       )}
 
       {/* KERN-AREA: Mahlzeit eintragen — der HAUPT-CTA der Seite. */}
@@ -1324,6 +1433,24 @@ export function TagebuchClient({
               </button>
             </div>
             <div className="px-5 pb-6 space-y-4 flex-1 overflow-y-auto" style={{ paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom, 0))" }}>
+              {/* Aus Plan wählen — nur sichtbar wenn aktiver Plan mit
+                  mind. einer Mahlzeit existiert UND User auf "heute".
+                  Auf anderen Tagen wäre das verwirrend, weil die API
+                  immer in den heutigen Tag schreibt. */}
+              {datum === today && activePlan && activePlan.days.some((d) => d.meals.length > 0) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeForm();
+                    setPickerOpen(true);
+                  }}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl border border-dashed border-primary/40 bg-primary-faint/40 text-sm font-medium text-primary hover:bg-primary-faint transition"
+                >
+                  <ClipboardList className="w-4 h-4" />
+                  Aus Plan wählen
+                </button>
+              )}
+
               {/* Foto-Tracking (Premium). Das eigentliche <input type="file">
                   liegt jetzt auf Page-Ebene damit auch Header-Buttons den
                   Picker öffnen können — der Button hier ruft den selben Ref. */}
@@ -1663,6 +1790,20 @@ export function TagebuchClient({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Plan-Mahlzeit-Picker — alle Tage des Plans, [+] trägt in HEUTE
+          ein, unabhängig vom ursprünglichen Plan-Tag. */}
+      {pickerOpen && activePlan && (
+        <PlanMealPicker
+          plan={activePlan}
+          consumedRefs={consumedRefs}
+          pendingRefs={EMPTY_REF_SET}
+          onAdd={(meal) => {
+            handleAddFromPlan(meal);
+          }}
+          onClose={() => setPickerOpen(false)}
+        />
       )}
     </div>
   );

@@ -117,10 +117,12 @@ export interface UserRole {
   created_at: string;
 }
 
+export type TagebuchMealSlot = "fruehstueck" | "mittag" | "abend" | "snack";
+
 export interface FoodLog {
   id: string;
   user_id: string;
-  mahlzeit_typ: "fruehstueck" | "mittag" | "abend" | "snack";
+  mahlzeit_typ: TagebuchMealSlot;
   beschreibung: string;
   kalorien_geschaetzt: number | null;
   protein_g: number | null;
@@ -134,6 +136,10 @@ export interface FoodLog {
   photo_daily_budget_percent: number | null;
   datum: string;
   created_at: string;
+  /** Optional: ID des Plans, aus dem dieser Eintrag stammt. */
+  plan_id: string | null;
+  /** Optional: Position der Mahlzeit im Plan, Format "dayIndex:mealIndex". */
+  plan_meal_ref: string | null;
 }
 
 export const MAHLZEIT_TYPEN = [
