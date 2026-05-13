@@ -23,6 +23,14 @@ function formatTime(time: string | undefined | null): string | null {
   return null;
 }
 
+// Plan-Mahlzeit-Makro für DB-Insert: keine Zahl/negativ/NaN → NULL.
+// Auf eine Nachkommastelle runden, damit die DB-NUMERIC-Spalte sauber
+// gefüllt wird (Tagebuch zeigt eh nur gerundete Werte).
+function sanitizeMacroForInsert(v: unknown): number | null {
+  if (typeof v !== "number" || !Number.isFinite(v) || v < 0) return null;
+  return Math.round(v * 10) / 10;
+}
+
 export async function POST(request: Request) {
   const { userId } = await auth();
   if (!userId) {
@@ -129,8 +137,14 @@ export async function POST(request: Request) {
       : null;
   const today = new Date().toISOString().split("T")[0];
 
-  // A1: Makros bleiben NULL — der Plan kennt keine Mahlzeit-Makros.
-  // User kann sie nachträglich im Tagebuch ergänzen.
+  // Pro-Meal-Makros aus dem Plan übernehmen wenn sie da sind. Alte
+  // Pläne (vor dem Macros-per-Meal-Update) haben keine — dann bleiben
+  // die Spalten NULL wie bisher, das UI rendert dann nur Kalorien und
+  // der User kann manuell nachtragen.
+  const protein_g = sanitizeMacroForInsert(meal.protein);
+  const carbs_g = sanitizeMacroForInsert(meal.carbs);
+  const fat_g = sanitizeMacroForInsert(meal.fat);
+
   const { data, error } = await supabase
     .from("ea_food_log")
     .insert({
@@ -138,9 +152,9 @@ export async function POST(request: Request) {
       mahlzeit_typ,
       beschreibung,
       kalorien_geschaetzt: kalorien,
-      protein_g: null,
-      carbs_g: null,
-      fat_g: null,
+      protein_g,
+      carbs_g,
+      fat_g,
       uhrzeit: formatTime(meal.time),
       source: "manual",
       datum: today,

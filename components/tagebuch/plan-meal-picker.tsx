@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { X, Plus, Check, Loader2, Sunrise, Sun, Moon, Apple } from "lucide-react";
 import type { ActivePlanForTagebuch, ActivePlanMeal } from "@/lib/active-plan";
+import { formatMealStats } from "@/lib/active-plan";
 import type { TagebuchMealSlot } from "@/types";
 
 interface Props {
@@ -116,11 +117,12 @@ export function PlanMealPicker({ plan, consumedRefs, pendingRefs, onAdd, onClose
                               <p className="text-sm font-medium text-ink leading-tight line-clamp-2">
                                 {meal.name || meal.shortDescription || "Mahlzeit"}
                               </p>
-                              {meal.calories != null && (
-                                <p className="text-[11px] text-ink-faint mt-0.5">
-                                  {meal.calories} kcal
-                                </p>
-                              )}
+                              {(() => {
+                                const parts = formatMealStats(meal);
+                                return parts ? (
+                                  <p className="text-[11px] text-ink-faint mt-0.5">{parts}</p>
+                                ) : null;
+                              })()}
                             </div>
                             <button
                               type="button"
