@@ -2,6 +2,7 @@
 
 import { Sunrise, Sun, Moon, Apple, Plus, Check, ClipboardList, Loader2 } from "lucide-react";
 import type { ActivePlanForTagebuch, ActivePlanMeal } from "@/lib/active-plan";
+import { formatMealStats } from "@/lib/active-plan";
 import type { TagebuchMealSlot } from "@/types";
 
 interface Props {
@@ -106,11 +107,12 @@ export function PlanTodayCard({ plan, consumedRefs, onAdd, pendingRefs, onOpenPi
                       <p className="text-sm font-medium text-ink leading-tight mt-0.5 line-clamp-2">
                         {meal.name || meal.shortDescription || "Mahlzeit"}
                       </p>
-                      {meal.calories != null && (
-                        <p className="text-[11px] text-ink-faint mt-0.5">
-                          {meal.calories} kcal
-                        </p>
-                      )}
+                      {(() => {
+                        const parts = formatMealStats(meal);
+                        return parts ? (
+                          <p className="text-[11px] text-ink-faint mt-0.5">{parts}</p>
+                        ) : null;
+                      })()}
                     </div>
                     <button
                       type="button"

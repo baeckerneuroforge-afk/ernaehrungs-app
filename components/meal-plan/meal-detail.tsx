@@ -26,6 +26,17 @@ function mealTypeBadgeClasses(type: string): string {
   return "bg-orange-50 dark:bg-orange-950/30 text-orange-700 dark:text-orange-300";
 }
 
+function MacroStat({ label, value }: { label: string; value: number | undefined }) {
+  return (
+    <div className="text-center">
+      <p className="text-[10px] text-warm-light uppercase tracking-wide">{label}</p>
+      <p className="text-sm font-semibold text-warm-dark mt-0.5">
+        {value != null ? `${Number.isInteger(value) ? value : value.toFixed(1)}g` : "—"}
+      </p>
+    </div>
+  );
+}
+
 export function MealDetail({ meal, day, onClose }: Props) {
   const recipe = meal.fullRecipe;
   const typeBadge = mealTypeBadgeClasses(meal.type);
@@ -64,6 +75,16 @@ export function MealDetail({ meal, day, onClose }: Props) {
             )}
             {meal.calories && <span>~{meal.calories} kcal</span>}
           </div>
+
+          {/* Makros — nur wenn der Plan sie generiert hat. Alte Pläne
+              ohne Pro-Meal-Makros zeigen diesen Block nicht. */}
+          {(meal.protein != null || meal.carbs != null || meal.fat != null) && (
+            <div className="grid grid-cols-3 gap-2 bg-surface-muted rounded-xl px-3 py-2.5">
+              <MacroStat label="Eiweiß" value={meal.protein} />
+              <MacroStat label="Kohlenhydr." value={meal.carbs} />
+              <MacroStat label="Fett" value={meal.fat} />
+            </div>
+          )}
 
           {/* Ingredients */}
           <div>

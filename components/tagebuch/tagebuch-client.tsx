@@ -634,9 +634,11 @@ export function TagebuchClient({
       mahlzeit_typ: meal.slot,
       beschreibung: meal.name || meal.shortDescription || "Plan-Mahlzeit",
       kalorien_geschaetzt: meal.calories,
-      protein_g: null,
-      carbs_g: null,
-      fat_g: null,
+      // Makros aus dem Plan optimistisch durchreichen — Server macht
+      // identische Logik, dadurch keinerlei Flicker beim Replace.
+      protein_g: meal.protein,
+      carbs_g: meal.carbs,
+      fat_g: meal.fat,
       uhrzeit: meal.time ? `${meal.time}:00` : null,
       source: "manual",
       photo_url: null,

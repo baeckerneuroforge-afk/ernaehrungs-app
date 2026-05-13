@@ -11,6 +11,14 @@ export interface Meal {
   name: string;
   shortDescription: string;
   calories?: number;
+  /**
+   * Makros pro Mahlzeit in Gramm. Werden seit dem Macros-per-Meal-
+   * Update vom Generator mit erzeugt; bei älteren Plänen fehlen sie —
+   * UI fällt dann auf "nur Kalorien" zurück.
+   */
+  protein?: number;
+  carbs?: number;
+  fat?: number;
   fullRecipe: MealRecipe;
 }
 

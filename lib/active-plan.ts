@@ -17,6 +17,14 @@ export interface ActivePlanMeal {
   name: string;
   shortDescription: string;
   calories: number | null;
+  /**
+   * Pro-Meal-Makros in Gramm. Werden vom Plan-Generator seit dem
+   * Macros-per-Meal-Update mit erzeugt; ältere Pläne liefern hier
+   * null und das UI fällt auf "nur kcal" zurück.
+   */
+  protein: number | null;
+  carbs: number | null;
+  fat: number | null;
 }
 
 export interface ActivePlanDay {
@@ -73,6 +81,9 @@ export function buildActivePlanForTagebuch(
             typeof m?.calories === "number" && m.calories > 0
               ? Math.round(m.calories)
               : null,
+          protein: sanitizeMacro(m?.protein),
+          carbs: sanitizeMacro(m?.carbs),
+          fat: sanitizeMacro(m?.fat),
         }))
       : [],
   }));
@@ -83,4 +94,39 @@ export function buildActivePlanForTagebuch(
     todayDayIndex,
     days,
   };
+}
+
+/**
+ * Plan-Mahlzeit-Makro normalisieren: alles was keine endliche, positive
+ * Zahl ist (LLM-Strings, Bereiche, null/undefined), wird zu null. Eine
+ * Nachkommastelle reicht — Tagebuch zeigt eh nur gerundete Werte.
+ */
+function sanitizeMacro(v: unknown): number | null {
+  if (typeof v !== "number" || !Number.isFinite(v) || v < 0) return null;
+  return Math.round(v * 10) / 10;
+}
+
+/**
+ * Stats-Zeile für eine Plan-Mahlzeit: "380 kcal · 14g E · 58g K · 9g F",
+ * dropt Felder die null sind. Gibt null zurück wenn alle Werte fehlen —
+ * dann sollte das UI die Zeile gar nicht rendern. Für alte Pläne ohne
+ * Makros bleibt nur die kcal-Zeile.
+ */
+export function formatMealStats(meal: {
+  calories: number | null;
+  protein: number | null;
+  carbs: number | null;
+  fat: number | null;
+}): string | null {
+  const parts: string[] = [];
+  if (meal.calories != null) parts.push(`${meal.calories} kcal`);
+  if (meal.protein != null) parts.push(`${formatGrams(meal.protein)}g E`);
+  if (meal.carbs != null) parts.push(`${formatGrams(meal.carbs)}g K`);
+  if (meal.fat != null) parts.push(`${formatGrams(meal.fat)}g F`);
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
+
+function formatGrams(n: number): string {
+  // Ganze Zahl wenn integer, sonst eine Nachkommastelle.
+  return Number.isInteger(n) ? String(n) : n.toFixed(1);
 }
