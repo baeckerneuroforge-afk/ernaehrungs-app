@@ -2,7 +2,7 @@
 
 import { Sunrise, Sun, Moon, Apple, Plus, Check, ClipboardList, Loader2 } from "lucide-react";
 import type { ActivePlanForTagebuch, ActivePlanMeal } from "@/lib/active-plan";
-import { formatMealStats } from "@/lib/active-plan";
+import { formatMealStats, calculateDayMacros, formatDayStats } from "@/lib/active-plan";
 import type { TagebuchMealSlot } from "@/types";
 
 interface Props {
@@ -65,19 +65,32 @@ export function PlanTodayCard({ plan, consumedRefs, onAdd, pendingRefs, onOpenPi
     bySlot[m.slot].push(m);
   }
 
+  // Tages-Summe aller Plan-Mahlzeiten (kcal + Makros falls vorhanden).
+  // Bei alten Plänen ohne Pro-Meal-Makros bleibt nur die kcal-Zahl
+  // bzw. null wenn auch keine kcal — dann rendern wir die Zeile nicht.
+  const dayStats = formatDayStats(calculateDayMacros(todayDay.meals));
+
   return (
     <div className="bg-white rounded-2xl border border-border shadow-card overflow-hidden animate-fade-in">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-border bg-primary-faint/50">
-        <div className="flex items-center gap-2 min-w-0">
-          <ClipboardList className="w-4 h-4 text-primary flex-shrink-0" />
-          <h3 className="font-serif text-base text-ink truncate">
-            Heute aus deinem Plan
-          </h3>
+      {/* Header — Titel-Zeile + optionale Plan-Tagesziel-Zeile darunter. */}
+      <div className="px-4 sm:px-5 py-3 border-b border-border bg-primary-faint/50">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <ClipboardList className="w-4 h-4 text-primary flex-shrink-0" />
+            <h3 className="font-serif text-base text-ink truncate">
+              Heute aus deinem Plan
+            </h3>
+          </div>
+          <span className="text-[11px] font-medium text-primary bg-white rounded-full px-2 py-0.5 flex-shrink-0">
+            Tag {plan.todayDayIndex + 1} / {plan.totalDays}
+          </span>
         </div>
-        <span className="text-[11px] font-medium text-primary bg-white rounded-full px-2 py-0.5 flex-shrink-0">
-          Tag {plan.todayDayIndex + 1} / {plan.totalDays}
-        </span>
+        {dayStats && (
+          <p className="text-[11px] text-ink-muted mt-1.5">
+            <span className="font-medium text-ink-faint">Plan-Tagesziel:</span>{" "}
+            {dayStats}
+          </p>
+        )}
       </div>
 
       {/* Slots */}

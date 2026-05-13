@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { WeekPlanData, Meal, PlanParameters } from "@/types/meal-plan";
+import { calculateDayMacros, formatDayMacros } from "@/lib/active-plan";
 import { MealDetail } from "./meal-detail";
 import { ShoppingList } from "./shopping-list";
 import { MealprepPlan } from "./mealprep-plan";
@@ -197,6 +198,20 @@ export function WeekGrid({ data, params, userPlan = "pro" }: Props) {
                   >
                     <Flame className="w-3 h-3" />&Sigma; {actual} kcal
                   </div>
+                );
+              })()}
+
+              {/* Tages-Makros-Summe: nur Makros (kcal zeigt die Ampel-Chip
+                  oben), gerendert wenn der Plan Makros generiert hat.
+                  Bei alten Plänen ohne Pro-Meal-Makros fällt diese Zeile
+                  einfach weg. */}
+              {(() => {
+                const macrosLine = formatDayMacros(calculateDayMacros(day.meals));
+                if (!macrosLine) return null;
+                return (
+                  <p className="mb-3 text-[11px] text-ink-faint">
+                    {macrosLine}
+                  </p>
                 );
               })()}
 
