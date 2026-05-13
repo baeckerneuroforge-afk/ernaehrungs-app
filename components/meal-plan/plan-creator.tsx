@@ -218,41 +218,137 @@ export function PlanCreator({ onPlanGenerated, userPlan = "pro", calorieTarget }
         return;
       }
 
-      if (!res.ok) throw new Error("Generation failed");
+      if (res.status === 429) {
+        setError(
+          "Zu viele Anfragen in kurzer Zeit. Bitte versuche es in ein paar Minuten erneut."
+        );
+        setGenerating(false);
+        return;
+      }
+
+      if (res.status === 403) {
+        // KI-Consent fehlt oder Plan-Feature gesperrt
+        const err = await res.json().catch(() => ({}));
+        setError(
+          (err as { message?: string }).message ||
+            "Diese Funktion ist mit deinem aktuellen Plan nicht verfügbar."
+        );
+        setGenerating(false);
+        return;
+      }
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(
+          (err as { message?: string }).message || `Server-Fehler (${res.status})`
+        );
+      }
 
       const reader = res.body?.getReader();
-      const decoder = new TextDecoder();
-      if (!reader) throw new Error("No reader");
+      // {stream:true} verhindert dass der Decoder ein halbes UTF-8-Multibyte-
+      // Zeichen am Chunk-Ende falsch dekodiert.
+      const decoder = new TextDecoder("utf-8");
+      if (!reader) throw new Error("Stream konnte nicht gelesen werden.");
 
+      // Buffered SSE-Parsing: reader.read() schneidet NICHT auf Event-Grenzen,
+      // ein `data: {...}\n\n`-Event kann über mehrere Chunks gehen. Wir
+      // sammeln Bytes in einem Buffer und parsen erst, wenn ein vollständiges
+      // Event (terminiert mit `\n\n`) drin ist. Vorher führte das bei großen
+      // 7-Tage-Plänen reproduzierbar zu JSON.parse-SyntaxError → "Plan konnte
+      // nicht erstellt werden".
+      let buffer = "";
       let fullContent = "";
+      let streamError: string | null = null;
+      let streamErrorCode: string | null = null;
+
+      const handleEvent = (raw: string) => {
+        // Ein Event kann mehrere `data: …`-Zeilen haben. Wir extrahieren
+        // die erste — Anthropic schickt pro Event genau eine.
+        const dataLine = raw
+          .split("\n")
+          .find((l) => l.startsWith("data: "));
+        if (!dataLine) return;
+        const payload = dataLine.slice(6);
+        if (!payload) return;
+        let data: {
+          type?: string;
+          text?: string;
+          error?: string;
+          code?: string;
+        };
+        try {
+          data = JSON.parse(payload);
+        } catch {
+          // Defekter Chunk → ignorieren statt den ganzen Stream zu killen.
+          console.warn("[plan-creator] dropping malformed SSE event", payload.slice(0, 80));
+          return;
+        }
+        if (data.type === "text" && typeof data.text === "string") {
+          fullContent += data.text;
+        }
+        if (data.type === "error" && data.error) {
+          streamError = data.error;
+          streamErrorCode = data.code ?? null;
+        }
+      };
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-
-        const chunk = decoder.decode(value);
-        const lines = chunk.split("\n").filter((l) => l.startsWith("data: "));
-
-        for (const line of lines) {
-          const data = JSON.parse(line.slice(6));
-          if (data.type === "text") {
-            fullContent += data.text;
-          }
-          if (data.type === "error") {
-            throw new Error(data.error);
-          }
+        buffer += decoder.decode(value, { stream: true });
+        // Events sind mit `\n\n` terminiert. Solange wir komplette Events
+        // im Buffer haben, ziehen wir die raus und behalten den Rest.
+        let sepIdx: number;
+        while ((sepIdx = buffer.indexOf("\n\n")) !== -1) {
+          const event = buffer.slice(0, sepIdx);
+          buffer = buffer.slice(sepIdx + 2);
+          handleEvent(event);
         }
+      }
+      // Flush: letzter (evtl. unterminierter) Rest.
+      buffer += decoder.decode();
+      if (buffer.trim()) handleEvent(buffer);
+
+      // Server hat max_tokens-Truncation oder einen anderen harten Fehler
+      // erkannt — die Message ist schon final formatiert (inkl. Credit-
+      // Refund-Hinweis), also direkt durchreichen.
+      if (streamError) {
+        const err = new Error(streamError);
+        // Code ans Catch durchschleifen — falls wir in Zukunft pro Code
+        // unterschiedlich reagieren wollen (z.B. Auto-Retry bei max_tokens
+        // mit weniger Tagen).
+        (err as Error & { code?: string }).code = streamErrorCode ?? undefined;
+        throw err;
       }
 
       const jsonMatch = fullContent.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error("Kein gültiges JSON in der Antwort");
+      if (!jsonMatch) {
+        // Stream zu früh abgebrochen ohne dass der Server stop_reason
+        // melden konnte (z.B. Vercel-Timeout vor message_delta).
+        throw new Error(
+          "Die Plan-Generierung wurde unterbrochen. Bitte versuche es mit weniger Tagen erneut."
+        );
+      }
 
-      const planData: WeekPlanData = JSON.parse(jsonMatch[0]);
+      let planData: WeekPlanData;
+      try {
+        planData = JSON.parse(jsonMatch[0]);
+      } catch {
+        // JSON-Match gefunden, aber nicht parsebar. Bei korrekt funktionierendem
+        // Server sollte das durch streamError (max_tokens) abgefangen sein. Wenn
+        // wir hier landen, ist das ein "echter" Truncation-Fall ohne Server-Signal.
+        throw new Error(
+          "Der Plan wurde nicht vollständig geliefert. Versuche bitte einen kürzeren Plan (3 Tage statt 7) oder weniger Mahlzeiten pro Tag."
+        );
+      }
       onPlanGenerated(planData, params);
       toast.success("Ernährungsplan erstellt");
     } catch (err) {
       console.error("Plan generation error:", err);
-      const msg = "Plan konnte nicht erstellt werden. Bitte versuche es erneut.";
+      const msg =
+        err instanceof Error && err.message
+          ? err.message
+          : "Plan konnte nicht erstellt werden. Bitte versuche es erneut.";
       setError(msg);
       toast.error(msg);
     } finally {

@@ -68,36 +68,69 @@ export default function ErnaehrungsplanPage() {
     loadPlans();
   }, [loadPlans]);
 
-  function handlePlanGenerated(data: WeekPlanData, params: PlanParameters) {
+  async function handlePlanGenerated(data: WeekPlanData, params: PlanParameters) {
     setActivePlan({ data, params });
     setShowCreator(false);
 
-    // Save plan
-    fetch("/api/ernaehrungsplan", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ planData: data, parameters: params }),
-    })
-      .then((r) => r.json())
-      .then((saved) => {
-        if (saved.id) {
-          setActivePlan((prev) => prev ? { ...prev, id: saved.id, titel: saved.titel } : prev);
-          loadPlans();
-        }
-      })
-      .catch(console.error);
+    // Save plan. Vorher mit .catch(console.error) verschluckt — Janine
+    // sah den Plan im UI, aber nach Reload war er weg, weil das Save
+    // still failte. Jetzt: Fehler durchreichen + User informieren.
+    try {
+      const res = await fetch("/api/ernaehrungsplan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planData: data, parameters: params }),
+      });
+      const saved = await res.json().catch(() => null);
+      if (!res.ok || !saved?.id) {
+        toast.error(
+          (saved as { message?: string } | null)?.message ||
+            "Plan konnte nicht gespeichert werden. Er ist nur in dieser Sitzung sichtbar."
+        );
+        return;
+      }
+      setActivePlan((prev) =>
+        prev ? { ...prev, id: saved.id, titel: saved.titel } : prev
+      );
+      loadPlans();
+    } catch (err) {
+      console.error("Plan save error:", err);
+      toast.error(
+        "Plan konnte nicht gespeichert werden. Bitte versuche es erneut."
+      );
+    }
   }
 
   async function handleDelete(id: string) {
+    if (!window.confirm("Diesen Plan wirklich löschen? Das kann nicht rückgängig gemacht werden.")) {
+      return;
+    }
     setDeleting(id);
-    const res = await fetch(`/api/ernaehrungsplan/${id}`, { method: "DELETE" });
-    setDeleting(null);
-    if (activePlan?.id === id) setActivePlan(null);
-    loadPlans();
-    if (res.ok) {
+    try {
+      const res = await fetch(`/api/ernaehrungsplan/${id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast.error(
+          (err as { message?: string }).message ||
+            `Löschen fehlgeschlagen (${res.status})`
+        );
+        return;
+      }
+      if (activePlan?.id === id) setActivePlan(null);
+      // Optimistic: aus lokaler Liste raus, dann frisch laden.
+      setPlans((prev) => prev.filter((p) => p.id !== id));
       toast.success("Plan gelöscht");
-    } else {
-      toast.error("Löschen fehlgeschlagen");
+      void loadPlans();
+    } catch (err) {
+      // Network-Error / Abort — vorher blieb der Loader hier endlos hängen.
+      console.error("Plan delete error:", err);
+      toast.error(
+        "Löschen fehlgeschlagen. Bitte prüfe deine Internetverbindung."
+      );
+    } finally {
+      setDeleting(null);
     }
   }
 

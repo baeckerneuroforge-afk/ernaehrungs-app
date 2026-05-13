@@ -16,6 +16,12 @@ import { MEAL_LABELS } from "@/types/meal-plan";
 import { calculateTDEE, type TDEEResult } from "@/lib/tdee";
 import { quoteField } from "@/lib/utils/prompt-safe";
 
+// 7-Tage-Pläne mit 8000 max_tokens + RAG-Embedding können den Vercel-Default
+// (60s auf Pro) sprengen. Wenn die Function geKillt wird bevor der Stream
+// fertig ist, sieht der Client einen abgebrochenen Stream → unvollständiges
+// JSON → "Plan konnte nicht erstellt werden". 300s ist das Vercel-Pro-Max.
+export const maxDuration = 300;
+
 // ---------------------------------------------------------------------------
 // 1. SYSTEM PROMPT – Structured JSON output
 // ---------------------------------------------------------------------------
@@ -419,7 +425,15 @@ export async function POST(request: Request) {
     const anthropic = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY,
     });
-    const maxTokens = requestedDays <= 1 ? 3000 : requestedDays <= 3 ? 5000 : 8000;
+    // max_tokens-Budget: vorher 8000 für 7 Tage, was bei 3+ Mahlzeiten + RAG-
+    // bedingten längeren Beschreibungen reproduzierbar zu Truncation führte
+    // (Claude stoppt mit stop_reason=max_tokens mitten im JSON → JSON.parse
+    // failt client-seitig → "Plan-Daten waren unvollständig").
+    // Claude Sonnet 4.6 unterstützt deutlich höhere Output-Limits; das
+    // Tagebuch-Import nutzt bereits 16000 produktiv. Wir gehen jetzt
+    // proportional 3500 / 8000 / 16000 — Sicherheits-Doppelung ggü. dem
+    // erwarteten Volumen.
+    const maxTokens = requestedDays <= 1 ? 3500 : requestedDays <= 3 ? 8000 : 16000;
     const stream = anthropic.messages.stream({
       model: "claude-sonnet-4-6",
       max_tokens: maxTokens,
@@ -428,8 +442,10 @@ export async function POST(request: Request) {
     });
 
     const encoder = new TextEncoder();
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for future plan-saving in stream
     let fullContent = "";
+    let finalStopReason: string | null = null;
+    let finalUsage: { input_tokens?: number; output_tokens?: number } | null =
+      null;
 
     const readableStream = new ReadableStream({
       async start(controller) {
@@ -447,12 +463,67 @@ export async function POST(request: Request) {
                 )
               );
             }
+            // message_delta liefert das finale stop_reason + output_tokens
+            // counter. Das ist DER entscheidende Signal-Punkt: wenn Claude
+            // wegen max_tokens stoppt, bricht das JSON mitten im Wert ab —
+            // ohne diese Info wüsste der Client nicht warum.
+            if (event.type === "message_delta") {
+              if (event.delta?.stop_reason) {
+                finalStopReason = event.delta.stop_reason;
+              }
+              if (event.usage) {
+                finalUsage = {
+                  ...(finalUsage ?? {}),
+                  output_tokens: event.usage.output_tokens,
+                };
+              }
+            }
+          }
+
+          // Komplett-Message für Diagnose. Vercel-Logs zeigen das im Dashboard;
+          // bei zukünftigen Truncation-Berichten kann man hier die exakte
+          // Token-Auslastung sehen.
+          console.log("[plan] generation complete", {
+            userId,
+            days: requestedDays,
+            maxTokens,
+            stopReason: finalStopReason,
+            outputTokens: finalUsage?.output_tokens,
+            contentLength: fullContent.length,
+          });
+
+          // max_tokens-Truncation hart als Error melden — der Client zeigt
+          // dann eine klare Hinweis-Message statt am clientseitigen JSON.parse
+          // zu sterben. Credits zurück, weil der User keinen vollständigen
+          // Plan bekommen hat.
+          if (finalStopReason === "max_tokens") {
+            console.warn("[plan] max_tokens truncation", {
+              userId,
+              days: requestedDays,
+              maxTokens,
+              outputTokens: finalUsage?.output_tokens,
+            });
+            void refundCredits(
+              userId,
+              CREDIT_COSTS.plan_generation,
+              "Plan-Generierung wurde wegen Längen-Limit abgebrochen"
+            );
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({
+                  type: "error",
+                  code: "max_tokens",
+                  error:
+                    "Der Plan wurde zu lang. Bitte versuche es mit weniger Tagen oder weniger Mahlzeiten pro Tag — deine Credits wurden zurückerstattet.",
+                })}\n\n`
+              )
+            );
+            controller.close();
+            return;
           }
 
           controller.enqueue(
-            encoder.encode(
-              `data: ${JSON.stringify({ type: "done" })}\n\n`
-            )
+            encoder.encode(`data: ${JSON.stringify({ type: "done" })}\n\n`)
           );
           controller.close();
         } catch (err) {
