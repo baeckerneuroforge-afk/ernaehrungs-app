@@ -10,7 +10,8 @@ import {
   calculateDailyTargets,
   type PlanDayTarget,
 } from "@/lib/nutrition-targets";
-import type { DayPlan, WeekPlanData } from "@/types/meal-plan";
+import type { WeekPlanData } from "@/types/meal-plan";
+import { buildActivePlanForTagebuch } from "@/lib/active-plan";
 import { Upload } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -31,7 +32,6 @@ export default async function TagebuchPage() {
         .eq("datum", today)
         .order("created_at", { ascending: true }),
       getUserPlan(userId),
-      // Profile-Felder für TDEE + calorie_target
       supabase
         .from("ea_profiles")
         .select(
@@ -39,9 +39,7 @@ export default async function TagebuchPage() {
         )
         .eq("user_id", userId)
         .maybeSingle(),
-      // Aktiver Plan — wir brauchen die plan_data für den Tages-Lookup, nicht
-      // nur ein Flag. Jüngster aktiver Plan gewinnt (es gibt selten mehrere,
-      // aber falls ja: der zuletzt erstellte).
+      // Aktiver Plan — jüngster gewinnt falls mehrere.
       supabase
         .from("ea_meal_plans")
         .select("id, plan_data, created_at")
@@ -55,49 +53,44 @@ export default async function TagebuchPage() {
   const canUsePhoto = hasFeatureAccess(plan, "foto_tracking");
   const canImport = hasFeatureAccess(plan, "csv_import");
   const canSmartLog = hasFeatureAccess(plan, "smart_log");
+  const canUsePlan = hasFeatureAccess(plan, "plan");
 
-  const hasActivePlan = !!planRow?.id;
+  // Aktiven Plan zu einem Tagebuch-tauglichen Objekt verdichten — gibt
+  // alle Tage + heutige-Tag-Index + bereits gemappte Slots zurück. null
+  // wenn Plan leer/kaputt oder garnicht vorhanden.
+  const activePlan =
+    planRow?.id && canUsePlan
+      ? buildActivePlanForTagebuch(
+          planRow.id,
+          planRow.plan_data as WeekPlanData | null,
+          planRow.created_at,
+          today
+        )
+      : null;
 
-  // Plan → Tages-Ziel-Mapping: Anzahl Tage zwischen Plan-Erstellung und heute
-  // bestimmt den Index. Plan-Tage sind 0-basiert im Array, aber 1-basiert für
-  // die Anzeige. Wenn der Index außerhalb des Arrays liegt (Plan zu alt oder
-  // zu kurz), fallen wir auf calorie_target/TDEE zurück.
+  // Tages-Kalorienziel aus dem Plan ableiten — nur wenn Plan heute aktiv.
   let planDay: PlanDayTarget | null = null;
-  if (planRow?.id && planRow.plan_data && planRow.created_at) {
-    const planData = planRow.plan_data as WeekPlanData;
-    const days = Array.isArray(planData.weekPlan) ? planData.weekPlan : [];
-    if (days.length > 0) {
-      // Start-Datum: Tag auf 00:00 gesetzt, damit dayIndex nicht durch
-      // Uhrzeiten verfälscht wird.
-      const start = new Date(planRow.created_at);
-      start.setHours(0, 0, 0, 0);
-      const todayDate = new Date(today + "T00:00:00");
-      const dayIndex = Math.floor(
-        (todayDate.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)
-      );
-      if (dayIndex >= 0 && dayIndex < days.length) {
-        const dp: DayPlan = days[dayIndex];
-        // Falls der Plan keine pro-Tag-Kalorien speichert, nehmen wir die
-        // Summe aus den Mahlzeiten als Approximation. Fehlt auch die:
-        // planDay bleibt null → Fallback greift.
-        const calFromMeals = dp.meals.reduce(
-          (sum, m) => sum + (m.calories || 0),
-          0
-        );
-        const targetCalories =
-          dp.targetCalories ||
-          (calFromMeals > 0 ? calFromMeals : planData.dailyTarget || 0);
-        if (targetCalories > 0) {
-          // Makros bewusst NICHT übernommen — Tagebuch zeigt nur Ist-Werte
-          // für Makros. Der Plan darf intern Makros speichern, aber sie
-          // werden nicht als Ziel im Tagebuch dargestellt.
-          planDay = {
-            targetCalories,
-            dayNumber: dayIndex + 1,
-            totalDays: days.length,
-          };
-        }
-      }
+  if (activePlan && activePlan.todayDayIndex != null) {
+    const todayDay = activePlan.days[activePlan.todayDayIndex];
+    const planData = planRow!.plan_data as WeekPlanData;
+    const dailyTarget = planData?.dailyTarget;
+    const calFromMeals = todayDay.meals.reduce(
+      (sum, m) => sum + (m.calories || 0),
+      0
+    );
+    // Plan-Tag-Wert aus dem rohen plan_data ziehen (targetCalories ist
+    // dort noch verfügbar, in der verdichteten Form nicht — daher
+    // direkter Zugriff hier).
+    const rawDay = planData?.weekPlan?.[activePlan.todayDayIndex];
+    const targetCalories =
+      rawDay?.targetCalories ||
+      (calFromMeals > 0 ? calFromMeals : dailyTarget || 0);
+    if (targetCalories > 0) {
+      planDay = {
+        targetCalories,
+        dayNumber: activePlan.todayDayIndex + 1,
+        totalDays: activePlan.totalDays,
+      };
     }
   }
 
@@ -142,7 +135,8 @@ export default async function TagebuchPage() {
           canUsePhoto={canUsePhoto}
           canSmartLog={canSmartLog}
           targets={targets}
-          hasActivePlan={hasActivePlan}
+          hasActivePlan={!!planRow?.id}
+          activePlan={activePlan}
         />
       </main>
       <Footer />
