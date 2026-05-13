@@ -7,6 +7,7 @@ import { FoodLog, MAHLZEIT_TYPEN } from "@/types";
 import type { ActivePlanForTagebuch, ActivePlanMeal } from "@/lib/active-plan";
 import { PlanTodayCard } from "@/components/tagebuch/plan-today-card";
 import { PlanMealPicker } from "@/components/tagebuch/plan-meal-picker";
+import { EntryActionsMenu } from "@/components/tagebuch/entry-actions-menu";
 import {
   Plus,
   Trash2,
@@ -53,6 +54,12 @@ const PLAN_BANNER_DISMISS_KEY = "nutriva:tagebuch-plan-banner-dismissed";
 // nicht (optimistic ✓ ist schneller), die Komponenten verlangen die Prop
 // aber, damit Pending-Polish später ohne API-Änderung möglich ist.
 const EMPTY_REF_SET: Set<string> = new Set();
+
+// String-Compare auf created_at reicht: Supabase-timestamps sind ISO-8601
+// und damit lexikographisch sortierbar.
+function byCreatedAtAsc(a: FoodLog, b: FoodLog): number {
+  return a.created_at.localeCompare(b.created_at);
+}
 
 // Smart-Log Preview-Struktur (server-side sanitized)
 type SmartLogEntry = {
@@ -303,6 +310,22 @@ export function TagebuchClient({
   // Plan-Picker (Bottom-Sheet auf Mobile, Modal auf Desktop).
   const [pickerOpen, setPickerOpen] = useState(false);
 
+  // Bearbeiten-Modus: wenn gesetzt, ist das Modal im "Eintrag bearbeiten"-
+  // Zustand (Submit ruft PATCH statt POST, Foto/Aus-Plan-Quick-Actions
+  // sind versteckt weil die Provenance des Eintrags nicht kippen soll).
+  const [editingEntry, setEditingEntry] = useState<FoodLog | null>(null);
+
+  // Soft-Undo-Pattern für Löschen: Eintrag wird sofort aus entries
+  // rausgenommen (optimistisch), die DELETE-API wird erst 5s später
+  // gefeuert. Bei Undo wird der Timer gecancelt und der Eintrag kommt
+  // zurück. So vermeiden wir einen Confirm-Dialog und der User kann
+  // schnelle Tipper-Fehler korrigieren.
+  // Ref statt useState weil wir die Daten in setTimeout-Callbacks
+  // brauchen — useState würde stale closure liefern.
+  const pendingDeletesRef = useRef<
+    Map<string, { entry: FoodLog; timeoutId: ReturnType<typeof setTimeout> }>
+  >(new Map());
+
   // Plan-Mahlzeit-Refs, die heute schon übernommen wurden — direkt aus
   // entries abgeleitet. Optimistic Insert in entries reicht damit aus,
   // um die Karte sofort auf ✓ zu schalten.
@@ -348,6 +371,28 @@ export function TagebuchClient({
   function openForm() {
     applyFormDefaults();
     resetForm();
+    setEditingEntry(null);
+    setShowForm(true);
+  }
+
+  /**
+   * Modal in "Eintrag bearbeiten"-Modus öffnen. Pre-fillt alle
+   * User-editierbaren Felder; Provenance (source, photo_url,
+   * plan_id, plan_meal_ref) bleibt am Eintrag, das Modal versteckt
+   * Foto-/Aus-Plan-Quick-Actions in diesem Modus.
+   */
+  function openEditForm(entry: FoodLog) {
+    resetForm();
+    setEditingEntry(entry);
+    setFormTyp(entry.mahlzeit_typ);
+    setFormBeschreibung(entry.beschreibung);
+    setFormKcal(
+      entry.kalorien_geschaetzt != null ? String(entry.kalorien_geschaetzt) : ""
+    );
+    setFormUhrzeit(entry.uhrzeit ? entry.uhrzeit.slice(0, 5) : "");
+    setFormProtein(entry.protein_g);
+    setFormCarbs(entry.carbs_g);
+    setFormFat(entry.fat_g);
     setShowForm(true);
   }
 
@@ -366,6 +411,7 @@ export function TagebuchClient({
 
   function closeForm() {
     setShowForm(false);
+    setEditingEntry(null);
     resetForm();
   }
 
@@ -500,11 +546,57 @@ export function TagebuchClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [datum]);
 
-  async function handleAdd() {
+  async function handleSave() {
     if (!formBeschreibung.trim()) return;
     setSaving(true);
     setSaveError(null);
 
+    // PATCH-Mode wenn editingEntry gesetzt — schickt nur die User-
+    // editierbaren Felder, Provenance bleibt am Eintrag.
+    if (editingEntry) {
+      try {
+        const res = await fetch(`/api/tagebuch/${editingEntry.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mahlzeit_typ: formTyp,
+            beschreibung: formBeschreibung.trim(),
+            kalorien_geschaetzt: formKcal ? parseInt(formKcal) : null,
+            protein_g: formProtein,
+            carbs_g: formCarbs,
+            fat_g: formFat,
+            uhrzeit: formUhrzeit || null,
+          }),
+        });
+        if (res.ok) {
+          const updated = (await res.json()) as FoodLog;
+          setEntries((prev) =>
+            prev.map((e) => (e.id === updated.id ? updated : e))
+          );
+          closeForm();
+          toast.success("Änderungen gespeichert");
+          posthog.capture("food_log_entry_edited", {
+            mahlzeit_typ: formTyp,
+          });
+        } else {
+          const data = (await res
+            .json()
+            .catch(() => ({}))) as { message?: string; error?: string };
+          const msg = data.message || data.error || `Fehler beim Speichern (${res.status})`;
+          setSaveError(msg);
+          toast.error(msg);
+        }
+      } catch (err) {
+        console.error("[tagebuch] PATCH network error:", err);
+        setSaveError("Netzwerk-Fehler. Bitte prüfe deine Verbindung.");
+        toast.error("Netzwerk-Fehler");
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
+    // POST-Mode (neuer Eintrag) — wie bisher.
     try {
       const res = await fetch("/api/tagebuch", {
         method: "POST",
@@ -607,14 +699,75 @@ export function TagebuchClient({
     });
   }
 
-  async function handleDelete(id: string) {
-    const res = await fetch(`/api/tagebuch/${id}`, { method: "DELETE" });
-    if (res.ok) {
-      setEntries((prev) => prev.filter((e) => e.id !== id));
-      toast.success("Eintrag gelöscht");
-    } else {
-      toast.error("Löschen fehlgeschlagen");
-    }
+  /**
+   * Optimistic-Delete mit 5s-Undo. Eintrag wird sofort aus entries
+   * rausgenommen (Plan-Today-Card aktualisiert sich automatisch über
+   * den consumedRefs-useMemo). DELETE-API wird erst nach Ablauf des
+   * Toast-Fensters gefeuert — bis dahin reicht ein Klick auf
+   * "Rückgängig" und der Eintrag kommt zurück. Kein Confirm-Dialog,
+   * keine echte Soft-Delete-Spalte in der DB.
+   */
+  function handleDeleteRequest(entry: FoodLog) {
+    // Idempotent: zweiter Klick auf bereits gelöschten Eintrag macht
+    // nichts. Sollte UI-seitig nicht vorkommen (Eintrag ist nach erstem
+    // Klick aus der Liste verschwunden), aber defensiv halten wir den
+    // Pfad sauber.
+    if (pendingDeletesRef.current.has(entry.id)) return;
+
+    setEntries((prev) => prev.filter((e) => e.id !== entry.id));
+
+    const timeoutId = setTimeout(async () => {
+      pendingDeletesRef.current.delete(entry.id);
+      try {
+        const res = await fetch(`/api/tagebuch/${entry.id}`, {
+          method: "DELETE",
+        });
+        if (!res.ok) {
+          // Server-Fehler beim finalen Löschen — Eintrag zurück, Toast.
+          // Selten, aber wenn die DB kurz zickt soll der User nicht
+          // einen "verlorenen" Eintrag erst beim nächsten Page-Load
+          // wieder finden.
+          console.error(
+            "[tagebuch] DELETE failed after undo window:",
+            res.status
+          );
+          setEntries((prev) => [...prev, entry].sort(byCreatedAtAsc));
+          toast.error("Konnte nicht löschen, versuche es erneut.");
+        }
+      } catch (err) {
+        console.error("[tagebuch] DELETE network error:", err);
+        setEntries((prev) => [...prev, entry].sort(byCreatedAtAsc));
+        toast.error("Netzwerk-Fehler beim Löschen.");
+      }
+    }, 5000);
+
+    pendingDeletesRef.current.set(entry.id, { entry, timeoutId });
+
+    toast("Eintrag gelöscht", {
+      duration: 5000,
+      action: {
+        label: "Rückgängig",
+        onClick: () => handleUndoDelete(entry.id),
+      },
+    });
+
+    posthog.capture("food_log_entry_deleted", {
+      mahlzeit_typ: entry.mahlzeit_typ,
+      source: entry.source,
+      from_plan: entry.plan_id != null,
+    });
+  }
+
+  function handleUndoDelete(entryId: string) {
+    const pending = pendingDeletesRef.current.get(entryId);
+    if (!pending) return;
+    clearTimeout(pending.timeoutId);
+    pendingDeletesRef.current.delete(entryId);
+    // Re-insert in chronologischer Reihenfolge — entries kommen vom
+    // Server bereits sortiert, Re-Insert in der Mitte würde sonst die
+    // Slot-Gruppierung kurz durcheinanderwirbeln.
+    setEntries((prev) => [...prev, pending.entry].sort(byCreatedAtAsc));
+    posthog.capture("food_log_entry_delete_undone");
   }
 
   // --- Plan-Mahlzeit → Tagebuch -------------------------------------------
@@ -1207,13 +1360,11 @@ export function TagebuchClient({
                             </p>
                           )}
                         </div>
-                        <button
-                          onClick={() => handleDelete(entry.id)}
-                          className="text-ink-faint hover:text-red-500 transition p-1 shrink-0"
-                          aria-label="Eintrag löschen"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <EntryActionsMenu
+                          onEdit={() => openEditForm(entry)}
+                          onDelete={() => handleDeleteRequest(entry)}
+                          label={entry.beschreibung}
+                        />
                       </div>
                     </div>
                   ))}
@@ -1424,7 +1575,7 @@ export function TagebuchClient({
           <div className="relative w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-3xl shadow-card animate-slide-in-up sm:mb-0 max-h-[90dvh] flex flex-col">
             <div className="flex items-center justify-between px-5 pt-5 pb-3 flex-shrink-0">
               <h2 className="font-serif text-xl text-ink">
-                Eintrag hinzufügen
+                {editingEntry ? "Eintrag bearbeiten" : "Eintrag hinzufügen"}
               </h2>
               <button
                 onClick={() => !saving && closeForm()}
@@ -1438,8 +1589,10 @@ export function TagebuchClient({
               {/* Aus Plan wählen — nur sichtbar wenn aktiver Plan mit
                   mind. einer Mahlzeit existiert UND User auf "heute".
                   Auf anderen Tagen wäre das verwirrend, weil die API
-                  immer in den heutigen Tag schreibt. */}
-              {datum === today && activePlan && activePlan.days.some((d) => d.meals.length > 0) && (
+                  immer in den heutigen Tag schreibt. Im Edit-Mode
+                  ebenfalls weg — der User editiert einen existierenden
+                  Eintrag, nicht "noch eine neue Plan-Mahlzeit". */}
+              {!editingEntry && datum === today && activePlan && activePlan.days.some((d) => d.meals.length > 0) && (
                 <button
                   type="button"
                   onClick={() => {
@@ -1455,7 +1608,10 @@ export function TagebuchClient({
 
               {/* Foto-Tracking (Premium). Das eigentliche <input type="file">
                   liegt jetzt auf Page-Ebene damit auch Header-Buttons den
-                  Picker öffnen können — der Button hier ruft den selben Ref. */}
+                  Picker öffnen können — der Button hier ruft den selben Ref.
+                  Im Edit-Mode versteckt: Foto-Re-Analyse würde den Eintrag
+                  effektiv neu erstellen, das gehört in einen separaten Flow. */}
+              {!editingEntry && (
               <div>
                 {canUsePhoto ? (
                   <button
@@ -1504,6 +1660,7 @@ export function TagebuchClient({
                   </div>
                 )}
               </div>
+              )}
 
               <div>
                 <label className="block text-xs font-medium text-ink-muted mb-2">
@@ -1634,15 +1791,15 @@ export function TagebuchClient({
                   Abbrechen
                 </button>
                 <button
-                  onClick={handleAdd}
+                  onClick={handleSave}
                   disabled={!formBeschreibung.trim() || saving}
                   className="flex-1 text-sm font-medium text-white bg-primary py-3 rounded-full hover:bg-primary-hover transition disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {saving ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
+                  ) : !editingEntry ? (
                     <Plus className="w-4 h-4" />
-                  )}
+                  ) : null}
                   Speichern
                 </button>
               </div>
