@@ -4,6 +4,11 @@ import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
 import { hasKiConsent } from "@/lib/consent";
+import {
+  createUsageRequestId,
+  extractAnthropicUsage,
+  logUsage,
+} from "@/lib/usage-logging";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -44,9 +49,11 @@ export async function GET(request: Request) {
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
   for (const user of premiumUsers) {
+    const userId = user.clerk_id;
+    const usageRequestId = createUsageRequestId();
+    const model = "claude-haiku-4-5-20251001";
+    let llmStartedAt = 0;
     try {
-      const userId = user.clerk_id;
-
       // DSGVO: User könnte Consent zwischen Subscription-Aktivierung und Cron-Lauf widerrufen haben.
       if (!(await hasKiConsent(supabase, userId))) {
         skippedNoConsent++;
@@ -85,8 +92,9 @@ export async function GET(request: Request) {
       const userName = profile?.name || user.name || "dort";
 
       const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+      llmStartedAt = Date.now();
       const response = await anthropic.messages.create({
-        model: "claude-haiku-4-5-20251001",
+        model,
         max_tokens: 800,
         system: `Du bist Janines KI-Ernährungscoach bei Nutriva. Erstelle 3 kurze, konkrete Coaching-Tipps für die kommende Woche.
 
@@ -109,6 +117,17 @@ AKTIVE ZIELE:
 ${JSON.stringify(goals)}`,
         messages: [{ role: "user", content: "Erstelle meine wöchentlichen Coaching-Tipps." }],
       });
+      void logUsage({
+        userId,
+        plan: "pro_plus",
+        endpoint: "weekly-coaching",
+        action: "premium-weekly-coaching",
+        model,
+        ...extractAnthropicUsage(response.usage),
+        creditsCharged: 0,
+        requestId: usageRequestId,
+        durationMs: Date.now() - llmStartedAt,
+      });
 
       const textBlock = response.content.find((b) => b.type === "text");
       const coachingText = textBlock && textBlock.type === "text" ? textBlock.text : "";
@@ -125,6 +144,17 @@ ${JSON.stringify(goals)}`,
       }
     } catch (err) {
       console.error(`[coaching] Failed for ${user.clerk_id}:`, err);
+      void logUsage({
+        userId,
+        plan: "pro_plus",
+        endpoint: "weekly-coaching",
+        action: "premium-weekly-coaching",
+        model,
+        creditsCharged: 0,
+        requestId: usageRequestId,
+        error: err instanceof Error ? err.message : "Weekly coaching failed",
+        durationMs: llmStartedAt ? Date.now() - llmStartedAt : undefined,
+      });
       failed++;
     }
   }

@@ -4,6 +4,11 @@ import { chunkText } from "@/lib/utils/chunking";
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
 import { logAdminAction } from "@/lib/admin-audit";
+import {
+  createUsageRequestId,
+  extractOpenAIEmbeddingTokens,
+  logUsage,
+} from "@/lib/usage-logging";
 
 export async function POST(request: Request) {
   const { userId } = await auth();
@@ -45,15 +50,29 @@ export async function POST(request: Request) {
 
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   let inserted = 0;
+  const usageRequestId = createUsageRequestId();
 
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
     const chunkTitle =
       chunks.length > 1 ? `${title} (${i + 1}/${chunks.length})` : title;
 
+    const embeddingStartedAt = Date.now();
     const embeddingResponse = await openai.embeddings.create({
       model: "text-embedding-3-small",
       input: chunk,
+    });
+    const embeddingTokens = extractOpenAIEmbeddingTokens(embeddingResponse, chunk);
+    void logUsage({
+      userId,
+      plan: "admin",
+      endpoint: "admin-qa-ingest",
+      action: "embedding-ingest",
+      model: "openai-text-embedding-3-small",
+      inputTokens: embeddingTokens,
+      embeddingTokens,
+      requestId: usageRequestId,
+      durationMs: Date.now() - embeddingStartedAt,
     });
 
     const embedding = embeddingResponse.data[0].embedding;

@@ -324,6 +324,7 @@ async function mergeAccountData(
     "ea_meal_plans",
     "ea_ziele",
     "ea_credit_transactions",
+    "ea_ai_usage",
     "ea_feedback",
   ];
 

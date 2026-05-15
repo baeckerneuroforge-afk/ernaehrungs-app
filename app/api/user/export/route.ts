@@ -38,6 +38,7 @@ export async function GET() {
     conversationsResult,
     messagesResult,
     creditsResult,
+    aiUsageResult,
   ] = await Promise.all([
     supabase.from("ea_profiles").select("*").eq("user_id", userId).maybeSingle(),
     supabase
@@ -71,6 +72,11 @@ export async function GET() {
       .select("*")
       .eq("user_id", userId)
       .order("created_at", { ascending: false }),
+    supabase
+      .from("ea_ai_usage")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false }),
   ]);
 
   const payload = {
@@ -86,6 +92,7 @@ export async function GET() {
       messages: messagesResult.data || [],
     },
     credits: creditsResult.data || [],
+    ai_usage: aiUsageResult.data || [],
   };
 
   const datum = new Date().toISOString().slice(0, 10);

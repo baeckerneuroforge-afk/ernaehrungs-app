@@ -7,6 +7,12 @@ import { deductCredits, refundCredits, CREDIT_COSTS } from "@/lib/credits";
 import { checkRateLimit, importLimiter } from "@/lib/rate-limit";
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import {
+  createUsageRequestId,
+  extractAnthropicUsage,
+  logUsage,
+  normalizeUsagePlan,
+} from "@/lib/usage-logging";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -27,6 +33,9 @@ export async function POST(request: Request) {
   }
 
   const plan = await getUserPlan(userId);
+  const usagePlan = normalizeUsagePlan(plan);
+  const usageRequestId = createUsageRequestId();
+  const model = "claude-haiku-4-5-20251001";
   if (!hasFeatureAccess(plan, "csv_import")) {
     return NextResponse.json(
       { error: "premium_required", message: "CSV-Import ist im Premium-Plan verfügbar." },
@@ -49,6 +58,8 @@ export async function POST(request: Request) {
   }
 
   let formData: FormData;
+  const requestStartedAt = Date.now();
+
   try {
     formData = await request.formData();
   } catch {
@@ -97,9 +108,10 @@ export async function POST(request: Request) {
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
   let response;
+  const llmStartedAt = Date.now();
   try {
     response = await anthropic.messages.create({
-      model: "claude-haiku-4-5-20251001",
+      model,
       max_tokens: CSV_IMPORT_MAX_TOKENS,
       system: `Du bist ein CSV-Parser für Ernährungs-Apps. Du analysierst CSV-Dateien und extrahierst Mahlzeiten-Daten.
 
@@ -152,11 +164,24 @@ Antwort-Format:
     await refundCredits(userId, creditCost, "CSV-Import API-Fehler").catch((e) =>
       console.error("[import] refund after API error failed:", e)
     );
+    void logUsage({
+      userId,
+      plan: usagePlan,
+      endpoint: "csv-import",
+      action: "csv-import",
+      model,
+      creditsCharged: creditCost,
+      creditsRefunded: true,
+      requestId: usageRequestId,
+      error: err instanceof Error ? err.message : "Claude API error",
+      durationMs: Date.now() - llmStartedAt,
+    });
     return NextResponse.json(
       { error: "analysis_failed", message: "Analyse fehlgeschlagen. Bitte versuche es erneut — deine Credits wurden zurückerstattet." },
       { status: 500 }
     );
   }
+  const usage = extractAnthropicUsage(response.usage);
 
   const textBlock = response.content.find((b) => b.type === "text");
   const responseText = textBlock && textBlock.type === "text" ? textBlock.text : "";
@@ -177,6 +202,19 @@ Antwort-Format:
     await refundCredits(userId, creditCost, "CSV-Import Antwort nicht parsbar").catch((e) =>
       console.error("[import] refund after parse_failed failed:", e)
     );
+    void logUsage({
+      userId,
+      plan: usagePlan,
+      endpoint: "csv-import",
+      action: "csv-import",
+      model,
+      ...usage,
+      creditsCharged: creditCost,
+      creditsRefunded: true,
+      requestId: usageRequestId,
+      error: "parse_failed",
+      durationMs: Date.now() - llmStartedAt,
+    });
     return NextResponse.json(
       { error: "parse_failed", message: "Die Datei konnte nicht analysiert werden. Bitte prüfe das Format — deine Credits wurden zurückerstattet." },
       { status: 422 }
@@ -187,6 +225,19 @@ Antwort-Format:
     await refundCredits(userId, creditCost, "CSV-Import ohne erkannte Einträge").catch((e) =>
       console.error("[import] refund after no_entries failed:", e)
     );
+    void logUsage({
+      userId,
+      plan: usagePlan,
+      endpoint: "csv-import",
+      action: "csv-import",
+      model,
+      ...usage,
+      creditsCharged: creditCost,
+      creditsRefunded: true,
+      requestId: usageRequestId,
+      error: "no_entries",
+      durationMs: Date.now() - llmStartedAt,
+    });
     return NextResponse.json(
       { error: "no_entries", message: "Keine Einträge in der Datei erkannt — deine Credits wurden zurückerstattet." },
       { status: 422 }
@@ -222,6 +273,19 @@ Antwort-Format:
         console.error("[import] refund after dedup error failed:", e)
       );
       console.error("[import] dedup check failed:", error);
+      void logUsage({
+        userId,
+        plan: usagePlan,
+        endpoint: "csv-import",
+        action: "csv-import",
+        model,
+        ...usage,
+        creditsCharged: creditCost,
+        creditsRefunded: true,
+        requestId: usageRequestId,
+        error: error.message,
+        durationMs: Date.now() - llmStartedAt,
+      });
       return NextResponse.json(
         { error: "dedup_failed", message: "Import konnte nicht geprüft werden — deine Credits wurden zurückerstattet." },
         { status: 500 }
@@ -237,6 +301,17 @@ Antwort-Format:
   const newEntries = entries.filter((e) => !existingSet.has(e.externe_id));
   const duplicateCount = entries.length - newEntries.length;
 
+  void logUsage({
+    userId,
+    plan: usagePlan,
+    endpoint: "csv-import",
+    action: "csv-import",
+    model,
+    ...usage,
+    creditsCharged: creditCost,
+    requestId: usageRequestId,
+    durationMs: Date.now() - llmStartedAt,
+  });
   return NextResponse.json({
     detected_app: parsed.detected_app || "unknown",
     total: entries.length,
@@ -250,6 +325,18 @@ Antwort-Format:
     await refundCredits(userId, creditCost, "CSV-Import Server-Fehler").catch((e) =>
       console.error("[import] refund after unexpected error failed:", e)
     );
+    void logUsage({
+      userId,
+      plan: usagePlan,
+      endpoint: "csv-import",
+      action: "csv-import",
+      model,
+      creditsCharged: creditCost,
+      creditsRefunded: true,
+      requestId: usageRequestId,
+      error: err instanceof Error ? err.message : "CSV-Import Server-Fehler",
+      durationMs: Date.now() - requestStartedAt,
+    });
     return NextResponse.json(
       { error: "internal_error", message: "Import fehlgeschlagen — deine Credits wurden zurückerstattet." },
       { status: 500 }

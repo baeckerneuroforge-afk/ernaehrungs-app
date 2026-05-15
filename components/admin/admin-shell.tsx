@@ -9,6 +9,7 @@ import {
   BookOpen,
   FileText,
   Star,
+  Activity,
   Inbox,
   ArrowLeft,
   ScrollText,
@@ -38,6 +39,7 @@ export function AdminShell({
 
   const navItems = [
     { href: "/admin/dashboard", label: "Dashboard", icon: BarChart3, badge: 0 },
+    { href: "/admin/usage", label: "Usage", icon: Activity, badge: 0 },
     { href: "/admin/fragen", label: "Fragen", icon: MessageSquare, badge: 0 },
     { href: "/admin/wissensbasis", label: "Wissensbasis", icon: BookOpen, badge: 0 },
     { href: "/admin/blog", label: "Blog", icon: FileText, badge: 0 },

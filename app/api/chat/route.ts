@@ -13,6 +13,16 @@ import OpenAI from "openai";
 import * as Sentry from "@sentry/nextjs";
 import { validateBody, chatMessageSchema } from "@/lib/validations";
 import { sanitizeForPrompt, quoteField } from "@/lib/utils/prompt-safe";
+import {
+  createUsageRequestId,
+  estimateImageTokensFromBase64,
+  extractAnthropicUsage,
+  extractOpenAIEmbeddingTokens,
+  logUsage,
+  normalizeUsagePlan,
+  type UsagePlan,
+  type UsageTokenFields,
+} from "@/lib/usage-logging";
 
 // ---------------------------------------------------------------------------
 // 1. SYSTEM PROMPT – strikt RAG-basiert, keine Halluzination
@@ -307,6 +317,13 @@ function isPremiumPlan(plan: string | null | undefined): boolean {
   return plan === "pro_plus" || plan === "admin";
 }
 
+function getChatUsageAction(action: string, hasImage: boolean, premium: boolean): string {
+  if (hasImage) return "chat-image";
+  if (action === "plan_generation") return "chat-plan-intent";
+  if (action === "review") return premium ? "premium-weekly-review" : "basis-weekly-review";
+  return premium ? "premium-chat" : "chat";
+}
+
 // ---------------------------------------------------------------------------
 // 6. ROUTE HANDLER
 // ---------------------------------------------------------------------------
@@ -402,6 +419,8 @@ export async function POST(request: Request) {
     // ---- Load user plan (drives model routing + credit cost for chat) ----
     const userPlanEarly = await getUserPlan(userId);
     const premium = isPremiumPlan(userPlanEarly);
+    const usagePlan = normalizeUsagePlan(userPlanEarly);
+    const usageRequestId = createUsageRequestId();
 
     // ---- Feature-Gate: Bild-Upload nur für Premium ----
     if (hasImage && !hasFeatureAccess(userPlanEarly, "chat_image")) {
@@ -474,7 +493,7 @@ export async function POST(request: Request) {
         );
       }
 
-      return handleReviewFlow(supabase, userId, userPlan);
+      return handleReviewFlow(supabase, userId, userPlan, usageRequestId);
     }
 
     // ---- Credit check BEFORE calling Anthropic ----
@@ -632,9 +651,22 @@ export async function POST(request: Request) {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
     const runRagSearch = async (queryText: string): Promise<RagResult> => {
+      const embeddingStartedAt = Date.now();
       const embeddingResponse = await openai.embeddings.create({
         model: "text-embedding-3-small",
         input: queryText,
+      });
+      const embeddingTokens = extractOpenAIEmbeddingTokens(embeddingResponse, queryText);
+      void logUsage({
+        userId,
+        plan: usagePlan,
+        endpoint: "chat",
+        action: "rag-search",
+        model: "openai-text-embedding-3-small",
+        inputTokens: embeddingTokens,
+        embeddingTokens,
+        requestId: usageRequestId,
+        durationMs: Date.now() - embeddingStartedAt,
       });
       const queryEmbedding = embeddingResponse.data[0].embedding;
 
@@ -887,6 +919,10 @@ Regeln:
 
     // ---- Stream Response ----
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const llmStartedAt = Date.now();
+    const usageAction = getChatUsageAction(action, hasImage, premium);
+    const imageTokensEstimate = hasImage ? estimateImageTokensFromBase64(rawImage!.base64) : 0;
+    let finalUsage: UsageTokenFields = {};
 
     const stream = anthropic.messages.stream({
       model,
@@ -909,6 +945,12 @@ Regeln:
           }
           const messageStream = await stream;
           for await (const event of messageStream) {
+            if (event.type === "message_start") {
+              finalUsage = {
+                ...finalUsage,
+                ...extractAnthropicUsage(event.message?.usage),
+              };
+            }
             if (
               event.type === "content_block_delta" &&
               event.delta.type === "text_delta"
@@ -919,7 +961,25 @@ Regeln:
                 )
               );
             }
+            if (event.type === "message_delta") {
+              finalUsage = {
+                ...finalUsage,
+                ...extractAnthropicUsage(event.usage),
+              };
+            }
           }
+          void logUsage({
+            userId,
+            plan: usagePlan,
+            endpoint: "chat",
+            action: usageAction,
+            model,
+            ...finalUsage,
+            imageTokensEstimate,
+            creditsCharged: creditCost,
+            requestId: usageRequestId,
+            durationMs: Date.now() - llmStartedAt,
+          });
           controller.enqueue(
             encoder.encode(`data: ${JSON.stringify({ type: "done" })}\n\n`)
           );
@@ -931,6 +991,20 @@ Regeln:
           // for an Anthropic outage. Fire-and-forget: if the refund itself
           // fails, we still want to close the stream cleanly.
           void refundCredits(userId, creditCost, "API-Fehler");
+          void logUsage({
+            userId,
+            plan: usagePlan,
+            endpoint: "chat",
+            action: usageAction,
+            model,
+            ...finalUsage,
+            imageTokensEstimate,
+            creditsCharged: creditCost,
+            creditsRefunded: true,
+            requestId: usageRequestId,
+            error: err instanceof Error ? err.message : "Stream fehlgeschlagen",
+            durationMs: Date.now() - llmStartedAt,
+          });
           controller.enqueue(
             encoder.encode(
               `data: ${JSON.stringify({ type: "error", error: "Stream fehlgeschlagen — Credits wurden zurückerstattet." })}\n\n`
@@ -969,12 +1043,36 @@ Regeln:
 // ---------------------------------------------------------------------------
 // Helper: Generate embedding for RAG search
 // ---------------------------------------------------------------------------
-async function generateEmbedding(text: string): Promise<string> {
+async function generateEmbedding(
+  text: string,
+  meta?: {
+    userId: string | null;
+    plan: UsagePlan;
+    endpoint: string;
+    action: string;
+    requestId: string;
+  }
+): Promise<string> {
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const startedAt = Date.now();
   const res = await openai.embeddings.create({
     model: "text-embedding-3-small",
     input: text,
   });
+  if (meta) {
+    const embeddingTokens = extractOpenAIEmbeddingTokens(res, text);
+    void logUsage({
+      userId: meta.userId,
+      plan: meta.plan,
+      endpoint: meta.endpoint,
+      action: meta.action,
+      model: "openai-text-embedding-3-small",
+      inputTokens: embeddingTokens,
+      embeddingTokens,
+      requestId: meta.requestId,
+      durationMs: Date.now() - startedAt,
+    });
+  }
   return JSON.stringify(res.data[0].embedding);
 }
 
@@ -984,7 +1082,8 @@ async function generateEmbedding(text: string): Promise<string> {
 async function handleReviewFlow(
   supabase: ReturnType<typeof createSupabaseAdmin>,
   userId: string,
-  plan: string
+  plan: string,
+  requestId: string
 ): Promise<Response> {
   const sevenDaysAgo = new Date(
     Date.now() - 7 * 24 * 60 * 60 * 1000
@@ -1073,7 +1172,13 @@ async function handleReviewFlow(
   let relevantDocumentsText =
     "Keine relevanten Dokumente gefunden.";
   try {
-    const embedding = await generateEmbedding(searchQuery);
+    const embedding = await generateEmbedding(searchQuery, {
+      userId,
+      plan: normalizeUsagePlan(plan),
+      endpoint: "chat-review",
+      action: "review-rag-search",
+      requestId,
+    });
     const { data: relevantDocs } = await supabase.rpc(
       "ea_match_documents",
       {
@@ -1284,9 +1389,12 @@ ${block3Section}
   const anthropic = new Anthropic({
     apiKey: process.env.ANTHROPIC_API_KEY,
   });
+  const model = getModelForAction("review", null);
+  const reviewStartedAt = Date.now();
+  let finalUsage: UsageTokenFields = {};
 
   const stream = anthropic.messages.stream({
-    model: getModelForAction("review", null),
+    model,
     max_tokens: maxTokens,
     system: reviewSystemPrompt,
     messages: [
@@ -1301,6 +1409,12 @@ ${block3Section}
       try {
         const messageStream = await stream;
         for await (const event of messageStream) {
+          if (event.type === "message_start") {
+            finalUsage = {
+              ...finalUsage,
+              ...extractAnthropicUsage(event.message?.usage),
+            };
+          }
           if (
             event.type === "content_block_delta" &&
             event.delta.type === "text_delta"
@@ -1310,6 +1424,12 @@ ${block3Section}
                 `data: ${JSON.stringify({ type: "text", text: event.delta.text })}\n\n`
               )
             );
+          }
+          if (event.type === "message_delta") {
+            finalUsage = {
+              ...finalUsage,
+              ...extractAnthropicUsage(event.usage),
+            };
           }
         }
 
@@ -1322,6 +1442,17 @@ ${block3Section}
           );
         }
 
+        void logUsage({
+          userId,
+          plan: normalizeUsagePlan(plan),
+          endpoint: "chat-review",
+          action: isPremium ? "premium-weekly-review" : "basis-weekly-review",
+          model,
+          ...finalUsage,
+          creditsCharged: CREDIT_COSTS.review,
+          requestId,
+          durationMs: Date.now() - reviewStartedAt,
+        });
         controller.enqueue(
           encoder.encode(
             `data: ${JSON.stringify({ type: "done" })}\n\n`
@@ -1330,6 +1461,20 @@ ${block3Section}
         controller.close();
       } catch (err) {
         console.error("Review stream error:", err);
+        void refundCredits(userId, CREDIT_COSTS.review, "Review API-Fehler");
+        void logUsage({
+          userId,
+          plan: normalizeUsagePlan(plan),
+          endpoint: "chat-review",
+          action: isPremium ? "premium-weekly-review" : "basis-weekly-review",
+          model,
+          ...finalUsage,
+          creditsCharged: CREDIT_COSTS.review,
+          creditsRefunded: true,
+          requestId,
+          error: err instanceof Error ? err.message : "Review fehlgeschlagen",
+          durationMs: Date.now() - reviewStartedAt,
+        });
         controller.enqueue(
           encoder.encode(
             `data: ${JSON.stringify({ type: "error", error: "Review fehlgeschlagen" })}\n\n`

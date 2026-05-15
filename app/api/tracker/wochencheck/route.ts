@@ -8,6 +8,14 @@ import { hasKiConsent, KI_CONSENT_MISSING_RESPONSE } from "@/lib/consent";
 import { checkRateLimit, wochencheckLimiter } from "@/lib/rate-limit";
 import { quoteField, sanitizeForPrompt } from "@/lib/utils/prompt-safe";
 import Anthropic from "@anthropic-ai/sdk";
+import {
+  createUsageRequestId,
+  extractAnthropicUsage,
+  logUsage,
+  normalizeUsagePlan,
+  type UsagePlan,
+  type UsageTokenFields,
+} from "@/lib/usage-logging";
 
 const WOCHENCHECK_PROMPT = `Du bist eine warmherzige, fachlich fundierte Ernährungsberaterin. Du erstellst einen personalisierten Wochencheck basierend auf den echten Daten des Nutzers.
 
@@ -44,6 +52,8 @@ export async function POST(_request: Request) {
   let chargedUserId: string | null = null;
   let creditsDeducted = false;
   const creditCost = CREDIT_COSTS.review;
+  let usagePlan: UsagePlan = "free";
+  const usageRequestId = createUsageRequestId();
 
   try {
     const { userId } = await auth();
@@ -67,6 +77,7 @@ export async function POST(_request: Request) {
     }
 
     const plan = await getUserPlan(userId);
+    usagePlan = normalizeUsagePlan(plan);
     if (!hasFeatureAccess(plan, "review")) {
       return new Response(
         JSON.stringify({
@@ -149,8 +160,10 @@ export async function POST(_request: Request) {
 
     // Stream response
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const model = "claude-sonnet-4-6";
+    const llmStartedAt = Date.now();
     const stream = anthropic.messages.stream({
-      model: "claude-sonnet-4-6",
+      model,
       max_tokens: 1000,
       system: systemPrompt,
       messages: [
@@ -162,12 +175,19 @@ export async function POST(_request: Request) {
     });
 
     const encoder = new TextEncoder();
+    let finalUsage: UsageTokenFields = {};
 
     const readableStream = new ReadableStream({
       async start(controller) {
         try {
           const messageStream = await stream;
           for await (const event of messageStream) {
+            if (event.type === "message_start") {
+              finalUsage = {
+                ...finalUsage,
+                ...extractAnthropicUsage(event.message?.usage),
+              };
+            }
             if (
               event.type === "content_block_delta" &&
               event.delta.type === "text_delta"
@@ -178,7 +198,24 @@ export async function POST(_request: Request) {
                 )
               );
             }
+            if (event.type === "message_delta") {
+              finalUsage = {
+                ...finalUsage,
+                ...extractAnthropicUsage(event.usage),
+              };
+            }
           }
+          void logUsage({
+            userId,
+            plan: usagePlan,
+            endpoint: "wochencheck",
+            action: "wochencheck",
+            model,
+            ...finalUsage,
+            creditsCharged: creditCost,
+            requestId: usageRequestId,
+            durationMs: Date.now() - llmStartedAt,
+          });
           controller.enqueue(
             encoder.encode(`data: ${JSON.stringify({ type: "done" })}\n\n`)
           );
@@ -186,6 +223,19 @@ export async function POST(_request: Request) {
         } catch (err) {
           console.error("Wochencheck stream error:", err);
           void refundCredits(userId, creditCost, "Wochencheck API-Fehler");
+          void logUsage({
+            userId,
+            plan: usagePlan,
+            endpoint: "wochencheck",
+            action: "wochencheck",
+            model,
+            ...finalUsage,
+            creditsCharged: creditCost,
+            creditsRefunded: true,
+            requestId: usageRequestId,
+            error: err instanceof Error ? err.message : "Wochencheck stream error",
+            durationMs: Date.now() - llmStartedAt,
+          });
           controller.enqueue(
             encoder.encode(
               `data: ${JSON.stringify({ type: "error", error: "Analyse fehlgeschlagen" })}\n\n`
@@ -209,6 +259,17 @@ export async function POST(_request: Request) {
       await refundCredits(chargedUserId, creditCost, "Wochencheck Server-Fehler").catch((err) =>
         console.error("Wochencheck refund error:", err)
       );
+      void logUsage({
+        userId: chargedUserId,
+        plan: usagePlan,
+        endpoint: "wochencheck",
+        action: "wochencheck",
+        model: "claude-sonnet-4-6",
+        creditsCharged: creditCost,
+        creditsRefunded: true,
+        requestId: usageRequestId,
+        error: error instanceof Error ? error.message : "Wochencheck Server-Fehler",
+      });
     }
     return new Response(JSON.stringify({ error: "Server-Fehler" }), {
       status: 500,

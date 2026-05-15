@@ -154,6 +154,7 @@ export async function GET(request: Request) {
     "ea_meal_plans",
     "ea_ziele",
     "ea_credit_transactions",
+    "ea_ai_usage",
     "ea_feedback",
     "ea_profiles",
   ] as const;

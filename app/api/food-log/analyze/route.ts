@@ -10,6 +10,13 @@ import { fotoLimiter, checkRateLimit } from "@/lib/rate-limit";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { calculateTDEE } from "@/lib/tdee";
 import * as Sentry from "@sentry/nextjs";
+import {
+  createUsageRequestId,
+  estimateImageTokensFromBytes,
+  extractAnthropicUsage,
+  logUsage,
+  normalizeUsagePlan,
+} from "@/lib/usage-logging";
 
 // Node runtime für Buffer, randomUUID, und um Edge-Runtime-Limits
 // (wie z.B. das harte 4 MB Request-Body-Limit) zu vermeiden.
@@ -173,6 +180,9 @@ export async function POST(request: Request) {
 
   // Premium-Gate: Foto-Tracking ist pro_plus/admin only
   const plan = await getUserPlan(userId);
+  const usagePlan = normalizeUsagePlan(plan);
+  const usageRequestId = createUsageRequestId();
+  const usageStartedAt = Date.now();
   console.log("[foto-analyze] step: plan", { plan });
   if (!hasFeatureAccess(plan, "foto_tracking")) {
     console.warn("[foto-analyze] 403 feature_locked", { plan });
@@ -325,6 +335,8 @@ export async function POST(request: Request) {
 
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const model = "claude-opus-4-7";
+    const apiStartedAt = Date.now();
+    const imageTokensEstimate = estimateImageTokensFromBytes(buffer.byteLength);
     console.log("[foto-analyze] Calling Claude:", {
       model,
       mediaType,
@@ -355,6 +367,7 @@ export async function POST(request: Request) {
       stopReason: response.stop_reason,
       blocks: response.content.length,
     });
+    const usage = extractAnthropicUsage(response.usage);
 
     const textBlock = response.content.find((b) => b.type === "text");
     const rawText = textBlock && textBlock.type === "text" ? textBlock.text : "";
@@ -373,6 +386,20 @@ export async function POST(request: Request) {
         "[foto-analyze] parse_failed, raw response:",
         rawText.slice(0, 500)
       );
+      void logUsage({
+        userId,
+        plan: usagePlan,
+        endpoint: "foto-analyse",
+        action: "foto-analyse",
+        model,
+        ...usage,
+        imageTokensEstimate,
+        creditsCharged: CREDIT_COSTS.foto_analysis,
+        creditsRefunded: true,
+        requestId: usageRequestId,
+        error: "parse_failed",
+        durationMs: Date.now() - apiStartedAt,
+      });
       return NextResponse.json(
         {
           error: "parse_failed",
@@ -418,6 +445,18 @@ export async function POST(request: Request) {
     }
 
     console.log("[foto-analyze] DONE", { userId, dish: analysis.dish, hasPhoto: !!photo_url });
+    void logUsage({
+      userId,
+      plan: usagePlan,
+      endpoint: "foto-analyse",
+      action: "foto-analyse",
+      model,
+      ...usage,
+      imageTokensEstimate,
+      creditsCharged: CREDIT_COSTS.foto_analysis,
+      requestId: usageRequestId,
+      durationMs: Date.now() - apiStartedAt,
+    });
     return NextResponse.json({ analysis, photo_url, photo_path: path });
   } catch (err) {
     // Externe Calls (Anthropic, Storage) sind fehlgeschlagen → Refund.
@@ -434,6 +473,19 @@ export async function POST(request: Request) {
     const e = err as Error & { status?: number; error?: unknown };
     Sentry.captureException(err, {
       extra: { userId, action: "foto_analysis" },
+    });
+    void logUsage({
+      userId,
+      plan: usagePlan,
+      endpoint: "foto-analyse",
+      action: "foto-analyse",
+      model: "claude-opus-4-7",
+      imageTokensEstimate: estimateImageTokensFromBytes(buffer.byteLength),
+      creditsCharged: CREDIT_COSTS.foto_analysis,
+      creditsRefunded: true,
+      requestId: usageRequestId,
+      error: err instanceof Error ? err.message : "analysis_failed",
+      durationMs: Date.now() - usageStartedAt,
     });
     console.error("[foto-analyze] CAUGHT ERROR:", {
       name: e?.name,

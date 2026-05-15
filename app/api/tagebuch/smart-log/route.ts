@@ -9,6 +9,12 @@ import { hasKiConsent, KI_CONSENT_MISSING_RESPONSE } from "@/lib/consent";
 import { deductCredits, refundCredits, CREDIT_COSTS } from "@/lib/credits";
 import { checkRateLimit, tagebuchLimiter } from "@/lib/rate-limit";
 import { quoteField } from "@/lib/utils/prompt-safe";
+import {
+  createUsageRequestId,
+  extractAnthropicUsage,
+  logUsage,
+  normalizeUsagePlan,
+} from "@/lib/usage-logging";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -86,6 +92,8 @@ export async function POST(request: Request) {
 
   // Feature-Gate: Premium only
   const plan = await getUserPlan(userId);
+  const usagePlan = normalizeUsagePlan(plan);
+  const usageRequestId = createUsageRequestId();
   if (!hasFeatureAccess(plan, "smart_log")) {
     return NextResponse.json(
       {
@@ -137,11 +145,13 @@ export async function POST(request: Request) {
   }
 
   const safeText = quoteField(parsed.data.text, 2000);
+  const model = "claude-haiku-4-5-20251001";
+  const llmStartedAt = Date.now();
 
   try {
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const response = await anthropic.messages.create({
-      model: "claude-haiku-4-5-20251001",
+      model,
       max_tokens: 2000,
       system: `Du bist ein Ernährungs-Parser. Der User beschreibt was er gegessen hat. Deine Aufgabe: Strukturiere die Beschreibung in einzelne Mahlzeiten und schätze Kalorien + Makronährstoffe.
 
@@ -191,6 +201,19 @@ Regeln:
       rawEntries = JSON.parse(cleaned);
     } catch {
       await refundCredits(userId, cost, "Smart Log parse failed");
+      void logUsage({
+        userId,
+        plan: usagePlan,
+        endpoint: "smart-log",
+        action: "smart-log",
+        model,
+        ...extractAnthropicUsage(response.usage),
+        creditsCharged: cost,
+        creditsRefunded: true,
+        requestId: usageRequestId,
+        error: "parse_failed",
+        durationMs: Date.now() - llmStartedAt,
+      });
       return NextResponse.json(
         {
           error: "parse_failed",
@@ -203,6 +226,19 @@ Regeln:
 
     if (!Array.isArray(rawEntries) || rawEntries.length === 0) {
       await refundCredits(userId, cost, "Smart Log empty result");
+      void logUsage({
+        userId,
+        plan: usagePlan,
+        endpoint: "smart-log",
+        action: "smart-log",
+        model,
+        ...extractAnthropicUsage(response.usage),
+        creditsCharged: cost,
+        creditsRefunded: true,
+        requestId: usageRequestId,
+        error: "no_entries",
+        durationMs: Date.now() - llmStartedAt,
+      });
       return NextResponse.json(
         {
           error: "no_entries",
@@ -220,6 +256,19 @@ Regeln:
 
     if (entries.length === 0) {
       await refundCredits(userId, cost, "Smart Log sanitized to zero");
+      void logUsage({
+        userId,
+        plan: usagePlan,
+        endpoint: "smart-log",
+        action: "smart-log",
+        model,
+        ...extractAnthropicUsage(response.usage),
+        creditsCharged: cost,
+        creditsRefunded: true,
+        requestId: usageRequestId,
+        error: "sanitized_to_zero",
+        durationMs: Date.now() - llmStartedAt,
+      });
       return NextResponse.json(
         {
           error: "no_entries",
@@ -229,10 +278,33 @@ Regeln:
       );
     }
 
+    void logUsage({
+      userId,
+      plan: usagePlan,
+      endpoint: "smart-log",
+      action: "smart-log",
+      model,
+      ...extractAnthropicUsage(response.usage),
+      creditsCharged: cost,
+      requestId: usageRequestId,
+      durationMs: Date.now() - llmStartedAt,
+    });
     return NextResponse.json({ entries }, { status: 200 });
   } catch (err) {
     console.error("[smart-log] anthropic/unexpected error:", err);
     await refundCredits(userId, cost, "Smart Log API error");
+    void logUsage({
+      userId,
+      plan: usagePlan,
+      endpoint: "smart-log",
+      action: "smart-log",
+      model,
+      creditsCharged: cost,
+      creditsRefunded: true,
+      requestId: usageRequestId,
+      error: err instanceof Error ? err.message : "Smart Log API error",
+      durationMs: Date.now() - llmStartedAt,
+    });
     return NextResponse.json(
       {
         error: "internal_error",

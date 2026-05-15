@@ -6,6 +6,11 @@ import { NextResponse } from "next/server";
 import pdfParse from "pdf-parse";
 import mammoth from "mammoth";
 import { logAdminAction } from "@/lib/admin-audit";
+import {
+  createUsageRequestId,
+  extractOpenAIEmbeddingTokens,
+  logUsage,
+} from "@/lib/usage-logging";
 
 async function requireAdmin(): Promise<string | null> {
   const { userId } = await auth();
@@ -94,15 +99,29 @@ export async function POST(request: Request) {
     // Generate embeddings and insert (service role bypasses RLS)
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const supabase = createSupabaseAdmin();
+    const usageRequestId = createUsageRequestId();
 
     let inserted = 0;
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i];
       const title = `${fileName} (${i + 1}/${chunks.length})`;
 
+      const embeddingStartedAt = Date.now();
       const embeddingResponse = await openai.embeddings.create({
         model: "text-embedding-3-small",
         input: chunk,
+      });
+      const embeddingTokens = extractOpenAIEmbeddingTokens(embeddingResponse, chunk);
+      void logUsage({
+        userId: adminId,
+        plan: "admin",
+        endpoint: "admin-documents",
+        action: "embedding-ingest",
+        model: "openai-text-embedding-3-small",
+        inputTokens: embeddingTokens,
+        embeddingTokens,
+        requestId: usageRequestId,
+        durationMs: Date.now() - embeddingStartedAt,
       });
 
       const embedding = embeddingResponse.data[0].embedding;

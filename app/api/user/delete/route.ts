@@ -87,6 +87,7 @@ export async function POST() {
     "ea_meal_plans",
     "ea_ziele",
     "ea_credit_transactions",
+    "ea_ai_usage",
     "ea_feedback",
     "ea_monthly_reports",
     "ea_support_tickets",

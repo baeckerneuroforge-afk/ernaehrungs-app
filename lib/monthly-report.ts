@@ -3,6 +3,11 @@ import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
 import { hasKiConsent } from "@/lib/consent";
+import {
+  createUsageRequestId,
+  extractAnthropicUsage,
+  logUsage,
+} from "@/lib/usage-logging";
 
 export type MonthlyReportData = {
   summary: string;
@@ -250,11 +255,41 @@ Antworte AUSSCHLIESSLICH als gültiges JSON ohne Markdown-Codeblock:
 }`;
 
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  const response = await anthropic.messages.create({
-    model: "claude-opus-4-7",
-    max_tokens: 2500,
-    messages: [{ role: "user", content: prompt }],
-  });
+  const model = "claude-opus-4-7";
+  const usageRequestId = createUsageRequestId();
+  const llmStartedAt = Date.now();
+  let response;
+  try {
+    response = await anthropic.messages.create({
+      model,
+      max_tokens: 2500,
+      messages: [{ role: "user", content: prompt }],
+    });
+    void logUsage({
+      userId,
+      plan: isPremium ? "pro_plus" : "pro",
+      endpoint: "monthly-report",
+      action: isPremium ? "premium-monthly-report" : "monthly-report",
+      model,
+      ...extractAnthropicUsage(response.usage),
+      creditsCharged: 0,
+      requestId: usageRequestId,
+      durationMs: Date.now() - llmStartedAt,
+    });
+  } catch (error) {
+    void logUsage({
+      userId,
+      plan: isPremium ? "pro_plus" : "pro",
+      endpoint: "monthly-report",
+      action: isPremium ? "premium-monthly-report" : "monthly-report",
+      model,
+      creditsCharged: 0,
+      requestId: usageRequestId,
+      error: error instanceof Error ? error.message : "Monthly report API error",
+      durationMs: Date.now() - llmStartedAt,
+    });
+    throw error;
+  }
 
   const textBlock = response.content.find((b) => b.type === "text");
   const rawText = textBlock && textBlock.type === "text" ? textBlock.text : "";
