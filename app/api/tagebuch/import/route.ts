@@ -3,12 +3,17 @@ import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { getUserPlan } from "@/lib/feature-gates-server";
 import { hasFeatureAccess } from "@/lib/feature-gates";
 import { hasKiConsent, KI_CONSENT_MISSING_RESPONSE } from "@/lib/consent";
+import { deductCredits, refundCredits, CREDIT_COSTS } from "@/lib/credits";
 import { checkRateLimit, importLimiter } from "@/lib/rate-limit";
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
+
+const MAX_IMPORT_FILE_SIZE = 1 * 1024 * 1024;
+const MAX_IMPORT_LINES = 200;
+const CSV_IMPORT_MAX_TOKENS = 8000;
 
 /**
  * POST /api/tagebuch/import
@@ -55,8 +60,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "no_file", message: "Keine Datei hochgeladen." }, { status: 400 });
   }
 
-  if (file.size > 5 * 1024 * 1024) {
-    return NextResponse.json({ error: "file_too_large", message: "Datei darf maximal 5 MB groß sein." }, { status: 400 });
+  if (file.size > MAX_IMPORT_FILE_SIZE) {
+    return NextResponse.json({ error: "file_too_large", message: "Datei darf maximal 1 MB groß sein." }, { status: 400 });
   }
 
   const csvText = await file.text();
@@ -66,10 +71,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "empty_file", message: "Die Datei enthält keine Daten." }, { status: 400 });
   }
 
-  if (lines.length > 1000) {
-    return NextResponse.json({ error: "too_many_rows", message: "Maximal 1.000 Einträge pro Import." }, { status: 400 });
+  if (lines.length > MAX_IMPORT_LINES) {
+    return NextResponse.json({ error: "too_many_rows", message: "Maximal 200 Zeilen pro Import." }, { status: 400 });
   }
 
+  const creditCost = CREDIT_COSTS.csv_import;
+  const charged = await deductCredits(
+    userId,
+    creditCost,
+    "csv_import",
+    "CSV-Import analysiert"
+  );
+  if (!charged) {
+    return NextResponse.json(
+      {
+        error: "insufficient_credits",
+        message: `Nicht genug Credits. CSV-Import kostet ${creditCost} Credits.`,
+      },
+      { status: 402 }
+    );
+  }
+
+  try {
   // Claude Haiku parses the CSV structure
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -77,7 +100,7 @@ export async function POST(request: Request) {
   try {
     response = await anthropic.messages.create({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 16000,
+      max_tokens: CSV_IMPORT_MAX_TOKENS,
       system: `Du bist ein CSV-Parser für Ernährungs-Apps. Du analysierst CSV-Dateien und extrahierst Mahlzeiten-Daten.
 
 Antworte NUR mit einem JSON-Objekt, kein Markdown, kein Text davor oder danach.
@@ -126,8 +149,11 @@ Antwort-Format:
     });
   } catch (err) {
     console.error("[import] Claude API error:", err);
+    await refundCredits(userId, creditCost, "CSV-Import API-Fehler").catch((e) =>
+      console.error("[import] refund after API error failed:", e)
+    );
     return NextResponse.json(
-      { error: "analysis_failed", message: "Analyse fehlgeschlagen. Bitte versuche es erneut." },
+      { error: "analysis_failed", message: "Analyse fehlgeschlagen. Bitte versuche es erneut — deine Credits wurden zurückerstattet." },
       { status: 500 }
     );
   }
@@ -148,15 +174,21 @@ Antwort-Format:
     const match = clean.match(/\{[\s\S]*\}/);
     parsed = JSON.parse(match ? match[0] : clean);
   } catch {
+    await refundCredits(userId, creditCost, "CSV-Import Antwort nicht parsbar").catch((e) =>
+      console.error("[import] refund after parse_failed failed:", e)
+    );
     return NextResponse.json(
-      { error: "parse_failed", message: "Die Datei konnte nicht analysiert werden. Bitte prüfe das Format." },
+      { error: "parse_failed", message: "Die Datei konnte nicht analysiert werden. Bitte prüfe das Format — deine Credits wurden zurückerstattet." },
       { status: 422 }
     );
   }
 
   if (!parsed.entries?.length) {
+    await refundCredits(userId, creditCost, "CSV-Import ohne erkannte Einträge").catch((e) =>
+      console.error("[import] refund after no_entries failed:", e)
+    );
     return NextResponse.json(
-      { error: "no_entries", message: "Keine Einträge in der Datei erkannt." },
+      { error: "no_entries", message: "Keine Einträge in der Datei erkannt — deine Credits wurden zurückerstattet." },
       { status: 422 }
     );
   }
@@ -180,11 +212,21 @@ Antwort-Format:
   const existingSet = new Set<string>();
   for (let i = 0; i < externeIds.length; i += batchSize) {
     const batch = externeIds.slice(i, i + batchSize);
-    const { data: existing } = await supabase
+    const { data: existing, error } = await supabase
       .from("ea_food_log")
       .select("externe_id")
       .eq("user_id", userId)
       .in("externe_id", batch);
+    if (error) {
+      await refundCredits(userId, creditCost, "CSV-Import Duplikatprüfung fehlgeschlagen").catch((e) =>
+        console.error("[import] refund after dedup error failed:", e)
+      );
+      console.error("[import] dedup check failed:", error);
+      return NextResponse.json(
+        { error: "dedup_failed", message: "Import konnte nicht geprüft werden — deine Credits wurden zurückerstattet." },
+        { status: 500 }
+      );
+    }
     if (existing) {
       for (const row of existing) {
         if (row.externe_id) existingSet.add(row.externe_id);
@@ -203,4 +245,14 @@ Antwort-Format:
     preview: newEntries.slice(0, 10),
     entries: newEntries,
   });
+  } catch (err) {
+    console.error("[import] unexpected error after credit deduction:", err);
+    await refundCredits(userId, creditCost, "CSV-Import Server-Fehler").catch((e) =>
+      console.error("[import] refund after unexpected error failed:", e)
+    );
+    return NextResponse.json(
+      { error: "internal_error", message: "Import fehlgeschlagen — deine Credits wurden zurückerstattet." },
+      { status: 500 }
+    );
+  }
 }

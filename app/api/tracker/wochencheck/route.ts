@@ -1,7 +1,11 @@
 import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { loadUserBehaviorContext } from "@/lib/utils/user-context";
+import { deductCredits, refundCredits, CREDIT_COSTS } from "@/lib/credits";
+import { getUserPlan } from "@/lib/feature-gates-server";
+import { hasFeatureAccess, getUpgradeMessage } from "@/lib/feature-gates";
 import { hasKiConsent, KI_CONSENT_MISSING_RESPONSE } from "@/lib/consent";
+import { checkRateLimit, wochencheckLimiter } from "@/lib/rate-limit";
 import { quoteField, sanitizeForPrompt } from "@/lib/utils/prompt-safe";
 import Anthropic from "@anthropic-ai/sdk";
 
@@ -37,6 +41,10 @@ Analysiere das Ernährungstagebuch, den Gewichtsverlauf und die aktiven Ziele de
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function POST(_request: Request) {
+  let chargedUserId: string | null = null;
+  let creditsDeducted = false;
+  const creditCost = CREDIT_COSTS.review;
+
   try {
     const { userId } = await auth();
 
@@ -44,6 +52,31 @@ export async function POST(_request: Request) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
       });
+    }
+    chargedUserId = userId;
+
+    const rateLimit = await checkRateLimit(wochencheckLimiter, userId);
+    if (!rateLimit.success) {
+      return new Response(
+        JSON.stringify({
+          error: "rate_limited",
+          message: "Tägliches Limit für Wochenchecks erreicht. Bitte versuche es morgen erneut.",
+        }),
+        { status: 429, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    const plan = await getUserPlan(userId);
+    if (!hasFeatureAccess(plan, "review")) {
+      return new Response(
+        JSON.stringify({
+          error: "feature_locked",
+          feature: "review",
+          message: getUpgradeMessage("review"),
+          requiredPlan: "pro",
+        }),
+        { status: 403, headers: { "Content-Type": "application/json" } }
+      );
     }
 
     const supabase = createSupabaseAdmin();
@@ -90,6 +123,23 @@ export async function POST(_request: Request) {
       );
     }
 
+    const hasCredits = await deductCredits(
+      userId,
+      creditCost,
+      "review",
+      "Wochencheck erstellt"
+    );
+    if (!hasCredits) {
+      return new Response(
+        JSON.stringify({
+          error: "insufficient_credits",
+          message: `Nicht genügend Credits. Ein Wochencheck kostet ${creditCost} Credits.`,
+        }),
+        { status: 402, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    creditsDeducted = true;
+
     // Build system prompt
     let systemPrompt = WOCHENCHECK_PROMPT;
     if (profilParts.length) {
@@ -135,6 +185,7 @@ export async function POST(_request: Request) {
           controller.close();
         } catch (err) {
           console.error("Wochencheck stream error:", err);
+          void refundCredits(userId, creditCost, "Wochencheck API-Fehler");
           controller.enqueue(
             encoder.encode(
               `data: ${JSON.stringify({ type: "error", error: "Analyse fehlgeschlagen" })}\n\n`
@@ -154,6 +205,11 @@ export async function POST(_request: Request) {
     });
   } catch (error) {
     console.error("Wochencheck error:", error);
+    if (creditsDeducted && chargedUserId) {
+      await refundCredits(chargedUserId, creditCost, "Wochencheck Server-Fehler").catch((err) =>
+        console.error("Wochencheck refund error:", err)
+      );
+    }
     return new Response(JSON.stringify({ error: "Server-Fehler" }), {
       status: 500,
     });

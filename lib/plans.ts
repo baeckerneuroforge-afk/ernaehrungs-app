@@ -12,6 +12,7 @@ export const CREDIT_COSTS = {
   foto_analysis: 3, // Opus 4.7 Vision
   monthly_report: 7, // Monatsreport (Opus 4.7)
   smart_log: 2, // Free-Text → Tagebuch-Einträge parsen (Haiku)
+  csv_import: 4, // CSV-Import Preview (Haiku)
 } as const;
 
 // Credits granted per plan per month

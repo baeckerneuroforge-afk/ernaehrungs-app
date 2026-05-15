@@ -22,6 +22,7 @@ export type CreditActionType =
   | "foto_analysis"
   | "monthly_report"
   | "smart_log"
+  | "csv_import"
   | "manual_adjustment"
   | "expiry_reset"
   | "refund";

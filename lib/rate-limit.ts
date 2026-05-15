@@ -66,6 +66,14 @@ export const trackerLimiter = redis
     })
   : null;
 
+export const wochencheckLimiter = redis
+  ? new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(10, "1 d"),
+      prefix: "rl:wochencheck",
+    })
+  : null;
+
 export const importLimiter = redis
   ? new Ratelimit({
       redis,
