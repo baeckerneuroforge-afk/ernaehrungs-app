@@ -1,4 +1,4 @@
-import { stripe } from "@/lib/stripe";
+import { stripe, PLANS } from "@/lib/stripe";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { addCredits, resetSubscriptionCredits, PLAN_CREDITS, PLAN_LABELS, PLAN_PRICES } from "@/lib/credits";
 import { sendEmail } from "@/lib/email";
@@ -51,6 +51,15 @@ export async function POST(request: Request) {
     );
   }
 
+  // Return a 500 so Stripe retries — but first remove the dedupe marker we
+  // inserted above, otherwise the retry would hit the idempotency guard and
+  // become a no-op. Only use this for genuinely unexpected/transient failures.
+  const failForRetry = async (logMsg: string): Promise<Response> => {
+    console.error(`[stripe-webhook] ${logMsg} (event ${event.id}, ${event.type})`);
+    await supabase.from("ea_stripe_events").delete().eq("event_id", event.id);
+    return new Response("Webhook handler error", { status: 500 });
+  };
+
   switch (event.type) {
     // ---- Subscription checkout completed ----
     case "checkout.session.completed": {
@@ -80,21 +89,44 @@ export async function POST(request: Request) {
       }
 
       // Subscription checkout
-      const plan = (metadata?.plan || "pro") as PlanType;
+      const rawPlan = metadata?.plan;
       const subscriptionId = (session as { subscription?: string }).subscription;
+      const customerId = (session as { customer?: string }).customer;
+
+      // Plan comes from our own (validated) checkout metadata. An unknown plan
+      // means a code/config mismatch (e.g. a new Stripe plan not yet mapped) —
+      // do NOT silently grant free credits to a paying customer. Fail so the
+      // event surfaces and re-processes after the mapping is fixed.
+      if (!rawPlan || !(rawPlan in PLAN_CREDITS)) {
+        return await failForRetry(`unknown plan in checkout metadata: ${rawPlan}`);
+      }
+      const plan = rawPlan as PlanType;
 
       if (clerkId && subscriptionId) {
-        await supabase
+        const { data: updated, error: updateErr } = await supabase
           .from("ea_users")
           .update({
             subscription_plan: plan,
             subscription_status: "active" as SubscriptionStatus,
             stripe_subscription_id: subscriptionId,
+            // Defensive: ensure customer_id is set so later events that look
+            // up by stripe_customer_id (invoice.paid, subscription.*) resolve.
+            ...(customerId ? { stripe_customer_id: customerId } : {}),
           })
-          .eq("clerk_id", clerkId);
+          .eq("clerk_id", clerkId)
+          .select("clerk_id");
+
+        if (updateErr) {
+          return await failForRetry(`checkout user update failed: ${updateErr.message}`);
+        }
+        if (!updated || updated.length === 0) {
+          // Paid checkout but no matching user row — unexpected and money-
+          // critical. Retry (the row may appear once a Clerk webhook lands).
+          return await failForRetry(`checkout: no ea_users row for clerk_id ${clerkId}`);
+        }
 
         // Grant initial credits for the plan
-        const planCredits = PLAN_CREDITS[plan] ?? PLAN_CREDITS.free;
+        const planCredits = PLAN_CREDITS[plan];
         await resetSubscriptionCredits(clerkId, planCredits);
 
         // Confirmation email — fire-and-forget so a mail outage can't block Stripe
@@ -136,12 +168,18 @@ export async function POST(request: Request) {
           .from("ea_users")
           .select("clerk_id, subscription_plan")
           .eq("stripe_customer_id", customerId)
-          .single();
+          .maybeSingle();
 
         if (user) {
           const plan = (user.subscription_plan || "free") as PlanType;
           const planCredits = PLAN_CREDITS[plan] ?? PLAN_CREDITS.free;
           await resetSubscriptionCredits(user.clerk_id, planCredits);
+        } else {
+          // A recurring payment for a customer we can't find is concerning
+          // (e.g. account deleted). Log loudly but ack — retrying won't help.
+          console.error(
+            `[stripe-webhook] invoice.paid: no ea_users for customer ${customerId} (event ${event.id})`
+          );
         }
       }
       break;
@@ -164,10 +202,35 @@ export async function POST(request: Request) {
           ? "trialing"
           : "none";
 
-      await supabase
+      // Derive the plan from the active price so up-/downgrades are reflected
+      // immediately (not only at the next invoice.paid). Credits stay until the
+      // billing cycle resets them — avoids double-granting on mid-cycle changes.
+      const priceId = (
+        subscription as { items?: { data?: Array<{ price?: { id?: string } }> } }
+      ).items?.data?.[0]?.price?.id;
+      const derivedPlan = (Object.keys(PLANS) as Array<keyof typeof PLANS>).find(
+        (p) => PLANS[p] === priceId
+      );
+
+      const updatePayload: { subscription_status: SubscriptionStatus; subscription_plan?: PlanType } =
+        { subscription_status: status };
+      if (derivedPlan) updatePayload.subscription_plan = derivedPlan;
+
+      const { data: updated, error: updateErr } = await supabase
         .from("ea_users")
-        .update({ subscription_status: status })
-        .eq("stripe_customer_id", customerId);
+        .update(updatePayload)
+        .eq("stripe_customer_id", customerId)
+        .select("clerk_id");
+
+      if (updateErr) {
+        console.error(
+          `[stripe-webhook] subscription.updated failed for customer ${customerId}: ${updateErr.message}`
+        );
+      } else if (!updated || updated.length === 0) {
+        console.error(
+          `[stripe-webhook] subscription.updated: no ea_users for customer ${customerId} (event ${event.id})`
+        );
+      }
       break;
     }
 
@@ -176,21 +239,33 @@ export async function POST(request: Request) {
       const subscription = event.data.object;
       const customerId = (subscription as { customer: string }).customer;
 
-      await supabase
+      const { data: cancelled, error: cancelErr } = await supabase
         .from("ea_users")
         .update({
           subscription_plan: "free" as PlanType,
           subscription_status: "canceled" as SubscriptionStatus,
           stripe_subscription_id: null,
         })
-        .eq("stripe_customer_id", customerId);
+        .eq("stripe_customer_id", customerId)
+        .select("clerk_id");
+
+      if (cancelErr) {
+        console.error(
+          `[stripe-webhook] subscription.deleted failed for customer ${customerId}: ${cancelErr.message}`
+        );
+      } else if (!cancelled || cancelled.length === 0) {
+        // Legitimate if the account was already deleted — log, don't retry.
+        console.warn(
+          `[stripe-webhook] subscription.deleted: no ea_users for customer ${customerId} (event ${event.id})`
+        );
+      }
 
       // Reset to free tier credits
       const { data: user } = await supabase
         .from("ea_users")
         .select("clerk_id, email, name")
         .eq("stripe_customer_id", customerId)
-        .single();
+        .maybeSingle();
 
       if (user) {
         await resetSubscriptionCredits(user.clerk_id, PLAN_CREDITS.free);
@@ -221,10 +296,21 @@ export async function POST(request: Request) {
       const invoice = event.data.object;
       const customerId = (invoice as { customer: string }).customer;
 
-      await supabase
+      const { data: pastDue, error: pastDueErr } = await supabase
         .from("ea_users")
         .update({ subscription_status: "past_due" as SubscriptionStatus })
-        .eq("stripe_customer_id", customerId);
+        .eq("stripe_customer_id", customerId)
+        .select("clerk_id");
+
+      if (pastDueErr) {
+        console.error(
+          `[stripe-webhook] payment_failed update failed for customer ${customerId}: ${pastDueErr.message}`
+        );
+      } else if (!pastDue || pastDue.length === 0) {
+        console.warn(
+          `[stripe-webhook] payment_failed: no ea_users for customer ${customerId} (event ${event.id})`
+        );
+      }
       break;
     }
   }
