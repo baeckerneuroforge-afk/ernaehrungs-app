@@ -1,6 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import { getAnthropic } from "@/lib/anthropic-client";
 import { randomUUID } from "node:crypto";
 import { hasFeatureAccess } from "@/lib/feature-gates";
 import { getUserPlan } from "@/lib/feature-gates-server";
@@ -333,7 +333,7 @@ export async function POST(request: Request) {
       goalLabel: tdee?.goalLabel || null,
     });
 
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const anthropic = getAnthropic();
     const model = "claude-opus-4-7";
     const apiStartedAt = Date.now();
     const imageTokensEstimate = estimateImageTokensFromBytes(buffer.byteLength);

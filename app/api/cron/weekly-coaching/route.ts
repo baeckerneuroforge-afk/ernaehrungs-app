@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import { getAnthropic } from "@/lib/anthropic-client";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
@@ -91,7 +91,7 @@ export async function GET(request: Request) {
       const goals = goalsRes.data || [];
       const userName = profile?.name || user.name || "dort";
 
-      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+      const anthropic = getAnthropic();
       llmStartedAt = Date.now();
       const response = await anthropic.messages.create({
         model,

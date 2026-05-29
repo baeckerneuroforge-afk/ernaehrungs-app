@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { getAnthropic } from "@/lib/anthropic-client";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
@@ -254,7 +254,7 @@ Antworte AUSSCHLIESSLICH als gültiges JSON ohne Markdown-Codeblock:
   "recommendations": ["...", "...", "..."]${isPremium ? ',\n  "multiMonthTrend": "...",\n  "prognosis": "..."' : ""}
 }`;
 
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const anthropic = getAnthropic();
   const model = "claude-opus-4-7";
   const usageRequestId = createUsageRequestId();
   const llmStartedAt = Date.now();

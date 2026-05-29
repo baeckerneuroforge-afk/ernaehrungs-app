@@ -7,8 +7,8 @@ import { getUserPlan } from "@/lib/feature-gates-server";
 import { hasKiConsent, KI_CONSENT_MISSING_RESPONSE } from "@/lib/consent";
 import { touchLastActive } from "@/lib/last-active";
 import { planLimiter, checkRateLimit } from "@/lib/rate-limit";
-import Anthropic from "@anthropic-ai/sdk";
-import OpenAI from "openai";
+import { getAnthropic } from "@/lib/anthropic-client";
+import { getOpenAI } from "@/lib/openai-client";
 import * as Sentry from "@sentry/nextjs";
 import { validateBody, mealPlanRequestSchema } from "@/lib/validations";
 import type { PlanParameters } from "@/types/meal-plan";
@@ -450,7 +450,7 @@ export async function POST(request: Request) {
       const ragQuery =
         `Ernährungsplan 7 Tage ${p?.ernaehrungsform || ""} ${p?.allergien?.join(" ") || ""} ${p?.ziel || ""} ${p?.krankheiten || ""} ${planParameters.fasting !== "none" ? planParameters.fasting : ""}`.trim();
 
-      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const openai = getOpenAI();
       const embeddingStartedAt = Date.now();
       const embeddingResponse = await openai.embeddings.create({
         model: "text-embedding-3-small",
@@ -525,9 +525,7 @@ export async function POST(request: Request) {
     const userMessage = `Erstelle einen strukturierten ${daysLabel}-Ernährungsplan als JSON. Antworte NUR mit dem JSON-Objekt.`;
 
     // Stream response
-    const anthropic = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY,
-    });
+    const anthropic = getAnthropic();
     // max_tokens-Budget: vorher 3500/8000/16000. Mit Per-Meal-Makros
     // (protein/carbs/fat als Pflichtfelder) wachsen die Mahlzeiten um
     // ~3 Felder, das macht 10-20% mehr Output. Wir geben proportional

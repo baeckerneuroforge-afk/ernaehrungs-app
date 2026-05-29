@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { chunkText } from "@/lib/utils/chunking";
-import OpenAI from "openai";
+import { getOpenAI } from "@/lib/openai-client";
 import { NextResponse } from "next/server";
 import { logAdminAction } from "@/lib/admin-audit";
 import {
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
 
   const chunks = chunkText(fullText);
 
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const openai = getOpenAI();
   let inserted = 0;
   const usageRequestId = createUsageRequestId();
 
