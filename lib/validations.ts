@@ -83,7 +83,21 @@ export const foodLogSchema = z.object({
   fat_g: z.number().min(0).max(1000).optional().nullable(),
   portion: z.string().max(200).optional().nullable(),
   source: z.enum(["manual", "photo"]).optional(),
-  photo_url: z.string().url().optional().nullable(),
+  // Only accept URLs that point at our own Supabase Storage (the analyze route
+  // returns signed URLs under <supabase-url>/storage/...). Rejects arbitrary
+  // external URLs (tracking pixels / malware) smuggled in via the client.
+  photo_url: z
+    .string()
+    .url()
+    .refine(
+      (u) => {
+        const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        return !!base && u.startsWith(`${base}/storage/`);
+      },
+      { message: "photo_url must point to Supabase storage" }
+    )
+    .optional()
+    .nullable(),
   photo_confidence: z
     .enum(["sicher", "mittel", "unsicher"])
     .optional()

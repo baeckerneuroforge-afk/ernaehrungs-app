@@ -1,12 +1,30 @@
 import { withSentryConfig } from "@sentry/nextjs";
 
-// CSP temporarily removed due to pre-launch blocking issues. Re-enable post-launch with proper debugging.
+// CSP runs in Report-Only first: it surfaces violations (browser console /
+// report endpoint) WITHOUT breaking anything, so we can tune the allowlist
+// before switching the header to the enforcing "Content-Security-Policy".
+const cspReportOnly = [
+  "default-src 'self'",
+  // 'unsafe-inline'/'unsafe-eval' needed for now (inline theme/SW-boot scripts,
+  // Clerk). Tighten with nonces before enforcing.
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.clerk.accounts.dev https://*.clerk.com https://challenges.cloudflare.com https://js.stripe.com",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https://*.supabase.co https://img.clerk.com",
+  "font-src 'self' data:",
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.clerk.accounts.dev https://*.clerk.com https://eu.i.posthog.com https://eu-assets.i.posthog.com",
+  "frame-src 'self' https://*.clerk.accounts.dev https://challenges.cloudflare.com https://js.stripe.com https://hooks.stripe.com",
+  "worker-src 'self' blob:",
+  "base-uri 'self'",
+  "form-action 'self'",
+].join("; ");
+
 const securityHeaders = [
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "Permissions-Policy", value: "camera=(self), microphone=(self), geolocation=()" },
+  { key: "Content-Security-Policy-Report-Only", value: cspReportOnly },
 ];
 
 /** @type {import('next').NextConfig} */

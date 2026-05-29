@@ -168,7 +168,6 @@ export async function POST(request: Request) {
             console.warn("[profile POST] DUPLICATE EMAIL DETECTED", {
               newClerkId: userId,
               existingClerkId: dup.clerk_id,
-              email,
             });
             duplicate = dup;
           }
@@ -388,8 +387,8 @@ async function mergeAccountData(
     resourceType: "user",
     resourceId: newId,
     targetUserId: oldId,
-    metadata: { email, reason: "duplicate_email" },
+    metadata: { reason: "duplicate_email" },
   });
 
-  console.log("[profile POST] Account merged", { oldId, newId, email });
+  console.log("[profile POST] Account merged", { oldId, newId });
 }
