@@ -6,7 +6,7 @@ import { hasKiConsent, KI_CONSENT_MISSING_RESPONSE } from "@/lib/consent";
 import { deductCredits, refundCredits, CREDIT_COSTS } from "@/lib/credits";
 import { checkRateLimit, importLimiter } from "@/lib/rate-limit";
 import { NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import { getAnthropic } from "@/lib/anthropic-client";
 import {
   createUsageRequestId,
   extractAnthropicUsage,
@@ -105,7 +105,7 @@ export async function POST(request: Request) {
 
   try {
   // Claude Haiku parses the CSV structure
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const anthropic = getAnthropic();
 
   let response;
   const llmStartedAt = Date.now();

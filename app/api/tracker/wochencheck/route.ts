@@ -7,7 +7,7 @@ import { hasFeatureAccess, getUpgradeMessage } from "@/lib/feature-gates";
 import { hasKiConsent, KI_CONSENT_MISSING_RESPONSE } from "@/lib/consent";
 import { checkRateLimit, wochencheckLimiter } from "@/lib/rate-limit";
 import { quoteField, sanitizeForPrompt } from "@/lib/utils/prompt-safe";
-import Anthropic from "@anthropic-ai/sdk";
+import { getAnthropic } from "@/lib/anthropic-client";
 import {
   createUsageRequestId,
   extractAnthropicUsage,
@@ -159,7 +159,7 @@ export async function POST(_request: Request) {
     systemPrompt += `\n\n${behaviorContext}`;
 
     // Stream response
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const anthropic = getAnthropic();
     const model = "claude-sonnet-4-6";
     const llmStartedAt = Date.now();
     const stream = anthropic.messages.stream({

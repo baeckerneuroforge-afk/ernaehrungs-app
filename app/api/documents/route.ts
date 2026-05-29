@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { chunkText } from "@/lib/utils/chunking";
-import OpenAI from "openai";
+import { getOpenAI } from "@/lib/openai-client";
 import { NextResponse } from "next/server";
 import pdfParse from "pdf-parse";
 import mammoth from "mammoth";
@@ -97,7 +97,7 @@ export async function POST(request: Request) {
     const chunks = chunkText(text);
 
     // Generate embeddings and insert (service role bypasses RLS)
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const openai = getOpenAI();
     const supabase = createSupabaseAdmin();
     const usageRequestId = createUsageRequestId();
 

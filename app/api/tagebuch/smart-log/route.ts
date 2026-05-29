@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import Anthropic from "@anthropic-ai/sdk";
+import { getAnthropic } from "@/lib/anthropic-client";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { getUserPlan } from "@/lib/feature-gates-server";
 import { hasFeatureAccess } from "@/lib/feature-gates";
@@ -149,7 +149,7 @@ export async function POST(request: Request) {
   const llmStartedAt = Date.now();
 
   try {
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const anthropic = getAnthropic();
     const response = await anthropic.messages.create({
       model,
       max_tokens: 2000,

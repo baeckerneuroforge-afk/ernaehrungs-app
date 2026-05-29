@@ -8,8 +8,8 @@ import { hasKiConsent, KI_CONSENT_MISSING_RESPONSE } from "@/lib/consent";
 import { touchLastActive } from "@/lib/last-active";
 import { chatLimiter, checkRateLimit } from "@/lib/rate-limit";
 import { classifyAction } from "@/lib/classify-action";
-import Anthropic from "@anthropic-ai/sdk";
-import OpenAI from "openai";
+import { getAnthropic } from "@/lib/anthropic-client";
+import { getOpenAI } from "@/lib/openai-client";
 import * as Sentry from "@sentry/nextjs";
 import { validateBody, chatMessageSchema } from "@/lib/validations";
 import { sanitizeForPrompt, quoteField } from "@/lib/utils/prompt-safe";
@@ -648,7 +648,7 @@ export async function POST(request: Request) {
     type RagDoc = { title: string; content: string; similarity: number };
     type RagResult = { docs: RagDoc[]; avgSimilarity: number };
 
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const openai = getOpenAI();
 
     const runRagSearch = async (queryText: string): Promise<RagResult> => {
       const embeddingStartedAt = Date.now();
@@ -918,7 +918,7 @@ Regeln:
       : "";
 
     // ---- Stream Response ----
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const anthropic = getAnthropic();
     const llmStartedAt = Date.now();
     const usageAction = getChatUsageAction(action, hasImage, premium);
     const imageTokensEstimate = hasImage ? estimateImageTokensFromBase64(rawImage!.base64) : 0;
@@ -1053,7 +1053,7 @@ async function generateEmbedding(
     requestId: string;
   }
 ): Promise<string> {
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const openai = getOpenAI();
   const startedAt = Date.now();
   const res = await openai.embeddings.create({
     model: "text-embedding-3-small",
@@ -1386,9 +1386,7 @@ ${block3Section}
 
   const proTeaserText = `\n\n---\n\n### 🎯 Deine Woche voraus\n\nMöchtest du konkrete Handlungsvorschläge für nächste Woche — mit Lebensmittelempfehlungen, Rezeptideen und einem angepassten Ernährungsplan? Upgrade auf Premium für den vollen Wochenrückblick.\n\n[Premium entdecken →]`;
 
-  const anthropic = new Anthropic({
-    apiKey: process.env.ANTHROPIC_API_KEY,
-  });
+  const anthropic = getAnthropic();
   const model = getModelForAction("review", null);
   const reviewStartedAt = Date.now();
   let finalUsage: UsageTokenFields = {};
