@@ -1,23 +1,12 @@
-import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import { logAdminAction } from "@/lib/admin-audit";
-
-async function checkAdmin() {
-  const { userId } = await auth();
-  if (!userId) return null;
-  const supabase = createSupabaseAdmin();
-  const { data } = await supabase
-    .from("ea_user_roles")
-    .select("role")
-    .eq("user_id", userId)
-    .limit(1);
-  return data?.[0]?.role === "admin" ? userId : null;
-}
+import { getAdminUserId } from "@/lib/auth-guard";
+import { validateBody, adminReplySchema } from "@/lib/validations";
 
 // GET: admin fetches all messages with user names
 export async function GET() {
-  const adminUserId = await checkAdmin();
+  const adminUserId = await getAdminUserId();
   if (!adminUserId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   await logAdminAction({
@@ -56,14 +45,31 @@ export async function GET() {
 
 // PATCH: admin replies to a message
 export async function PATCH(request: Request) {
-  const adminUserId = await checkAdmin();
+  const adminUserId = await getAdminUserId();
   if (!adminUserId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const { id, reply } = await request.json();
-  if (!id || !reply?.trim()) {
-    return NextResponse.json({ error: "ID und Antwort erforderlich" }, { status: 400 });
+  const validation = validateBody(adminReplySchema, await request.json().catch(() => ({})));
+  if (!validation.success) {
+    return NextResponse.json({ error: "invalid_input", message: validation.error }, { status: 400 });
   }
+  const { id, reply } = validation.data;
 
+  const admin = createSupabaseAdmin();
+  const { data, error } = await admin
+    .from("ea_messages")
+    .update({
+      admin_reply: reply.trim(),
+      replied_at: new Date().toISOString(),
+      is_read: true,
+    })
+    .eq("id", id)
+    .select("id")
+    .limit(1);
+
+  if (error) { console.error("[admin/nachrichten] db error:", error); return NextResponse.json({ error: "internal_error" }, { status: 500 }); }
+  if (!data?.length) return NextResponse.json({ error: "not_found" }, { status: 404 });
+
+  // Log only after the reply actually persisted (avoids phantom audit entries).
   await logAdminAction({
     adminId: adminUserId,
     action: "reply_message",
@@ -71,23 +77,12 @@ export async function PATCH(request: Request) {
     resourceId: id,
   });
 
-  const admin = createSupabaseAdmin();
-  const { error } = await admin
-    .from("ea_messages")
-    .update({
-      admin_reply: reply.trim(),
-      replied_at: new Date().toISOString(),
-      is_read: true,
-    })
-    .eq("id", id);
-
-  if (error) { console.error("[admin/nachrichten] db error:", error); return NextResponse.json({ error: "internal_error" }, { status: 500 }); }
   return NextResponse.json({ success: true });
 }
 
 // PATCH for marking as read (separate action)
 export async function PUT(request: Request) {
-  const adminUserId = await checkAdmin();
+  const adminUserId = await getAdminUserId();
   if (!adminUserId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await request.json();

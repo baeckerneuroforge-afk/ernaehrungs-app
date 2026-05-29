@@ -33,15 +33,18 @@ export async function PATCH(
   }
 
   const supabase = createSupabaseAdmin();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("ea_food_log")
     .update({ photo_feedback: feedback ?? null })
     .eq("id", id)
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .select("id")
+    .limit(1);
 
   if (error) {
     console.error("[tagebuch/:id/feedback] db error:", error);
     return NextResponse.json({ error: "internal_error" }, { status: 500 });
   }
+  if (!data?.length) return NextResponse.json({ error: "not_found" }, { status: 404 });
   return NextResponse.json({ success: true });
 }

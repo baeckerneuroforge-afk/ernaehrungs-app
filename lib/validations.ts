@@ -112,6 +112,25 @@ export const foodLogSchema = z.object({
     .nullable(),
 });
 
+// Tracker — partial goal update (PATCH). Zod strips unknown keys, so a client
+// can't inject id/user_id/created_at via the request body.
+export const zieleUpdateSchema = z.object({
+  typ: z.enum(["gewicht", "kalorien", "custom"]).optional(),
+  beschreibung: z.string().min(1).max(1000).optional(),
+  zielwert: z.number().optional().nullable(),
+  startwert: z.number().optional().nullable(),
+  einheit: z.string().max(50).optional().nullable(),
+  zieldatum: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+  erreicht: z.boolean().optional(),
+  erreicht_am: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+});
+
+// Admin reply to a user message.
+export const adminReplySchema = z.object({
+  id: z.string().uuid(),
+  reply: z.string().min(1).max(10000),
+});
+
 // Gewicht — wire format uses gewicht_kg/gemessen_am (matches DB columns).
 export const weightLogSchema = z.object({
   gewicht_kg: z.number().min(20).max(400),
