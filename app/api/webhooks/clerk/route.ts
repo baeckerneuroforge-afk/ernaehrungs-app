@@ -135,7 +135,7 @@ export async function POST(request: Request) {
           error: insertError.message,
         });
       } else {
-        console.log("[clerk-webhook] ea_users inserted", { userId: id, email });
+        console.log("[clerk-webhook] ea_users inserted", { userId: id });
       }
 
       // Welcome email only on fresh insert, and only for user.created
