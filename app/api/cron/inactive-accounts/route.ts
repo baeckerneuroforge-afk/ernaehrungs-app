@@ -1,58 +1,10 @@
 import { NextResponse } from "next/server";
 import { clerkClient } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
+import { purgeUserData } from "@/lib/purge-user-data";
 import { logAdminAction } from "@/lib/admin-audit";
 import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
-import type { SupabaseClient } from "@supabase/supabase-js";
-
-/**
- * Remove every food photo owned by `clerkId` from Supabase Storage.
- * DSGVO Art. 17 — binary data must be wiped alongside DB rows.
- * Errors are logged but non-fatal so a single bad user doesn't poison the batch.
- */
-async function wipeUserPhotos(
-  supabase: SupabaseClient,
-  clerkId: string
-): Promise<void> {
-  try {
-    const { data: topLevel } = await supabase.storage
-      .from("food-photos")
-      .list(clerkId);
-
-    if (!topLevel || topLevel.length === 0) return;
-
-    const allPaths: string[] = [];
-    for (const entry of topLevel) {
-      if (entry.metadata) {
-        allPaths.push(`${clerkId}/${entry.name}`);
-      } else {
-        const { data: subFiles } = await supabase.storage
-          .from("food-photos")
-          .list(`${clerkId}/${entry.name}`);
-        if (subFiles) {
-          for (const f of subFiles) {
-            allPaths.push(`${clerkId}/${entry.name}/${f.name}`);
-          }
-        }
-      }
-    }
-
-    if (allPaths.length > 0) {
-      const { error } = await supabase.storage
-        .from("food-photos")
-        .remove(allPaths);
-      if (error) {
-        console.error(
-          `[cron/inactive] storage cleanup partial failure for ${clerkId}:`,
-          error.message
-        );
-      }
-    }
-  } catch (err) {
-    console.error(`[cron/inactive] storage cleanup threw for ${clerkId}:`, err);
-  }
-}
 
 export const dynamic = "force-dynamic";
 // Vercel cron may exceed default 10s — give the loop room to breathe.
@@ -144,42 +96,21 @@ export async function GET(request: Request) {
   }
 
   // ---- Deletions (12+ months inactive) ----
-  // Mirrors app/api/user/delete/route.ts. We tolerate per-row failures so a
-  // single bad row doesn't poison the whole batch.
-  const userOwnedTables = [
-    "ea_food_log",
-    "ea_weight_logs",
-    "ea_messages",
-    "ea_conversations",
-    "ea_meal_plans",
-    "ea_ziele",
-    "ea_credit_transactions",
-    "ea_ai_usage",
-    "ea_feedback",
-    "ea_profiles",
-  ] as const;
-
+  // Full purge via the shared lib/purge-user-data.ts (storage + every
+  // USER_DATA_TABLES row + audit-log anonymization). We tolerate per-user
+  // failures so a single bad row doesn't poison the whole batch.
   let deleted = 0;
   const failures: { clerk_id: string; reason: string }[] = [];
   const clerk = await clerkClient();
 
   for (const u of toDelete) {
     try {
-      // Storage first — DB wipe is the "commit point", so if storage fails
-      // we'd rather have orphaned DB rows than orphaned photos.
-      await wipeUserPhotos(supabase, u.clerk_id);
-
-      for (const table of userOwnedTables) {
-        const { error } = await supabase
-          .from(table)
-          .delete()
-          .eq("user_id", u.clerk_id);
-        if (error) {
-          console.error(
-            `[cron/inactive] failed to clear ${table} for ${u.clerk_id}:`,
-            error.message
-          );
-        }
+      const { errors } = await purgeUserData(supabase, u.clerk_id, "cron/inactive");
+      if (errors.length > 0) {
+        console.error(
+          `[cron/inactive] purge had non-fatal errors for ${u.clerk_id}:`,
+          errors
+        );
       }
 
       const { error: userErr } = await supabase
@@ -199,6 +130,10 @@ export async function GET(request: Request) {
         );
       }
 
+      // Record the deletion for accountability. NOTE: no email in metadata —
+      // we just erased this user, so re-storing their email here would defeat
+      // the purge. The clerk_id is retained as an opaque, post-deletion
+      // reference (no longer linkable to a person).
       await logAdminAction({
         adminId: "system:cron",
         action: "inactive_account_deleted",
@@ -206,7 +141,6 @@ export async function GET(request: Request) {
         resourceId: u.clerk_id,
         targetUserId: u.clerk_id,
         metadata: {
-          email: u.email,
           last_active_at: u.last_active_at,
           reason: "inactive_12_months",
         },
