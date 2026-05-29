@@ -178,6 +178,26 @@ export async function refundCredits(
   // Admins were never charged — nothing to refund.
   if (await isAdminUser(userId)) return;
 
+  // Atomic path: increment subscription bucket + log "refund" in one tx.
+  const { data: rpcResult, error: rpcError } = await supabase.rpc(
+    "add_credits_atomic",
+    {
+      p_clerk_id: userId,
+      p_amount: amount,
+      p_bucket: "credits_subscription",
+      p_type: "refund",
+      p_description: `Erstattung: ${reason}`,
+    }
+  );
+  if (!rpcError && rpcResult) {
+    const result = typeof rpcResult === "string" ? JSON.parse(rpcResult) : rpcResult;
+    if (result.success || result.reason === "user_not_found") return;
+  }
+  if (rpcError) {
+    console.warn("[credits] add_credits_atomic unavailable (refund), fallback:", rpcError.message);
+  }
+
+  // Fallback: non-atomic read-then-write (dev / before migration is run).
   const { data: user } = await supabase
     .from("ea_users")
     .select("credits_subscription, credits_topup")
@@ -217,6 +237,26 @@ export async function addCredits(
 
   const bucket = type === "topup_purchase" ? "credits_topup" : "credits_subscription";
 
+  // Atomic path: increment the bucket + log the transaction in one tx.
+  const { data: rpcResult, error: rpcError } = await supabase.rpc(
+    "add_credits_atomic",
+    {
+      p_clerk_id: userId,
+      p_amount: amount,
+      p_bucket: bucket,
+      p_type: type,
+      p_description: description || type,
+    }
+  );
+  if (!rpcError && rpcResult) {
+    const result = typeof rpcResult === "string" ? JSON.parse(rpcResult) : rpcResult;
+    if (result.success || result.reason === "user_not_found") return;
+  }
+  if (rpcError) {
+    console.warn("[credits] add_credits_atomic unavailable, fallback:", rpcError.message);
+  }
+
+  // Fallback: non-atomic read-then-write (dev / before migration is run).
   const { data: user } = await supabase
     .from("ea_users")
     .select("credits_subscription, credits_topup")
@@ -255,6 +295,20 @@ export async function resetSubscriptionCredits(
 ): Promise<void> {
   const supabase = createSupabaseAdmin();
 
+  // Atomic path: set subscription bucket + log expiry/grant in one tx.
+  const { data: rpcResult, error: rpcError } = await supabase.rpc(
+    "reset_subscription_credits_atomic",
+    { p_clerk_id: userId, p_plan_credits: planCredits }
+  );
+  if (!rpcError && rpcResult) {
+    const result = typeof rpcResult === "string" ? JSON.parse(rpcResult) : rpcResult;
+    if (result.success || result.reason === "user_not_found") return;
+  }
+  if (rpcError) {
+    console.warn("[credits] reset_subscription_credits_atomic unavailable, fallback:", rpcError.message);
+  }
+
+  // Fallback: non-atomic read-then-write (dev / before migration is run).
   const { data: user } = await supabase
     .from("ea_users")
     .select("credits_subscription, credits_topup")
