@@ -76,7 +76,8 @@ export function Footer() {
           <FooterColumn
             title="Support"
             links={[
-              { href: "/support", label: "Hilfe & Kontakt" },
+              { href: "/hilfe", label: "Hilfe-Center" },
+              { href: "/support", label: "Kontakt" },
               { href: "/#faq", label: "Häufige Fragen" },
               { href: "mailto:kontakt@nutriva-ai.de", label: "kontakt@nutriva-ai.de" },
             ]}
