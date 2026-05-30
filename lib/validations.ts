@@ -32,14 +32,11 @@ export const profileSchema = z.object({
 export const chatMessageSchema = z.object({
   message: z.string().min(1).max(10000).optional(),
   conversationId: z.string().uuid().optional(),
-  history: z
-    .array(
-      z.object({
-        role: z.enum(["user", "assistant"]),
-        content: z.string(),
-      })
-    )
-    .optional(),
+  // Session-Kennung (clientseitig generierte UUID, in ea_conversations als text).
+  // Der Server lädt die History anhand dieser ID aus der DB — body.history wird
+  // NICHT mehr akzeptiert (Schutz gegen History-Poisoning). Alt-Clients, die
+  // noch `history` senden, werden von Zod still gestript (kein Reject).
+  session_id: z.string().min(1).max(128).optional(),
   image: z
     .object({
       base64: z.string().max(15000000),

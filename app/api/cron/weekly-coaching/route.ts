@@ -5,6 +5,17 @@ import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
 import { hasKiConsent } from "@/lib/consent";
 import {
+  type CronUser,
+  CRON_BATCH_SIZE,
+  CRON_GROUP_SIZE,
+  CRON_TIME_BUDGET_MS,
+  getCronCheckpoint,
+  setCronCheckpoint,
+  clearCronCheckpoint,
+  fetchUserBatchAfter,
+  inGroups,
+} from "@/lib/cron-checkpoint";
+import {
   createUsageRequestId,
   extractAnthropicUsage,
   logUsage,
@@ -13,10 +24,16 @@ import {
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
+const JOB_NAME = "weekly-coaching";
+
 /**
  * Weekly coaching cron. Runs every Monday at 07:00 UTC (09:00 CET).
  * Generates 3 personalized coaching tips for each premium (pro_plus) user
  * based on their last week's data, then sends via email.
+ *
+ * Verarbeitet User in Checkpoint-Batches (siehe lib/cron-checkpoint): pro Lauf
+ * werden Batches ab dem gespeicherten clerk_id parallel abgearbeitet, bis das
+ * Zeitbudget erreicht ist. Bricht der Lauf ab, setzt der nächste fort.
  */
 export async function GET(request: Request) {
   const cronSecret = process.env.CRON_SECRET;
@@ -32,23 +49,17 @@ export async function GET(request: Request) {
   }
 
   const supabase = createSupabaseAdmin();
-
-  const { data: premiumUsers, error } = await supabase
-    .from("ea_users")
-    .select("clerk_id, email, name")
-    .in("subscription_plan", ["pro_plus"]);
-
-  if (error || !premiumUsers) {
-    console.error("[coaching] Could not load premium users:", error);
-    return NextResponse.json({ ok: true, sent: 0, failed: 0 });
-  }
+  const startedAt = Date.now();
+  const sevenDaysAgo = new Date(
+    startedAt - 7 * 24 * 60 * 60 * 1000
+  ).toISOString();
 
   let sent = 0;
   let failed = 0;
   let skippedNoConsent = 0;
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  let scanned = 0;
 
-  for (const user of premiumUsers) {
+  async function processUser(user: CronUser) {
     const userId = user.clerk_id;
     const usageRequestId = createUsageRequestId();
     const model = "claude-haiku-4-5-20251001";
@@ -57,7 +68,7 @@ export async function GET(request: Request) {
       // DSGVO: User könnte Consent zwischen Subscription-Aktivierung und Cron-Lauf widerrufen haben.
       if (!(await hasKiConsent(supabase, userId))) {
         skippedNoConsent++;
-        continue;
+        return;
       }
 
       const [profileRes, foodRes, weightRes, goalsRes] = await Promise.all([
@@ -134,13 +145,18 @@ ${JSON.stringify(goals)}`,
 
       if (user.email && coachingText) {
         const template = emailTemplates.weeklyCoaching(userName, coachingText);
-        await sendEmail({
+        const result = await sendEmail({
           to: user.email,
           subject: template.subject,
           html: template.html,
         });
-        sent++;
-        console.log(`[coaching] Sent to ${userId}`);
+        if (result.success) {
+          sent++;
+          console.log(`[coaching] Sent to ${userId}`);
+        } else {
+          failed++;
+          console.warn(`[coaching] Email failed for ${userId}: ${result.reason}`);
+        }
       }
     } catch (err) {
       console.error(`[coaching] Failed for ${user.clerk_id}:`, err);
@@ -159,5 +175,51 @@ ${JSON.stringify(goals)}`,
     }
   }
 
-  return NextResponse.json({ ok: true, sent, failed, skippedNoConsent });
+  let checkpoint = await getCronCheckpoint(supabase, JOB_NAME);
+  let cycleComplete = false;
+
+  while (Date.now() - startedAt < CRON_TIME_BUDGET_MS) {
+    let batch: CronUser[];
+    try {
+      batch = await fetchUserBatchAfter(
+        supabase,
+        ["pro_plus"],
+        checkpoint,
+        CRON_BATCH_SIZE
+      );
+    } catch (e) {
+      console.error("[coaching] Could not load premium users:", e);
+      break;
+    }
+
+    if (batch.length === 0) {
+      cycleComplete = true;
+      break;
+    }
+
+    await inGroups(batch, CRON_GROUP_SIZE, processUser);
+
+    scanned += batch.length;
+    checkpoint = batch[batch.length - 1].clerk_id;
+    await setCronCheckpoint(supabase, JOB_NAME, checkpoint);
+
+    if (batch.length < CRON_BATCH_SIZE) {
+      cycleComplete = true;
+      break;
+    }
+  }
+
+  // Zyklus komplett → Checkpoint zurücksetzen, damit der nächste Lauf von vorn beginnt.
+  if (cycleComplete) {
+    await clearCronCheckpoint(supabase, JOB_NAME);
+  }
+
+  return NextResponse.json({
+    ok: true,
+    sent,
+    failed,
+    skippedNoConsent,
+    scanned,
+    cycleComplete,
+  });
 }
