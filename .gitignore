@@ -43,3 +43,8 @@ next-env.d.ts
 .env.local
 .claude/
 posthog-setup-report.md
+
+# local agent/tool scratch dirs (not part of the app)
+.agents/
+.codex/
+.playwright-cli/

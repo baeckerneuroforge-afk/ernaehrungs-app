@@ -3,7 +3,9 @@ import { withSentryConfig } from "@sentry/nextjs";
 // CSP runs in Report-Only first: it surfaces violations (browser console /
 // report endpoint) WITHOUT breaking anything, so we can tune the allowlist
 // before switching the header to the enforcing "Content-Security-Policy".
-const cspReportOnly = [
+// Flip to enforcing by setting CSP_ENFORCE=true in the environment — same
+// allowlist for both modes, no edit to this file needed.
+const cspPolicy = [
   "default-src 'self'",
   // 'unsafe-inline'/'unsafe-eval' needed for now (inline theme/SW-boot scripts,
   // Clerk). Tighten with nonces before enforcing.
@@ -18,13 +20,21 @@ const cspReportOnly = [
   "form-action 'self'",
 ].join("; ");
 
+// Default: Report-Only. Set CSP_ENFORCE=true to emit the enforcing header.
+const cspEnforce = process.env.CSP_ENFORCE === "true";
+
 const securityHeaders = [
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "Permissions-Policy", value: "camera=(self), microphone=(self), geolocation=()" },
-  { key: "Content-Security-Policy-Report-Only", value: cspReportOnly },
+  {
+    key: cspEnforce
+      ? "Content-Security-Policy"
+      : "Content-Security-Policy-Report-Only",
+    value: cspPolicy,
+  },
 ];
 
 /** @type {import('next').NextConfig} */
