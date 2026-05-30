@@ -87,13 +87,28 @@ export async function fetchUserBatchAfter(
  * begrenzen. allSettled statt all: ein unerwarteter Throw in einem item darf
  * niemals den ganzen Batch/Cron-Lauf abbrechen (die per-User-Logik fängt Fehler
  * bereits selbst — das hier ist die zweite Sicherung).
+ *
+ * onGroupComplete (optional) wird nach jeder fertigen Gruppe mit deren letztem
+ * item aufgerufen — gedacht zum inkrementellen Checkpoint-Schreiben. So
+ * schrumpft das Reprocessing-Fenster bei einem harten Timeout von einem ganzen
+ * Batch auf maximal eine Gruppe. Ein Fehler im Callback bricht die
+ * Verarbeitung NICHT ab.
  */
 export async function inGroups<T>(
   items: T[],
   groupSize: number,
-  fn: (item: T) => Promise<void>
+  fn: (item: T) => Promise<void>,
+  onGroupComplete?: (lastItem: T) => Promise<void>
 ): Promise<void> {
   for (let i = 0; i < items.length; i += groupSize) {
-    await Promise.allSettled(items.slice(i, i + groupSize).map(fn));
+    const group = items.slice(i, i + groupSize);
+    await Promise.allSettled(group.map(fn));
+    if (onGroupComplete && group.length) {
+      try {
+        await onGroupComplete(group[group.length - 1]);
+      } catch (e) {
+        console.error("[cron] checkpoint write failed:", e);
+      }
+    }
   }
 }

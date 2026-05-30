@@ -197,11 +197,15 @@ ${JSON.stringify(goals)}`,
       break;
     }
 
-    await inGroups(batch, CRON_GROUP_SIZE, processUser);
+    // Checkpoint pro Gruppe fortschreiben (nicht erst pro Batch): bei einem
+    // harten Timeout werden so höchstens die ~5 User der laufenden Gruppe
+    // erneut verarbeitet, nicht der ganze Batch.
+    await inGroups(batch, CRON_GROUP_SIZE, processUser, async (last) => {
+      await setCronCheckpoint(supabase, JOB_NAME, last.clerk_id);
+    });
 
     scanned += batch.length;
     checkpoint = batch[batch.length - 1].clerk_id;
-    await setCronCheckpoint(supabase, JOB_NAME, checkpoint);
 
     if (batch.length < CRON_BATCH_SIZE) {
       cycleComplete = true;

@@ -406,22 +406,28 @@ export async function runMonthlyReportsForAllPremium(month: string): Promise<{
       }
 
       const report = await generateMonthlyReport(user.clerk_id, month, { isPremium: true });
-      const { error: upsertError } = await supabase
+      // INSERT (kein upsert): Die UNIQUE(user_id, month)-Constraint ist der
+      // Serialisierungspunkt. Laufen zwei Cron-Invocations gleichzeitig, gewinnt
+      // genau ein INSERT — der andere bekommt 23505 und schickt KEINE zweite
+      // Mail. So ist der Job auch gegen überlappende Läufe idempotent.
+      const { error: insertError } = await supabase
         .from("ea_monthly_reports")
-        .upsert(
-          {
-            user_id: user.clerk_id,
-            month,
-            report_data: report,
-          },
-          { onConflict: "user_id,month" }
-        );
-      if (upsertError) {
-        console.error(
-          `Report upsert failed for ${user.clerk_id}:`,
-          upsertError
-        );
-        failed++;
+        .insert({
+          user_id: user.clerk_id,
+          month,
+          report_data: report,
+        });
+      if (insertError) {
+        if (insertError.code === "23505") {
+          // Paralleler Lauf war schneller — Report existiert bereits, keine Mail.
+          skippedAlreadyExists++;
+        } else {
+          console.error(
+            `Report insert failed for ${user.clerk_id}:`,
+            insertError
+          );
+          failed++;
+        }
       } else {
         processed++;
         if (user.email) {
@@ -470,11 +476,14 @@ export async function runMonthlyReportsForAllPremium(month: string): Promise<{
       break;
     }
 
-    await inGroups(batch, CRON_GROUP_SIZE, processUser);
+    // Checkpoint pro Gruppe fortschreiben (siehe weekly-coaching): begrenzt das
+    // Reprocessing-Fenster bei Timeout auf ~5 User statt den ganzen Batch.
+    await inGroups(batch, CRON_GROUP_SIZE, processUser, async (last) => {
+      await setCronCheckpoint(supabase, JOB_NAME, last.clerk_id);
+    });
 
     scanned += batch.length;
     checkpoint = batch[batch.length - 1].clerk_id;
-    await setCronCheckpoint(supabase, JOB_NAME, checkpoint);
 
     if (batch.length < CRON_BATCH_SIZE) {
       cycleComplete = true;
