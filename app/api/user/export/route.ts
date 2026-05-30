@@ -38,6 +38,11 @@ export async function GET() {
     conversationsResult,
     messagesResult,
     creditsResult,
+    aiUsageResult,
+    feedbackResult,
+    monthlyReportsResult,
+    supportTicketsResult,
+    rolesResult,
   ] = await Promise.all([
     supabase.from("ea_profiles").select("*").eq("user_id", userId).maybeSingle(),
     supabase
@@ -71,6 +76,27 @@ export async function GET() {
       .select("*")
       .eq("user_id", userId)
       .order("created_at", { ascending: false }),
+    supabase
+      .from("ea_ai_usage")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("ea_feedback")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("ea_monthly_reports")
+      .select("*")
+      .eq("user_id", userId)
+      .order("month", { ascending: false }),
+    supabase
+      .from("ea_support_tickets")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false }),
+    supabase.from("ea_user_roles").select("*").eq("user_id", userId),
   ]);
 
   const payload = {
@@ -86,6 +112,11 @@ export async function GET() {
       messages: messagesResult.data || [],
     },
     credits: creditsResult.data || [],
+    ai_usage: aiUsageResult.data || [],
+    feedback: feedbackResult.data || [],
+    monatsberichte: monthlyReportsResult.data || [],
+    support_tickets: supportTicketsResult.data || [],
+    rollen: rolesResult.data || [],
   };
 
   const datum = new Date().toISOString().slice(0, 10);

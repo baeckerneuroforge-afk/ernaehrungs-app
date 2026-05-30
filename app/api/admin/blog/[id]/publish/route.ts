@@ -1,9 +1,14 @@
 import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { chunkText } from "@/lib/utils/chunking";
-import OpenAI from "openai";
+import { getOpenAI } from "@/lib/openai-client";
 import { NextResponse } from "next/server";
 import { logAdminAction } from "@/lib/admin-audit";
+import {
+  createUsageRequestId,
+  extractOpenAIEmbeddingTokens,
+  logUsage,
+} from "@/lib/usage-logging";
 
 async function checkAdmin() {
   const { userId } = await auth();
@@ -55,7 +60,8 @@ export async function POST(
       await supabase.from("ea_documents").delete().eq("source", source);
 
       const chunks = chunkText(post.content);
-      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const openai = getOpenAI();
+      const usageRequestId = createUsageRequestId();
 
       for (let i = 0; i < chunks.length; i++) {
         const chunk = chunks[i];
@@ -63,9 +69,22 @@ export async function POST(
           ? `${post.title} (${i + 1}/${chunks.length})`
           : post.title;
 
+        const embeddingStartedAt = Date.now();
         const embeddingResponse = await openai.embeddings.create({
           model: "text-embedding-3-small",
           input: chunk,
+        });
+        const embeddingTokens = extractOpenAIEmbeddingTokens(embeddingResponse, chunk);
+        void logUsage({
+          userId: adminUserId,
+          plan: "admin",
+          endpoint: "admin-blog-publish",
+          action: "embedding-ingest",
+          model: "openai-text-embedding-3-small",
+          inputTokens: embeddingTokens,
+          embeddingTokens,
+          requestId: usageRequestId,
+          durationMs: Date.now() - embeddingStartedAt,
         });
 
         const embedding = embeddingResponse.data[0].embedding;

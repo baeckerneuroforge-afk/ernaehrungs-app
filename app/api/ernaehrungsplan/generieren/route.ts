@@ -7,14 +7,22 @@ import { getUserPlan } from "@/lib/feature-gates-server";
 import { hasKiConsent, KI_CONSENT_MISSING_RESPONSE } from "@/lib/consent";
 import { touchLastActive } from "@/lib/last-active";
 import { planLimiter, checkRateLimit } from "@/lib/rate-limit";
-import Anthropic from "@anthropic-ai/sdk";
-import OpenAI from "openai";
+import { getAnthropic } from "@/lib/anthropic-client";
+import { getOpenAI } from "@/lib/openai-client";
 import * as Sentry from "@sentry/nextjs";
 import { validateBody, mealPlanRequestSchema } from "@/lib/validations";
 import type { PlanParameters } from "@/types/meal-plan";
 import { MEAL_LABELS } from "@/types/meal-plan";
 import { calculateTDEE, type TDEEResult } from "@/lib/tdee";
 import { quoteField } from "@/lib/utils/prompt-safe";
+import {
+  createUsageRequestId,
+  extractAnthropicUsage,
+  extractOpenAIEmbeddingTokens,
+  logUsage,
+  normalizeUsagePlan,
+  type UsageTokenFields,
+} from "@/lib/usage-logging";
 
 // 7-Tage-Pläne mit 8000 max_tokens + RAG-Embedding können den Vercel-Default
 // (60s auf Pro) sprengen. Wenn die Function geKillt wird bevor der Stream
@@ -368,6 +376,9 @@ export async function POST(request: Request) {
     const planMaxDays = plan === "free" ? 1 : plan === "pro" ? 3 : 7;
     const requestedDays = Math.min(planParameters.days || 7, planMaxDays);
     planParameters.days = requestedDays;
+    const usagePlan = normalizeUsagePlan(plan);
+    const usageRequestId = createUsageRequestId();
+    const usageAction = `${requestedDays}-tage-plan`;
 
     // Credit check & deduction
     const hasCredits = await deductCredits(
@@ -439,10 +450,23 @@ export async function POST(request: Request) {
       const ragQuery =
         `Ernährungsplan 7 Tage ${p?.ernaehrungsform || ""} ${p?.allergien?.join(" ") || ""} ${p?.ziel || ""} ${p?.krankheiten || ""} ${planParameters.fasting !== "none" ? planParameters.fasting : ""}`.trim();
 
-      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const openai = getOpenAI();
+      const embeddingStartedAt = Date.now();
       const embeddingResponse = await openai.embeddings.create({
         model: "text-embedding-3-small",
         input: ragQuery,
+      });
+      const embeddingTokens = extractOpenAIEmbeddingTokens(embeddingResponse, ragQuery);
+      void logUsage({
+        userId,
+        plan: usagePlan,
+        endpoint: "plan-generation",
+        action: "rag-search",
+        model: "openai-text-embedding-3-small",
+        inputTokens: embeddingTokens,
+        embeddingTokens,
+        requestId: usageRequestId,
+        durationMs: Date.now() - embeddingStartedAt,
       });
 
       const { data: docs } = await supabase.rpc("ea_match_documents", {
@@ -501,16 +525,16 @@ export async function POST(request: Request) {
     const userMessage = `Erstelle einen strukturierten ${daysLabel}-Ernährungsplan als JSON. Antworte NUR mit dem JSON-Objekt.`;
 
     // Stream response
-    const anthropic = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY,
-    });
+    const anthropic = getAnthropic();
     // max_tokens-Budget: vorher 3500/8000/16000. Mit Per-Meal-Makros
     // (protein/carbs/fat als Pflichtfelder) wachsen die Mahlzeiten um
     // ~3 Felder, das macht 10-20% mehr Output. Wir geben proportional
     // 4000 / 10000 / 20000 — Sicherheitspuffer gegen Truncation.
     const maxTokens = requestedDays <= 1 ? 4000 : requestedDays <= 3 ? 10000 : 20000;
+    const model = "claude-sonnet-4-6";
+    const llmStartedAt = Date.now();
     const stream = anthropic.messages.stream({
-      model: "claude-sonnet-4-6",
+      model,
       max_tokens: maxTokens,
       system: systemPrompt,
       messages: [{ role: "user", content: userMessage }],
@@ -519,14 +543,19 @@ export async function POST(request: Request) {
     const encoder = new TextEncoder();
     let fullContent = "";
     let finalStopReason: string | null = null;
-    let finalUsage: { input_tokens?: number; output_tokens?: number } | null =
-      null;
+    let finalUsage: UsageTokenFields = {};
 
     const readableStream = new ReadableStream({
       async start(controller) {
         try {
           const messageStream = await stream;
           for await (const event of messageStream) {
+            if (event.type === "message_start") {
+              finalUsage = {
+                ...finalUsage,
+                ...extractAnthropicUsage(event.message?.usage),
+              };
+            }
             if (
               event.type === "content_block_delta" &&
               event.delta.type === "text_delta"
@@ -548,8 +577,8 @@ export async function POST(request: Request) {
               }
               if (event.usage) {
                 finalUsage = {
-                  ...(finalUsage ?? {}),
-                  output_tokens: event.usage.output_tokens,
+                  ...finalUsage,
+                  ...extractAnthropicUsage(event.usage),
                 };
               }
             }
@@ -563,7 +592,7 @@ export async function POST(request: Request) {
             days: requestedDays,
             maxTokens,
             stopReason: finalStopReason,
-            outputTokens: finalUsage?.output_tokens,
+            outputTokens: finalUsage.outputTokens,
             contentLength: fullContent.length,
           });
 
@@ -582,13 +611,26 @@ export async function POST(request: Request) {
               userId,
               days: requestedDays,
               maxTokens,
-              outputTokens: finalUsage?.output_tokens,
+              outputTokens: finalUsage.outputTokens,
             });
             void refundCredits(
               userId,
               CREDIT_COSTS.plan_generation,
               "Plan-Generierung wurde wegen Längen-Limit abgebrochen"
             );
+            void logUsage({
+              userId,
+              plan: usagePlan,
+              endpoint: "plan-generation",
+              action: usageAction,
+              model,
+              ...finalUsage,
+              creditsCharged: CREDIT_COSTS.plan_generation,
+              creditsRefunded: true,
+              requestId: usageRequestId,
+              error: "max_tokens",
+              durationMs: Date.now() - llmStartedAt,
+            });
             controller.enqueue(
               encoder.encode(
                 `data: ${JSON.stringify({
@@ -603,6 +645,17 @@ export async function POST(request: Request) {
             return;
           }
 
+          void logUsage({
+            userId,
+            plan: usagePlan,
+            endpoint: "plan-generation",
+            action: usageAction,
+            model,
+            ...finalUsage,
+            creditsCharged: CREDIT_COSTS.plan_generation,
+            requestId: usageRequestId,
+            durationMs: Date.now() - llmStartedAt,
+          });
           controller.enqueue(
             encoder.encode(`data: ${JSON.stringify({ type: "done" })}\n\n`)
           );
@@ -615,6 +668,19 @@ export async function POST(request: Request) {
           // Refund the 5 credits we debited pre-stream — the user shouldn't
           // pay for an Anthropic outage.
           void refundCredits(userId, CREDIT_COSTS.plan_generation, "API-Fehler");
+          void logUsage({
+            userId,
+            plan: usagePlan,
+            endpoint: "plan-generation",
+            action: usageAction,
+            model,
+            ...finalUsage,
+            creditsCharged: CREDIT_COSTS.plan_generation,
+            creditsRefunded: true,
+            requestId: usageRequestId,
+            error: err instanceof Error ? err.message : "Stream error",
+            durationMs: Date.now() - llmStartedAt,
+          });
           controller.enqueue(
             encoder.encode(
               `data: ${JSON.stringify({ type: "error", error: "Generierung fehlgeschlagen — Credits wurden zurückerstattet." })}\n\n`

@@ -1,6 +1,7 @@
 import { Webhook } from "svix";
 import { headers } from "next/headers";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
+import { purgeUserData } from "@/lib/purge-user-data";
 import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
 
@@ -134,7 +135,7 @@ export async function POST(request: Request) {
           error: insertError.message,
         });
       } else {
-        console.log("[clerk-webhook] ea_users inserted", { userId: id, email });
+        console.log("[clerk-webhook] ea_users inserted", { userId: id });
       }
 
       // Welcome email only on fresh insert, and only for user.created
@@ -149,10 +150,24 @@ export async function POST(request: Request) {
 
   if (evt.type === "user.deleted") {
     const { id } = evt.data;
-    // Cascade: delete profile and related data
-    await supabase.from("ea_profiles").delete().eq("user_id", id);
-    await supabase.from("ea_users").delete().eq("clerk_id", id);
-    console.log("[clerk-webhook] ea_users deleted (cascade)", { userId: id });
+    // Full DSGVO Art. 17 purge — same logic as /api/user/delete, minus the
+    // Clerk account deletion (Clerk already removed it; this event IS that
+    // deletion). Without this, a user deleted directly in Clerk would leave
+    // all their food logs, weights, chats, plans, photos etc. behind.
+    const { errors } = await purgeUserData(supabase, id, "clerk-webhook");
+    const { error: userErr } = await supabase
+      .from("ea_users")
+      .delete()
+      .eq("clerk_id", id);
+    if (userErr) errors.push(`ea_users: ${userErr.message}`);
+    if (errors.length > 0) {
+      console.error("[clerk-webhook] user.deleted purge had errors", {
+        userId: id,
+        errors,
+      });
+    } else {
+      console.log("[clerk-webhook] user.deleted purge complete", { userId: id });
+    }
   }
 
   return new Response("OK", { status: 200 });

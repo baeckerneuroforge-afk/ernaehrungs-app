@@ -1,9 +1,21 @@
 import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { loadUserBehaviorContext } from "@/lib/utils/user-context";
+import { deductCredits, refundCredits, CREDIT_COSTS } from "@/lib/credits";
+import { getUserPlan } from "@/lib/feature-gates-server";
+import { hasFeatureAccess, getUpgradeMessage } from "@/lib/feature-gates";
 import { hasKiConsent, KI_CONSENT_MISSING_RESPONSE } from "@/lib/consent";
+import { checkRateLimit, wochencheckLimiter } from "@/lib/rate-limit";
 import { quoteField, sanitizeForPrompt } from "@/lib/utils/prompt-safe";
-import Anthropic from "@anthropic-ai/sdk";
+import { getAnthropic } from "@/lib/anthropic-client";
+import {
+  createUsageRequestId,
+  extractAnthropicUsage,
+  logUsage,
+  normalizeUsagePlan,
+  type UsagePlan,
+  type UsageTokenFields,
+} from "@/lib/usage-logging";
 
 const WOCHENCHECK_PROMPT = `Du bist eine warmherzige, fachlich fundierte Ernährungsberaterin. Du erstellst einen personalisierten Wochencheck basierend auf den echten Daten des Nutzers.
 
@@ -37,6 +49,12 @@ Analysiere das Ernährungstagebuch, den Gewichtsverlauf und die aktiven Ziele de
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function POST(_request: Request) {
+  let chargedUserId: string | null = null;
+  let creditsDeducted = false;
+  const creditCost = CREDIT_COSTS.review;
+  let usagePlan: UsagePlan = "free";
+  const usageRequestId = createUsageRequestId();
+
   try {
     const { userId } = await auth();
 
@@ -44,6 +62,32 @@ export async function POST(_request: Request) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
       });
+    }
+    chargedUserId = userId;
+
+    const rateLimit = await checkRateLimit(wochencheckLimiter, userId);
+    if (!rateLimit.success) {
+      return new Response(
+        JSON.stringify({
+          error: "rate_limited",
+          message: "Tägliches Limit für Wochenchecks erreicht. Bitte versuche es morgen erneut.",
+        }),
+        { status: 429, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    const plan = await getUserPlan(userId);
+    usagePlan = normalizeUsagePlan(plan);
+    if (!hasFeatureAccess(plan, "review")) {
+      return new Response(
+        JSON.stringify({
+          error: "feature_locked",
+          feature: "review",
+          message: getUpgradeMessage("review"),
+          requiredPlan: "pro",
+        }),
+        { status: 403, headers: { "Content-Type": "application/json" } }
+      );
     }
 
     const supabase = createSupabaseAdmin();
@@ -90,6 +134,23 @@ export async function POST(_request: Request) {
       );
     }
 
+    const hasCredits = await deductCredits(
+      userId,
+      creditCost,
+      "review",
+      "Wochencheck erstellt"
+    );
+    if (!hasCredits) {
+      return new Response(
+        JSON.stringify({
+          error: "insufficient_credits",
+          message: `Nicht genügend Credits. Ein Wochencheck kostet ${creditCost} Credits.`,
+        }),
+        { status: 402, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    creditsDeducted = true;
+
     // Build system prompt
     let systemPrompt = WOCHENCHECK_PROMPT;
     if (profilParts.length) {
@@ -98,9 +159,11 @@ export async function POST(_request: Request) {
     systemPrompt += `\n\n${behaviorContext}`;
 
     // Stream response
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const anthropic = getAnthropic();
+    const model = "claude-sonnet-4-6";
+    const llmStartedAt = Date.now();
     const stream = anthropic.messages.stream({
-      model: "claude-sonnet-4-6",
+      model,
       max_tokens: 1000,
       system: systemPrompt,
       messages: [
@@ -112,12 +175,19 @@ export async function POST(_request: Request) {
     });
 
     const encoder = new TextEncoder();
+    let finalUsage: UsageTokenFields = {};
 
     const readableStream = new ReadableStream({
       async start(controller) {
         try {
           const messageStream = await stream;
           for await (const event of messageStream) {
+            if (event.type === "message_start") {
+              finalUsage = {
+                ...finalUsage,
+                ...extractAnthropicUsage(event.message?.usage),
+              };
+            }
             if (
               event.type === "content_block_delta" &&
               event.delta.type === "text_delta"
@@ -128,13 +198,44 @@ export async function POST(_request: Request) {
                 )
               );
             }
+            if (event.type === "message_delta") {
+              finalUsage = {
+                ...finalUsage,
+                ...extractAnthropicUsage(event.usage),
+              };
+            }
           }
+          void logUsage({
+            userId,
+            plan: usagePlan,
+            endpoint: "wochencheck",
+            action: "wochencheck",
+            model,
+            ...finalUsage,
+            creditsCharged: creditCost,
+            requestId: usageRequestId,
+            durationMs: Date.now() - llmStartedAt,
+          });
           controller.enqueue(
             encoder.encode(`data: ${JSON.stringify({ type: "done" })}\n\n`)
           );
           controller.close();
         } catch (err) {
           console.error("Wochencheck stream error:", err);
+          void refundCredits(userId, creditCost, "Wochencheck API-Fehler");
+          void logUsage({
+            userId,
+            plan: usagePlan,
+            endpoint: "wochencheck",
+            action: "wochencheck",
+            model,
+            ...finalUsage,
+            creditsCharged: creditCost,
+            creditsRefunded: true,
+            requestId: usageRequestId,
+            error: err instanceof Error ? err.message : "Wochencheck stream error",
+            durationMs: Date.now() - llmStartedAt,
+          });
           controller.enqueue(
             encoder.encode(
               `data: ${JSON.stringify({ type: "error", error: "Analyse fehlgeschlagen" })}\n\n`
@@ -154,6 +255,22 @@ export async function POST(_request: Request) {
     });
   } catch (error) {
     console.error("Wochencheck error:", error);
+    if (creditsDeducted && chargedUserId) {
+      await refundCredits(chargedUserId, creditCost, "Wochencheck Server-Fehler").catch((err) =>
+        console.error("Wochencheck refund error:", err)
+      );
+      void logUsage({
+        userId: chargedUserId,
+        plan: usagePlan,
+        endpoint: "wochencheck",
+        action: "wochencheck",
+        model: "claude-sonnet-4-6",
+        creditsCharged: creditCost,
+        creditsRefunded: true,
+        requestId: usageRequestId,
+        error: error instanceof Error ? error.message : "Wochencheck Server-Fehler",
+      });
+    }
     return new Response(JSON.stringify({ error: "Server-Fehler" }), {
       status: 500,
     });

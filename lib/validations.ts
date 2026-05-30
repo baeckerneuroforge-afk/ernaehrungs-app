@@ -32,14 +32,11 @@ export const profileSchema = z.object({
 export const chatMessageSchema = z.object({
   message: z.string().min(1).max(10000).optional(),
   conversationId: z.string().uuid().optional(),
-  history: z
-    .array(
-      z.object({
-        role: z.enum(["user", "assistant"]),
-        content: z.string(),
-      })
-    )
-    .optional(),
+  // Session-Kennung (clientseitig generierte UUID, in ea_conversations als text).
+  // Der Server lädt die History anhand dieser ID aus der DB — body.history wird
+  // NICHT mehr akzeptiert (Schutz gegen History-Poisoning). Alt-Clients, die
+  // noch `history` senden, werden von Zod still gestript (kein Reject).
+  session_id: z.string().min(1).max(128).optional(),
   image: z
     .object({
       base64: z.string().max(15000000),
@@ -83,7 +80,21 @@ export const foodLogSchema = z.object({
   fat_g: z.number().min(0).max(1000).optional().nullable(),
   portion: z.string().max(200).optional().nullable(),
   source: z.enum(["manual", "photo"]).optional(),
-  photo_url: z.string().url().optional().nullable(),
+  // Only accept URLs that point at our own Supabase Storage (the analyze route
+  // returns signed URLs under <supabase-url>/storage/...). Rejects arbitrary
+  // external URLs (tracking pixels / malware) smuggled in via the client.
+  photo_url: z
+    .string()
+    .url()
+    .refine(
+      (u) => {
+        const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        return !!base && u.startsWith(`${base}/storage/`);
+      },
+      { message: "photo_url must point to Supabase storage" }
+    )
+    .optional()
+    .nullable(),
   photo_confidence: z
     .enum(["sicher", "mittel", "unsicher"])
     .optional()
@@ -96,6 +107,25 @@ export const foodLogSchema = z.object({
     .max(100)
     .optional()
     .nullable(),
+});
+
+// Tracker — partial goal update (PATCH). Zod strips unknown keys, so a client
+// can't inject id/user_id/created_at via the request body.
+export const zieleUpdateSchema = z.object({
+  typ: z.enum(["gewicht", "kalorien", "custom"]).optional(),
+  beschreibung: z.string().min(1).max(1000).optional(),
+  zielwert: z.number().optional().nullable(),
+  startwert: z.number().optional().nullable(),
+  einheit: z.string().max(50).optional().nullable(),
+  zieldatum: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+  erreicht: z.boolean().optional(),
+  erreicht_am: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+});
+
+// Admin reply to a user message.
+export const adminReplySchema = z.object({
+  id: z.string().uuid(),
+  reply: z.string().min(1).max(10000),
 });
 
 // Gewicht — wire format uses gewicht_kg/gemessen_am (matches DB columns).

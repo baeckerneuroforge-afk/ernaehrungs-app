@@ -1,5 +1,6 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
+import * as Sentry from "@sentry/nextjs";
 
 // Graceful degradation: if Upstash isn't configured (e.g. local dev without
 // Redis), rate-limiting becomes a no-op. The app stays fully functional.
@@ -66,6 +67,14 @@ export const trackerLimiter = redis
     })
   : null;
 
+export const wochencheckLimiter = redis
+  ? new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(10, "1 d"),
+      prefix: "rl:wochencheck",
+    })
+  : null;
+
 export const importLimiter = redis
   ? new Ratelimit({
       redis,
@@ -106,19 +115,44 @@ export const supportLimiter = redis
     })
   : null;
 
+// Fire the "Redis missing in production" alert only once per instance so a
+// misconfiguration is visible without spamming Sentry on every request.
+let _missingConfigWarned = false;
+
 export async function checkRateLimit(
   limiter: Ratelimit | null,
   identifier: string
 ): Promise<{ success: boolean; remaining?: number }> {
-  if (!limiter) return { success: true };
+  if (!limiter) {
+    // No Redis configured. Fine in local dev; in production this means rate
+    // limiting is silently OFF — surface it loudly so it gets fixed.
+    if (process.env.NODE_ENV === "production" && !_missingConfigWarned) {
+      _missingConfigWarned = true;
+      console.error(
+        "[rate-limit] Upstash Redis not configured in production — rate limiting is DISABLED"
+      );
+      Sentry.captureMessage(
+        "Rate limiting disabled: Upstash Redis not configured in production",
+        "error"
+      );
+    }
+    return { success: true };
+  }
   try {
     const result = await limiter.limit(identifier);
     return { success: result.success, remaining: result.remaining };
   } catch (err) {
     // If Redis is temporarily unreachable, fail open rather than locking
     // paying users out. The trade-off is a short window of no rate-limiting
-    // during outages — acceptable given credits still cap total spend.
+    // during outages — acceptable given credits still cap total spend. We alert
+    // so the outage is visible rather than silent.
     console.error("[rate-limit] check failed, failing open:", err);
+    if (process.env.NODE_ENV === "production") {
+      Sentry.captureException(err, {
+        level: "warning",
+        tags: { area: "rate-limit" },
+      });
+    }
     return { success: true };
   }
 }

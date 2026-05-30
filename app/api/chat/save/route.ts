@@ -33,19 +33,25 @@ export async function POST(request: Request) {
 
     const supabase = createSupabaseAdmin();
 
-    // Insert both messages
+    // Insert both messages. created_at wird explizit gesetzt (user 1ms vor
+    // assistant), sonst bekämen beide Rows aus dem Batch-Insert denselben
+    // now()-Timestamp → die serverseitige History könnte die Reihenfolge
+    // innerhalb eines Turns vertauschen (Anthropic verlangt user-first).
+    const turnTs = Date.now();
     const { error } = await supabase.from("ea_conversations").insert([
       {
         user_id: userId,
         session_id,
         role: "user",
         content: user_message,
+        created_at: new Date(turnTs).toISOString(),
       },
       {
         user_id: userId,
         session_id,
         role: "assistant",
         content: assistant_message,
+        created_at: new Date(turnTs + 1).toISOString(),
       },
     ]);
 

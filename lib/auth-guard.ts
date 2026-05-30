@@ -59,3 +59,22 @@ export async function requireOnboardedUser(): Promise<string> {
 
   return userId;
 }
+
+/**
+ * API-route admin guard. Returns the Clerk userId if the caller is an admin,
+ * otherwise null (the caller should respond 403). Shared by all /api/admin/*
+ * routes so the role check isn't re-implemented (and subtly drift) per file.
+ */
+export async function getAdminUserId(): Promise<string | null> {
+  const { userId } = await auth();
+  if (!userId) return null;
+
+  const supabase = createSupabaseAdmin();
+  const { data } = await supabase
+    .from("ea_user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .limit(1);
+
+  return data?.[0]?.role === "admin" ? userId : null;
+}

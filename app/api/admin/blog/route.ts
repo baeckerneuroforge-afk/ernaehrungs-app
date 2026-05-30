@@ -1,25 +1,12 @@
-import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { slugify } from "@/lib/utils/slugify";
 import { NextResponse } from "next/server";
 import { logAdminAction } from "@/lib/admin-audit";
-
-async function checkAdmin() {
-  const { userId } = await auth();
-  if (!userId) return null;
-  const supabase = createSupabaseAdmin();
-  const { data } = await supabase
-    .from("ea_user_roles")
-    .select("role")
-    .eq("user_id", userId)
-    .limit(1);
-  if (data?.[0]?.role !== "admin") return null;
-  return userId;
-}
+import { getAdminUserId } from "@/lib/auth-guard";
 
 // GET: List all blog posts (admin)
 export async function GET() {
-  const adminUserId = await checkAdmin();
+  const adminUserId = await getAdminUserId();
   if (!adminUserId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   await logAdminAction({
@@ -41,7 +28,7 @@ export async function GET() {
 
 // POST: Create new blog post
 export async function POST(request: Request) {
-  const adminUserId = await checkAdmin();
+  const adminUserId = await getAdminUserId();
   if (!adminUserId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const supabase = createSupabaseAdmin();

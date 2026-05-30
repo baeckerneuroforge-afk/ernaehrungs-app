@@ -1,27 +1,24 @@
-import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { chunkText } from "@/lib/utils/chunking";
-import OpenAI from "openai";
+import { getOpenAI } from "@/lib/openai-client";
 import { NextResponse } from "next/server";
 import pdfParse from "pdf-parse";
 import mammoth from "mammoth";
 import { logAdminAction } from "@/lib/admin-audit";
+import { getAdminUserId } from "@/lib/auth-guard";
+import {
+  createUsageRequestId,
+  extractOpenAIEmbeddingTokens,
+  logUsage,
+} from "@/lib/usage-logging";
 
-async function requireAdmin(): Promise<string | null> {
-  const { userId } = await auth();
-  if (!userId) return null;
-  const supabase = createSupabaseAdmin();
-  const { data } = await supabase
-    .from("ea_user_roles")
-    .select("role")
-    .eq("user_id", userId)
-    .limit(1);
-  return data?.[0]?.role === "admin" ? userId : null;
-}
+// Cap upload size before loading the whole file into memory (pdf-parse/mammoth
+// read the entire buffer) — a huge upload could otherwise OOM the function.
+const MAX_DOC_BYTES = 10 * 1024 * 1024; // 10 MB
 
 // GET: List all documents (grouped by source)
 export async function GET() {
-  const adminId = await requireAdmin();
+  const adminId = await getAdminUserId();
   if (!adminId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const supabase = createSupabaseAdmin();
@@ -52,7 +49,7 @@ export async function GET() {
 
 // POST: Upload and ingest a document
 export async function POST(request: Request) {
-  const adminId = await requireAdmin();
+  const adminId = await getAdminUserId();
   if (!adminId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   try {
@@ -61,6 +58,13 @@ export async function POST(request: Request) {
 
     if (!file) {
       return NextResponse.json({ error: "Keine Datei" }, { status: 400 });
+    }
+
+    if (file.size > MAX_DOC_BYTES) {
+      return NextResponse.json(
+        { error: "Datei zu groß (max. 10 MB)" },
+        { status: 413 }
+      );
     }
 
     let text = "";
@@ -92,17 +96,31 @@ export async function POST(request: Request) {
     const chunks = chunkText(text);
 
     // Generate embeddings and insert (service role bypasses RLS)
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const openai = getOpenAI();
     const supabase = createSupabaseAdmin();
+    const usageRequestId = createUsageRequestId();
 
     let inserted = 0;
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i];
       const title = `${fileName} (${i + 1}/${chunks.length})`;
 
+      const embeddingStartedAt = Date.now();
       const embeddingResponse = await openai.embeddings.create({
         model: "text-embedding-3-small",
         input: chunk,
+      });
+      const embeddingTokens = extractOpenAIEmbeddingTokens(embeddingResponse, chunk);
+      void logUsage({
+        userId: adminId,
+        plan: "admin",
+        endpoint: "admin-documents",
+        action: "embedding-ingest",
+        model: "openai-text-embedding-3-small",
+        inputTokens: embeddingTokens,
+        embeddingTokens,
+        requestId: usageRequestId,
+        durationMs: Date.now() - embeddingStartedAt,
       });
 
       const embedding = embeddingResponse.data[0].embedding;
@@ -138,7 +156,7 @@ export async function POST(request: Request) {
 
 // DELETE: Remove a document source
 export async function DELETE(request: Request) {
-  const adminId = await requireAdmin();
+  const adminId = await getAdminUserId();
   if (!adminId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { source } = await request.json();

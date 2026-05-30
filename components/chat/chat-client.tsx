@@ -10,7 +10,6 @@ import { DmToast } from "./dm-toast";
 import { CreditTopupModal } from "@/components/credit-topup-modal";
 import { CreditBadge } from "@/components/credit-badge";
 import { VoiceInputButton } from "@/components/ui/voice-input-button";
-import { createClient } from "@/lib/supabase/client";
 import posthog from "posthog-js";
 
 interface Message {
@@ -148,51 +147,59 @@ export function ChatClient({ userId, userName, initialPlan }: ChatClientProps) {
     return () => clearTimeout(t);
   }, [isPremiumChat]);
 
-  // Check initial unread DM count
+  // Poll for unread admin replies (DM badge). Supabase Realtime via the anon
+  // client can't authenticate against RLS — we use Clerk, not Supabase Auth, so
+  // the old subscription was inert. Polling on mount + tab focus + a light
+  // interval keeps the badge fresh without any Clerk-JWT plumbing.
+  // prevUnread = null markiert "noch nichts geladen" → kein Toast beim ersten
+  // Laden für alte ungelesene Nachrichten, nur bei echtem Neuzugang danach.
+  const prevUnreadRef = useRef<number | null>(null);
   useEffect(() => {
-    fetch("/api/messages")
-      .then((r) => (r.ok ? r.json() : []))
-      .then((msgs: Array<{ id: string; admin_reply: string | null }>) => {
-        const seen = getSeenIds(userId);
-        const count = msgs.filter((m) => m.admin_reply && !seen.includes(m.id)).length;
-        setUnreadDMs(count);
-      })
-      .catch(() => {});
-  }, [userId]);
+    let cancelled = false;
 
-  // Supabase Realtime — listen for new replies on ea_messages
-  useEffect(() => {
-    const supabase = createClient();
-    const channel = supabase
-      .channel(`dm-replies-${userId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "ea_messages",
-          filter: `user_id=eq.${userId}`,
-        },
-        (payload: { new: Record<string, unknown>; old: Record<string, unknown> }) => {
-          const wasEmpty = !payload.old.admin_reply;
-          const hasReply = !!payload.new.admin_reply;
-          if (wasEmpty && hasReply) {
-            setUnreadDMs((prev) => prev + 1);
+    const refreshUnread = () => {
+      // Panel offen → Badge bleibt 0, kein Refresh (verhindert Flicker, da
+      // handleOpenDm gerade auf seen gesetzt hat).
+      if (cancelled || dmOpen) return;
+      fetch("/api/messages")
+        .then((r) => (r.ok ? r.json() : []))
+        .then((msgs: Array<{ id: string; admin_reply: string | null }>) => {
+          if (cancelled || dmOpen) return;
+          const seen = getSeenIds(userId);
+          const count = msgs.filter((m) => m.admin_reply && !seen.includes(m.id)).length;
+          setUnreadDMs(count);
+          // Toast nur bei NEU eingetroffener Antwort (Anstieg) nach dem ersten Laden.
+          if (prevUnreadRef.current !== null && count > prevUnreadRef.current) {
             setShowDmToast(true);
           }
-        }
-      )
-      .subscribe();
+          prevUnreadRef.current = count;
+        })
+        .catch(() => {});
+    };
+
+    refreshUnread();
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") refreshUnread();
+    }, 60_000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refreshUnread();
+    };
+    document.addEventListener("visibilitychange", onVisible);
 
     return () => {
-      supabase.removeChannel(channel);
+      cancelled = true;
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [userId]);
+  }, [userId, dmOpen]);
 
   const handleOpenDm = useCallback(() => {
     setDmOpen(true);
     setUnreadDMs(0);
     setShowDmToast(false);
+    // Baseline mitziehen, damit ein gleichzeitig eintreffender Reply nach dem
+    // Öffnen keinen veralteten Toast auslöst.
+    prevUnreadRef.current = 0;
     // Mark all current replies as seen
     fetch("/api/messages")
       .then((r) => (r.ok ? r.json() : []))
@@ -301,7 +308,7 @@ export function ChatClient({ userId, userName, initialPlan }: ChatClientProps) {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, history: messages, userId, image: imagePayload }),
+        body: JSON.stringify({ message: text, session_id: sessionIdRef.current, userId, image: imagePayload }),
       });
 
       if (response.status === 403) {
@@ -403,7 +410,11 @@ export function ChatClient({ userId, userName, initialPlan }: ChatClientProps) {
       }
 
       if (assistantContent) {
-        fetch("/api/chat/save", {
+        // Awaiten (statt fire-and-forget): der Server lädt die History beim
+        // Folge-Request aus der DB. Erst speichern, dann erst isStreaming lösen
+        // (finally) — sonst könnte eine schnelle Folgefrage den gerade
+        // beendeten Turn noch nicht in der DB vorfinden (Kontextverlust).
+        await fetch("/api/chat/save", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
