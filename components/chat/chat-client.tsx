@@ -17,7 +17,7 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   imageDataUrl?: string;
-  ragInfo?: { chunks: number; confidence: "high" | "low" | "none"; sources: string };
+  ragInfo?: { chunks: number; confidence: "high" | "medium" | "tentative" | "none"; sources: string };
 }
 
 interface ChatClientProps {
@@ -359,11 +359,11 @@ export function ChatClient({ userId, userName, initialPlan }: ChatClientProps) {
             // Strip it out of the visible stream and attach to the message.
             if (isAdminPlan && !ragParsed) {
               ragBuffer += delta;
-              const match = ragBuffer.match(/^\[RAG: (\d+) chunks, (high|low|none), ([^\]]*)\]\n?/);
+              const match = ragBuffer.match(/^\[RAG: (\d+) chunks, (high|medium|tentative|none), ([^\]]*)\]\n?/);
               if (match) {
                 const ragInfo = {
                   chunks: parseInt(match[1], 10),
-                  confidence: match[2] as "high" | "low" | "none",
+                  confidence: match[2] as "high" | "medium" | "tentative" | "none",
                   sources: match[3],
                 };
                 delta = ragBuffer.slice(match[0].length);
@@ -627,7 +627,8 @@ export function ChatClient({ userId, userName, initialPlan }: ChatClientProps) {
                           className={`mb-1 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono font-medium border ${
                             msg.ragInfo.confidence === "high"
                               ? "bg-green-50 border-green-300 text-green-800"
-                              : msg.ragInfo.confidence === "low"
+                              : msg.ragInfo.confidence === "medium" ||
+                                msg.ragInfo.confidence === "tentative"
                               ? "bg-amber-50 border-amber-300 text-amber-800"
                               : "bg-red-50 border-red-300 text-red-800"
                           }`}
