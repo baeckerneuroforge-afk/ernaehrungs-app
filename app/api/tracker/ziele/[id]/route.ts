@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import { checkRateLimit, trackerLimiter } from "@/lib/rate-limit";
+import { validateBody, zieleUpdateSchema } from "@/lib/validations";
 
 const RATE_LIMIT_MSG = "Zu viele Anfragen. Bitte warte einen Moment.";
 
@@ -19,18 +20,23 @@ export async function PATCH(
 
   const supabase = createSupabaseAdmin();
 
-  const body = await request.json();
+  const body = await request.json().catch(() => ({}));
+  const validation = validateBody(zieleUpdateSchema, body);
+  if (!validation.success) {
+    return NextResponse.json({ error: "invalid_input", message: validation.error }, { status: 400 });
+  }
 
   const { data, error } = await supabase
     .from("ea_ziele")
-    .update({ ...body, updated_at: new Date().toISOString() })
+    .update({ ...validation.data, updated_at: new Date().toISOString() })
     .eq("id", params.id)
     .eq("user_id", userId)
     .select()
     .limit(1);
 
   if (error) { console.error("[tracker/ziele/:id] db error:", error); return NextResponse.json({ error: "internal_error" }, { status: 500 }); }
-  return NextResponse.json(data?.[0]);
+  if (!data?.length) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  return NextResponse.json(data[0]);
 }
 
 export async function DELETE(

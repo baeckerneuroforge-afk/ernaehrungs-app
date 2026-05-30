@@ -47,13 +47,22 @@ export async function POST(request: Request) {
 
   const VALID_TYPES = new Set(["fruehstueck", "mittag", "abend", "snack"]);
 
+  // Reuse foodLogSchema bounds (kalorien 0-10000, makros 0-1000): out-of-range
+  // or non-finite values become null instead of inserting absurd numbers.
+  const boundInt = (v: unknown, max: number): number | null =>
+    typeof v === "number" && isFinite(v) && v >= 0 && v <= max ? Math.round(v) : null;
+  const bound1 = (v: unknown, max: number): number | null =>
+    typeof v === "number" && isFinite(v) && v >= 0 && v <= max
+      ? Math.round(v * 10) / 10
+      : null;
+
   const toInsert = body.entries.slice(0, 1000).map((e) => ({
     user_id: userId,
     beschreibung: (e.name || "Importierter Eintrag").slice(0, 1000),
-    kalorien_geschaetzt: typeof e.kalorien === "number" ? Math.round(e.kalorien) : null,
-    protein_g: typeof e.protein === "number" ? Math.round(e.protein * 10) / 10 : null,
-    carbs_g: typeof e.carbs === "number" ? Math.round(e.carbs * 10) / 10 : null,
-    fat_g: typeof e.fat === "number" ? Math.round(e.fat * 10) / 10 : null,
+    kalorien_geschaetzt: boundInt(e.kalorien, 10000),
+    protein_g: bound1(e.protein, 1000),
+    carbs_g: bound1(e.carbs, 1000),
+    fat_g: bound1(e.fat, 1000),
     mahlzeit_typ: e.mahlzeit_typ && VALID_TYPES.has(e.mahlzeit_typ) ? e.mahlzeit_typ : "snack",
     externe_quelle: (e.externe_quelle || "csv_import").slice(0, 50),
     externe_id: e.externe_id?.slice(0, 200) || null,
