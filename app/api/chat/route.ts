@@ -343,7 +343,11 @@ export async function POST(request: Request) {
       );
     }
     const body = validation.data;
-    const history = body.history ?? [];
+    const sessionId = body.session_id;
+    // History wird serverseitig aus ea_conversations geladen (siehe unten),
+    // NICHT aus body.history — sonst könnte der Client gefälschte assistant-
+    // Turns einschleusen (History-Poisoning).
+    let history: { role: "user" | "assistant"; content: string }[] = [];
     const rawImage = body.image as ChatImagePayload | undefined;
     const hasImage = !!(rawImage?.base64 && rawImage?.mediaType);
     // Bei Bild-Nachrichten darf die Text-Message leer sein → Default
@@ -394,6 +398,31 @@ export async function POST(request: Request) {
         status: 403,
         headers: { "Content-Type": "application/json" },
       });
+    }
+
+    // ---- History serverseitig laden (Schutz gegen History-Poisoning) ----
+    // Die letzten Turns kommen aus ea_conversations für (user_id, session_id),
+    // nicht vom Client. /api/chat/save persistiert jeden Turn nach der Antwort,
+    // sodass beim Folge-Request der echte Verlauf vorliegt.
+    if (sessionId) {
+      const { data: priorTurns } = await supabase
+        .from("ea_conversations")
+        .select("role, content")
+        .eq("user_id", userId)
+        .eq("session_id", sessionId)
+        // created_at primär, id sekundär → deterministische Reihenfolge auch
+        // bei gleichen Timestamps (Altdaten vor dem save-Timestamp-Fix).
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .limit(16);
+      if (priorTurns?.length) {
+        history = priorTurns
+          .reverse()
+          .map((t) => ({
+            role: t.role === "assistant" ? "assistant" : "user",
+            content: t.content as string,
+          }));
+      }
     }
 
     // ---- Rate limit (Cost-Attack-Schutz) ----
@@ -875,12 +904,17 @@ Regeln:
           >;
     };
 
-    const historyMessages: AnthropicMessage[] = history
-      .slice(-8)
-      .map((h) => ({
-        role: h.role as "user" | "assistant",
-        content: h.content,
-      }));
+    // Anthropic verlangt, dass die erste Message vom User stammt. Führende
+    // assistant-Turns abschneiden (kann passieren, wenn der älteste geladene
+    // Turn durch das slice(-8) angeschnitten wird).
+    let slicedHistory = history.slice(-8);
+    while (slicedHistory.length && slicedHistory[0].role !== "user") {
+      slicedHistory = slicedHistory.slice(1);
+    }
+    const historyMessages: AnthropicMessage[] = slicedHistory.map((h) => ({
+      role: h.role as "user" | "assistant",
+      content: h.content,
+    }));
 
     const currentUserMessage: AnthropicMessage = hasImage
       ? {

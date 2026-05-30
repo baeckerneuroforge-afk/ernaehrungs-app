@@ -4,6 +4,17 @@ import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
 import { hasKiConsent } from "@/lib/consent";
 import {
+  type CronUser,
+  CRON_BATCH_SIZE,
+  CRON_GROUP_SIZE,
+  CRON_TIME_BUDGET_MS,
+  getCronCheckpoint,
+  setCronCheckpoint,
+  clearCronCheckpoint,
+  fetchUserBatchAfter,
+  inGroups,
+} from "@/lib/cron-checkpoint";
+import {
   createUsageRequestId,
   extractAnthropicUsage,
   logUsage,
@@ -333,27 +344,29 @@ Antworte AUSSCHLIESSLICH als gültiges JSON ohne Markdown-Codeblock:
   };
 }
 
+const JOB_NAME = "monthly-report";
+
 /**
  * Run the monthly report generation for all premium users and persist.
  * Upserts into ea_monthly_reports keyed by (user_id, month).
+ *
+ * Verarbeitet User in Checkpoint-Batches (siehe lib/cron-checkpoint): pro Lauf
+ * werden Batches ab dem gespeicherten clerk_id parallel abgearbeitet, bis das
+ * Zeitbudget erreicht ist. Bricht der Lauf ab, setzt der nächste am Checkpoint
+ * fort — kombiniert mit der (user, month)-Idempotenz kommen so garantiert alle
+ * User dran, ohne Reports doppelt zu generieren.
  */
 export async function runMonthlyReportsForAllPremium(month: string): Promise<{
   processed: number;
   failed: number;
+  emailFailed: number;
   skippedNoConsent: number;
   skippedAlreadyExists: number;
+  scanned: number;
+  cycleComplete: boolean;
 }> {
   const supabase = createSupabaseAdmin();
-
-  const { data: users, error } = await supabase
-    .from("ea_users")
-    .select("clerk_id, email, name")
-    .in("subscription_plan", ["pro_plus", "admin"]);
-
-  if (error || !users) {
-    console.error("Could not load premium users:", error);
-    return { processed: 0, failed: 0, skippedNoConsent: 0, skippedAlreadyExists: 0 };
-  }
+  const startedAt = Date.now();
 
   // Format "2026-03" → "März 2026" for the email subject line.
   const [yearStr, monthStr] = month.split("-");
@@ -365,15 +378,17 @@ export async function runMonthlyReportsForAllPremium(month: string): Promise<{
 
   let processed = 0;
   let failed = 0;
+  let emailFailed = 0;
   let skippedNoConsent = 0;
   let skippedAlreadyExists = 0;
+  let scanned = 0;
 
-  for (const user of users) {
+  async function processUser(user: CronUser) {
     try {
       // DSGVO: Consent pro Lauf revalidieren — User könnte inzwischen widerrufen haben.
       if (!(await hasKiConsent(supabase, user.clerk_id))) {
         skippedNoConsent++;
-        continue;
+        return;
       }
 
       // Idempotency: Falls bereits ein Report für (user, month) existiert, nicht neu generieren.
@@ -387,7 +402,7 @@ export async function runMonthlyReportsForAllPremium(month: string): Promise<{
 
       if (existing) {
         skippedAlreadyExists++;
-        continue;
+        return;
       }
 
       const report = await generateMonthlyReport(user.clerk_id, month, { isPremium: true });
@@ -414,11 +429,17 @@ export async function runMonthlyReportsForAllPremium(month: string): Promise<{
             user.name || "dort",
             monthLabel
           );
-          void sendEmail({
+          const result = await sendEmail({
             to: user.email,
             subject: template.subject,
             html: template.html,
           });
+          if (!result.success) {
+            emailFailed++;
+            console.warn(
+              `[monthly-report] Email failed for ${user.clerk_id}: ${result.reason}`
+            );
+          }
         }
       }
     } catch (e) {
@@ -427,5 +448,52 @@ export async function runMonthlyReportsForAllPremium(month: string): Promise<{
     }
   }
 
-  return { processed, failed, skippedNoConsent, skippedAlreadyExists };
+  let checkpoint = await getCronCheckpoint(supabase, JOB_NAME);
+  let cycleComplete = false;
+
+  while (Date.now() - startedAt < CRON_TIME_BUDGET_MS) {
+    let batch: CronUser[];
+    try {
+      batch = await fetchUserBatchAfter(
+        supabase,
+        ["pro_plus", "admin"],
+        checkpoint,
+        CRON_BATCH_SIZE
+      );
+    } catch (e) {
+      console.error("Could not load premium users:", e);
+      break;
+    }
+
+    if (batch.length === 0) {
+      cycleComplete = true;
+      break;
+    }
+
+    await inGroups(batch, CRON_GROUP_SIZE, processUser);
+
+    scanned += batch.length;
+    checkpoint = batch[batch.length - 1].clerk_id;
+    await setCronCheckpoint(supabase, JOB_NAME, checkpoint);
+
+    if (batch.length < CRON_BATCH_SIZE) {
+      cycleComplete = true;
+      break;
+    }
+  }
+
+  // Zyklus komplett → Checkpoint zurücksetzen, damit der nächste Lauf von vorn beginnt.
+  if (cycleComplete) {
+    await clearCronCheckpoint(supabase, JOB_NAME);
+  }
+
+  return {
+    processed,
+    failed,
+    emailFailed,
+    skippedNoConsent,
+    skippedAlreadyExists,
+    scanned,
+    cycleComplete,
+  };
 }
