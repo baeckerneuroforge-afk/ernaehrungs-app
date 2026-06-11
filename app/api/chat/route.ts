@@ -788,13 +788,16 @@ export async function POST(request: Request) {
 
     console.log("[chat] RAG", {
       userId,
-      query: message.slice(0, 80),
       chunks: ragChunkCount,
       confidence: ragConfidence,
       avgSimilarity: Number(ragAvgSimilarity.toFixed(3)),
       topSources: ragTopSources,
       healthSensitive: isHealthSensitive,
-      healthKeyword: healthCheck.keyword,
+      // Inhalts-/Gesundheitsdaten (Suchbegriff, erkanntes Keyword) NUR lokal —
+      // niemals in Prod-Logs (Art. 9 DSGVO).
+      ...(process.env.NODE_ENV !== "production"
+        ? { query: message.slice(0, 80), healthKeyword: healthCheck.keyword }
+        : {}),
     });
 
     // ---- Fallback: Keine Wissensbasis-Treffer ----
