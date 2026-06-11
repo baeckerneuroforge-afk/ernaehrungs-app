@@ -4,7 +4,13 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { toast } from "sonner";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
-import { WeightChart } from "@/components/tracker/weight-chart";
+import dynamic from "next/dynamic";
+// recharts lazy laden (P12) — hält die ~150 KB recharts aus dem initialen
+// Bundle der Gewichts-Seite; der Chart lädt erst clientseitig nach.
+const WeightChart = dynamic(
+  () => import("@/components/tracker/weight-chart").then((m) => m.WeightChart),
+  { ssr: false }
+);
 import type { WeightLog, Ziel } from "@/types";
 import {
   Plus,
