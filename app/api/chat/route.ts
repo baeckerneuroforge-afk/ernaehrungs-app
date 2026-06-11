@@ -833,7 +833,11 @@ export async function POST(request: Request) {
     }
 
     // ---- System Prompt bauen ----
-    let fullSystemPrompt = SYSTEM_PROMPT;
+    // SYSTEM_PROMPT (statisch, ~10 KB) geht als eigener, gecachter System-Block
+    // raus (siehe Stream-Aufruf unten). fullSystemPrompt sammelt nur die
+    // DYNAMISCHEN Teile (Profil, Plan, Verhalten, RAG, Hinweise) — die folgen
+    // NACH dem Cache-Breakpoint, damit der statische Präfix cachebar bleibt (P1).
+    let fullSystemPrompt = "";
 
     if (profileContext) {
       fullSystemPrompt += `\n\nNUTZERPROFIL:\n${profileContext}`;
@@ -981,7 +985,19 @@ Regeln:
     const stream = anthropic.messages.stream({
       model,
       max_tokens: action === "plan_generation" ? 3000 : 1500,
-      system: fullSystemPrompt,
+      // Prompt-Caching (P1): statischer SYSTEM_PROMPT als gecachter Block
+      // (ephemeral, ~5 Min TTL), dynamischer Kontext danach (uncached). Spart
+      // bei Folge-Nachrichten ~90 % der Input-Kosten des Präfixes.
+      system: [
+        {
+          type: "text" as const,
+          text: SYSTEM_PROMPT,
+          cache_control: { type: "ephemeral" as const },
+        },
+        ...(fullSystemPrompt
+          ? [{ type: "text" as const, text: fullSystemPrompt }]
+          : []),
+      ],
       messages,
     });
 
