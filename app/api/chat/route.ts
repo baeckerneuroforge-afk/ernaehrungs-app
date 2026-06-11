@@ -12,6 +12,7 @@ import { getAnthropic } from "@/lib/anthropic-client";
 import { getOpenAI } from "@/lib/openai-client";
 import * as Sentry from "@sentry/nextjs";
 import { validateBody, chatMessageSchema } from "@/lib/validations";
+import { validateBase64Image } from "@/lib/image-validate";
 import { sanitizeForPrompt, quoteField } from "@/lib/utils/prompt-safe";
 import {
   createUsageRequestId,
@@ -461,6 +462,22 @@ export async function POST(request: Request) {
         }),
         { status: 403, headers: { "Content-Type": "application/json" } }
       );
+    }
+
+    // ---- Bild-Bytes validieren (Magic Bytes + Größe nach Decode) ----
+    // Zod prüft nur, dass base64 + mediaType vorhanden sind — nicht, ob die
+    // Bytes wirklich ein Bild dieses Typs sind. Magic-Byte-Check + Größenlimit
+    // nach dem Dekodieren, bevor Credits fließen oder Anthropic gerufen wird.
+    if (hasImage) {
+      const imgCheck = validateBase64Image(rawImage!.base64, rawImage!.mediaType, {
+        maxBytes: 10 * 1024 * 1024,
+      });
+      if (!imgCheck.ok) {
+        return new Response(
+          JSON.stringify({ error: "invalid_image", message: imgCheck.error }),
+          { status: 400, headers: { "Content-Type": "application/json" } }
+        );
+      }
     }
 
     // ---- Credit cost + type depend on action AND plan for chat ----
