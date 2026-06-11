@@ -2,7 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Lora:wght@400;500;600;700&display=swap');
+/* Fonts kommen via next/font/google (self-hosted, siehe app/layout.tsx) —
+   kein render-blockierender Google-CDN-@import mehr (P7). */
 
 html, body {
   /* Prevent horizontal scroll from decorative blur shapes / transforms on mobile. */
@@ -19,7 +20,7 @@ html, body {
 }
 
 body {
-  font-family: 'DM Sans', 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans), 'Inter', system-ui, -apple-system, sans-serif;
   background-color: #FAFAF5;
   color: #1C1917;
   -webkit-font-smoothing: antialiased;
@@ -198,7 +199,7 @@ html.dark .bg-paper {
 }
 
 h1, h2, h3, h4, h5, h6 {
-  font-family: 'Lora', Georgia, 'Times New Roman', serif;
+  font-family: var(--font-serif), Georgia, 'Times New Roman', serif;
   font-weight: 600;
   letter-spacing: -0.01em;
 }
