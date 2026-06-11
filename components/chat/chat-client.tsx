@@ -9,6 +9,7 @@ import { DirectMessagePanel } from "./direct-message-panel";
 import { DmToast } from "./dm-toast";
 import { CreditTopupModal } from "@/components/credit-topup-modal";
 import { CreditBadge } from "@/components/credit-badge";
+import { fetchCreditsShared } from "@/lib/credits-client";
 import { VoiceInputButton } from "@/components/ui/voice-input-button";
 import posthog from "posthog-js";
 
@@ -123,8 +124,7 @@ export function ChatClient({ userId, userName, initialPlan }: ChatClientProps) {
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/credits")
-      .then((r) => (r.ok ? r.json() : null))
+    fetchCreditsShared()
       .then((data) => setUserPlan(data?.plan || "free"))
       .catch(() => setUserPlan("free"));
   }, []);

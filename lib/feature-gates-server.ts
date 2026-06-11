@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import type { SubscriptionPlan } from "@/lib/feature-gates";
 
@@ -7,7 +8,9 @@ import type { SubscriptionPlan } from "@/lib/feature-gates";
  * Admins always return "admin" which grants access to every feature.
  * Server-only because it uses the Supabase admin client.
  */
-export async function getUserPlan(clerkId: string): Promise<SubscriptionPlan> {
+// Per-Request memoisiert (React cache): mehrere Routen/Helfer fragen den Plan
+// im selben Request mehrfach ab — so bleibt es bei einem DB-Roundtrip.
+export const getUserPlan = cache(async (clerkId: string): Promise<SubscriptionPlan> => {
   const supabase = createSupabaseAdmin();
 
   const { data: roleData } = await supabase
@@ -24,4 +27,4 @@ export async function getUserPlan(clerkId: string): Promise<SubscriptionPlan> {
     .eq("clerk_id", clerkId)
     .single();
   return (data?.subscription_plan as SubscriptionPlan) || "free";
-}
+});

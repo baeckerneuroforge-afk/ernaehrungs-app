@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AlertCircle, X, Sparkles } from "lucide-react";
+import { fetchCreditsShared } from "@/lib/credits-client";
 
 /**
  * Global warning banner shown at the top of the app (below the navbar)
@@ -27,8 +28,7 @@ export function CreditWarning() {
     if (typeof window !== "undefined") {
       setDismissed(sessionStorage.getItem("credit-warning-dismissed") === "1");
     }
-    fetch("/api/credits")
-      .then((r) => (r.ok ? r.json() : null))
+    fetchCreditsShared()
       .then((data) => {
         if (data && typeof data.total === "number") setTotal(data.total);
       })

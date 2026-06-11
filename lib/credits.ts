@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
@@ -36,7 +37,9 @@ interface CreditBalance {
 /**
  * Check whether a user has the admin role. Admins bypass the credit system.
  */
-export async function isAdminUser(userId: string): Promise<boolean> {
+// Per-Request memoisiert (React cache): im Chat-Request wird der Admin-Status
+// sonst 3-5x neu aus ea_user_roles gelesen (deduct/refundCredits, RAG-Marker).
+export const isAdminUser = cache(async (userId: string): Promise<boolean> => {
   const supabase = createSupabaseAdmin();
   const { data } = await supabase
     .from("ea_user_roles")
@@ -44,7 +47,7 @@ export async function isAdminUser(userId: string): Promise<boolean> {
     .eq("user_id", userId)
     .limit(1);
   return data?.[0]?.role === "admin";
-}
+});
 
 /**
  * Get current credit balance for a user.
