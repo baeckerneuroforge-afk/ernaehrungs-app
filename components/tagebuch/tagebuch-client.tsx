@@ -84,6 +84,18 @@ type PhotoAnalysis = {
   tip: string;
 };
 
+// Foto-Quelle eines Eintrags: bevorzugt den kurzlebigen, Auth-geschützten
+// Endpoint (photo_path), fällt für noch nicht migrierte Altdaten auf die alte
+// photo_url zurück. null, wenn kein Foto vorhanden ist.
+function photoSrc(
+  entry: Pick<FoodLog, "photo_path" | "photo_url">
+): string | null {
+  if (entry.photo_path) {
+    return `/api/food-log/photo?path=${encodeURIComponent(entry.photo_path)}`;
+  }
+  return entry.photo_url ?? null;
+}
+
 const CONFIDENCE_STYLE: Record<
   Confidence,
   { label: string; className: string }
@@ -288,7 +300,7 @@ export function TagebuchClient({
   const [formProtein, setFormProtein] = useState<number | null>(null);
   const [formCarbs, setFormCarbs] = useState<number | null>(null);
   const [formFat, setFormFat] = useState<number | null>(null);
-  const [formPhotoUrl, setFormPhotoUrl] = useState<string | null>(null);
+  const [formPhotoPath, setFormPhotoPath] = useState<string | null>(null);
   const [formSource, setFormSource] = useState<"manual" | "photo">("manual");
   const [formPhotoTip, setFormPhotoTip] = useState<string | null>(null);
   const [formPhotoBudget, setFormPhotoBudget] = useState<number | null>(null);
@@ -346,7 +358,7 @@ export function TagebuchClient({
     setFormProtein(null);
     setFormCarbs(null);
     setFormFat(null);
-    setFormPhotoUrl(null);
+    setFormPhotoPath(null);
     setFormSource("manual");
     setFormPhotoTip(null);
     setFormPhotoBudget(null);
@@ -496,7 +508,7 @@ export function TagebuchClient({
 
       const json = JSON.parse(bodyText) as {
         analysis: PhotoAnalysis;
-        photo_url: string | null;
+        photo_path: string | null;
       };
       const a = json.analysis;
       setAnalysis(a);
@@ -508,7 +520,7 @@ export function TagebuchClient({
       setFormProtein(a.protein);
       setFormCarbs(a.carbs);
       setFormFat(a.fat);
-      setFormPhotoUrl(json.photo_url);
+      setFormPhotoPath(json.photo_path);
       setFormSource("photo");
       setFormPhotoTip(a.tip || null);
       setFormPhotoBudget(a.dailyBudgetPercent);
@@ -610,7 +622,7 @@ export function TagebuchClient({
           fat_g: formFat,
           uhrzeit: formUhrzeit || null,
           source: formSource,
-          photo_url: formPhotoUrl,
+          photo_path: formPhotoPath,
           photo_tip: formPhotoTip,
           photo_daily_budget_percent: formPhotoBudget,
           datum,
@@ -795,6 +807,7 @@ export function TagebuchClient({
       uhrzeit: meal.time ? `${meal.time}:00` : null,
       source: "manual",
       photo_url: null,
+      photo_path: null,
       photo_feedback: null,
       photo_tip: null,
       photo_daily_budget_percent: null,
@@ -985,7 +998,7 @@ export function TagebuchClient({
   const weekDays = buildWeekStrip(datum);
 
   // Alle Einträge mit Foto für die Tages-Galerie
-  const photoEntries = entries.filter((e) => e.photo_url);
+  const photoEntries = entries.filter((e) => photoSrc(e));
 
   return (
     <div className="space-y-6">
@@ -1207,7 +1220,7 @@ export function TagebuchClient({
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={entry.photo_url!}
+                      src={photoSrc(entry)!}
                       alt={entry.beschreibung}
                       className="w-full h-full object-cover"
                       loading="lazy"
@@ -1297,7 +1310,7 @@ export function TagebuchClient({
                       )}
 
                       <div className="bg-white rounded-2xl border border-border p-4 flex items-start justify-between gap-3 shadow-card">
-                        {entry.photo_url && (
+                        {photoSrc(entry) && (
                           <button
                             type="button"
                             onClick={() => setLightboxEntry(entry)}
@@ -1306,7 +1319,7 @@ export function TagebuchClient({
                           >
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
-                              src={entry.photo_url}
+                              src={photoSrc(entry)!}
                               alt={entry.beschreibung}
                               className="w-full h-full object-cover"
                               loading="lazy"
@@ -1516,7 +1529,7 @@ export function TagebuchClient({
       </button>
 
       {/* Lightbox für Foto-Galerie */}
-      {lightboxEntry && lightboxEntry.photo_url && (
+      {lightboxEntry && photoSrc(lightboxEntry) && (
         <div
           className="fixed inset-0 z-[70] bg-black/80 flex items-center justify-center p-4 animate-fade-in"
           onClick={() => setLightboxEntry(null)}
@@ -1539,7 +1552,7 @@ export function TagebuchClient({
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={lightboxEntry.photo_url}
+              src={photoSrc(lightboxEntry)!}
               alt={lightboxEntry.beschreibung}
               className="w-full max-h-[70vh] object-contain rounded-2xl"
             />

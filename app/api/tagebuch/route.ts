@@ -65,6 +65,15 @@ export async function POST(request: Request) {
   }
   const body = validation.data;
 
+  // Ownership: ein mitgeschickter photo_path MUSS dem aufrufenden User gehören
+  // (gleicher Prefix wie beim Upload in der Analyse-Route), sonst verwerfen wir
+  // ihn — so kann niemand fremde Foto-Pfade an seinen Eintrag hängen.
+  const safeUserId = userId.replace(/[^a-zA-Z0-9_-]/g, "_");
+  const photoPath =
+    body.photo_path && body.photo_path.startsWith(`${safeUserId}/`)
+      ? body.photo_path
+      : null;
+
   const { data, error } = await supabase
     .from("ea_food_log")
     .insert({
@@ -77,6 +86,7 @@ export async function POST(request: Request) {
       fat_g: body.fat_g ?? null,
       uhrzeit: body.uhrzeit ?? null,
       source: body.source === "photo" ? "photo" : "manual",
+      photo_path: photoPath,
       photo_url: body.photo_url ?? null,
       photo_tip: body.photo_tip ?? null,
       photo_daily_budget_percent: body.photo_daily_budget_percent ?? null,
