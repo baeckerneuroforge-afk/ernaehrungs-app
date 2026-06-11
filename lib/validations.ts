@@ -95,6 +95,15 @@ export const foodLogSchema = z.object({
     )
     .optional()
     .nullable(),
+  // Storage-Pfad statt langlebiger Signed-URL. Format <safeUserId>/<datum>/<uuid>.jpg.
+  // Ownership wird zusätzlich serverseitig geprüft (Speichern + Foto-Endpoint).
+  photo_path: z
+    .string()
+    .max(300)
+    .regex(/^[A-Za-z0-9_\-/.]+$/, "photo_path enthält ungültige Zeichen")
+    .refine((p) => !p.includes(".."), { message: "photo_path darf kein '..' enthalten" })
+    .optional()
+    .nullable(),
   photo_confidence: z
     .enum(["sicher", "mittel", "unsicher"])
     .optional()

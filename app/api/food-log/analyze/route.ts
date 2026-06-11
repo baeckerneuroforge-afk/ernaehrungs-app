@@ -419,7 +419,6 @@ export async function POST(request: Request) {
     const safeUserId = userId.replace(/[^a-zA-Z0-9_-]/g, "_");
     const path = `${safeUserId}/${datum}/${randomUUID()}.jpg`;
 
-    let photo_url: string | null = null;
     const { error: uploadError } = await supabase.storage
       .from("food-photos")
       .upload(path, buffer, {
@@ -437,14 +436,12 @@ export async function POST(request: Request) {
       // ist nicht-kritisch, der eigentliche Wert (Analyse) ist schon da.
     } else {
       console.log("[foto-analyze] step: uploaded to storage", { path });
-      // Signed URL mit 1 Jahr Gültigkeit — Bucket ist privat.
-      const { data: signed } = await supabase.storage
-        .from("food-photos")
-        .createSignedUrl(path, 60 * 60 * 24 * 365);
-      photo_url = signed?.signedUrl || null;
+      // KEINE langlebige Signed-URL mehr persistieren. Der Client bekommt nur
+      // den photo_path; kurzlebige URLs holt die Anzeige on demand über
+      // /api/food-log/photo (DSGVO: Essensfotos sind Gesundheitsdaten).
     }
 
-    console.log("[foto-analyze] DONE", { userId, dish: analysis.dish, hasPhoto: !!photo_url });
+    console.log("[foto-analyze] DONE", { userId, dish: analysis.dish, hasPhoto: !uploadError });
     void logUsage({
       userId,
       plan: usagePlan,
@@ -457,7 +454,7 @@ export async function POST(request: Request) {
       requestId: usageRequestId,
       durationMs: Date.now() - apiStartedAt,
     });
-    return NextResponse.json({ analysis, photo_url, photo_path: path });
+    return NextResponse.json({ analysis, photo_path: path });
   } catch (err) {
     // Externe Calls (Anthropic, Storage) sind fehlgeschlagen → Refund.
     // Refund-Fehler nur loggen, niemals werfen, sonst maskieren wir den
