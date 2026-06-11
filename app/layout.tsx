@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { DM_Sans, Lora } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { deDE } from "@clerk/localizations";
 import { CookieBanner } from "@/components/cookie-banner";
@@ -7,6 +8,20 @@ import { PageTransition } from "@/components/layout/page-transition";
 import { Toaster } from "sonner";
 import { PostHogProvider } from "@/components/posthog-provider";
 import "./globals.css";
+
+// Self-hosted Fonts via next/font (P7) — kein render-blockierender Google-CDN-
+// @import mehr, kein externer Request, kein Layout-Shift. Exponiert als
+// CSS-Variablen, die globals.css + tailwind.config referenzieren.
+const dmSans = DM_Sans({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  display: "swap",
+});
+const lora = Lora({
+  subsets: ["latin"],
+  variable: "--font-serif",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Nutriva-AI – Deine persönliche KI-Ernährungsberaterin",
@@ -54,7 +69,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   const shell = (
-    <html lang="de">
+    <html lang="de" className={`${dmSans.variable} ${lora.variable}`}>
       <head>
         {/* Theme boot — run before paint to avoid flash of wrong theme.
             Reads 'theme' from localStorage ('light' | 'dark' | 'system'),
