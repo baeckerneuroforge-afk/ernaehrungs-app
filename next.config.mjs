@@ -42,6 +42,14 @@ const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: ["pdf-parse", "pdfjs-dist"],
   },
+  images: {
+    // Remote-Hosts für next/image (Clerk-Avatare, Supabase-Storage). Ohne diese
+    // Liste wirft <Image> in Prod „hostname not configured" (P8).
+    remotePatterns: [
+      { protocol: "https", hostname: "img.clerk.com" },
+      { protocol: "https", hostname: "*.supabase.co" },
+    ],
+  },
   skipTrailingSlashRedirect: true,
   async rewrites() {
     return [
