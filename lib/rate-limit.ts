@@ -65,6 +65,7 @@ export const feedbackLimiter = makeLimiter(10, "1 m", "rl:feedback");
 export const profileLimiter = makeLimiter(10, "1 m", "rl:profile");
 export const settingsLimiter = makeLimiter(5, "1 m", "rl:settings");
 export const supportLimiter = makeLimiter(3, "1 h", "rl:support");
+export const documentsLimiter = makeLimiter(10, "1 h", "rl:documents");
 
 // ---------------------------------------------------------------------------
 // In-memory sliding-window fallback. Per-instance (not shared across Vercel

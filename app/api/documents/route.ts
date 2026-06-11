@@ -6,6 +6,7 @@ import pdfParse from "pdf-parse";
 import mammoth from "mammoth";
 import { logAdminAction } from "@/lib/admin-audit";
 import { getAdminUserId } from "@/lib/auth-guard";
+import { checkRateLimit, documentsLimiter } from "@/lib/rate-limit";
 import {
   createUsageRequestId,
   extractOpenAIEmbeddingTokens,
@@ -15,6 +16,9 @@ import {
 // Cap upload size before loading the whole file into memory (pdf-parse/mammoth
 // read the entire buffer) — a huge upload could otherwise OOM the function.
 const MAX_DOC_BYTES = 10 * 1024 * 1024; // 10 MB
+// Obergrenze für die Chunk-Anzahl pro Dokument — verhindert Kosten-Spikes
+// (jeder Chunk = ein Embedding-Call) und ungewollt riesige RAG-Ingests.
+const MAX_DOC_CHUNKS = 400;
 
 // GET: List all documents (grouped by source)
 export async function GET() {
@@ -51,6 +55,14 @@ export async function GET() {
 export async function POST(request: Request) {
   const adminId = await getAdminUserId();
   if (!adminId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  const rl = await checkRateLimit(documentsLimiter, adminId);
+  if (!rl.success) {
+    return NextResponse.json(
+      { error: "rate_limited", message: "Zu viele Uploads. Bitte warte einen Moment." },
+      { status: 429 }
+    );
+  }
 
   try {
     const formData = await request.formData();
@@ -94,6 +106,16 @@ export async function POST(request: Request) {
 
     // Chunk the text
     const chunks = chunkText(text);
+
+    if (chunks.length > MAX_DOC_CHUNKS) {
+      return NextResponse.json(
+        {
+          error: "too_many_chunks",
+          message: `Dokument zu groß: ${chunks.length} Abschnitte (max. ${MAX_DOC_CHUNKS}). Bitte aufteilen.`,
+        },
+        { status: 413 }
+      );
+    }
 
     // Generate embeddings and insert (service role bypasses RLS)
     const openai = getOpenAI();
