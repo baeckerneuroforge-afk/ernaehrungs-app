@@ -9,6 +9,7 @@ import { hasKiConsent } from "@/lib/consent";
 import { fotoLimiter, checkRateLimit } from "@/lib/rate-limit";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { calculateTDEE } from "@/lib/tdee";
+import { validateImageBytes } from "@/lib/image-validate";
 import * as Sentry from "@sentry/nextjs";
 import {
   createUsageRequestId,
@@ -252,26 +253,15 @@ export async function POST(request: Request) {
       ? "image/webp"
       : "image/jpeg";
 
-  // Sanity-Check: base64-Prefix muss zum angegebenen media_type passen.
-  // JPEG beginnt mit "/9j/", PNG mit "iVBOR", WEBP mit "UklGR".
-  // Wenn der Browser HEIC durchgereicht hat oder die Datei kaputt ist,
-  // lehnen wir HIER ab, statt Anthropic einen kaputten Stream zu füttern.
-  const prefix = base64.slice(0, 8);
-  const looksLikeJpeg = base64.startsWith("/9j/");
-  const looksLikePng = base64.startsWith("iVBOR");
-  const looksLikeWebp = base64.startsWith("UklGR");
-  const prefixMatchesType =
-    (mediaType === "image/jpeg" && looksLikeJpeg) ||
-    (mediaType === "image/png" && looksLikePng) ||
-    (mediaType === "image/webp" && looksLikeWebp);
-
-  if (!prefixMatchesType) {
-    console.error("[foto-analyze] base64 prefix does not match media_type", {
+  // Magic-Byte-Check über den gemeinsamen Validator (gleiche Logik wie im
+  // Chat-Bildpfad). Lehnt HEIC/kaputte Dateien ab, bevor Anthropic einen
+  // kaputten Stream bekommt. Größe ist oben bereits auf 10 MB begrenzt.
+  const imgCheck = validateImageBytes(buffer, mediaType, { maxBytes: 10 * 1024 * 1024 });
+  if (!imgCheck.ok) {
+    console.error("[foto-analyze] image validation failed", {
       mediaType,
-      prefix,
-      looksLikeJpeg,
-      looksLikePng,
-      looksLikeWebp,
+      bytes: buffer.byteLength,
+      reason: imgCheck.error,
     });
     return NextResponse.json(
       {
