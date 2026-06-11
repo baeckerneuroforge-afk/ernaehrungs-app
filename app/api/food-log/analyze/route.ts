@@ -431,7 +431,12 @@ export async function POST(request: Request) {
       // /api/food-log/photo (DSGVO: Essensfotos sind Gesundheitsdaten).
     }
 
-    console.log("[foto-analyze] DONE", { userId, dish: analysis.dish, hasPhoto: !uploadError });
+    console.log("[foto-analyze] DONE", {
+      userId,
+      hasPhoto: !uploadError,
+      // Gericht-Name (Verhaltens-/Gesundheitsbezug) NUR lokal, nicht in Prod.
+      ...(process.env.NODE_ENV !== "production" ? { dish: analysis.dish } : {}),
+    });
     void logUsage({
       userId,
       plan: usagePlan,
