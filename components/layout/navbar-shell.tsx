@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { SignedIn, SignedOut, useUser, useAuth, useClerk } from "@clerk/nextjs";
+import { fetchCreditsShared } from "@/lib/credits-client";
 import {
   Leaf,
   LogOut,
@@ -105,8 +106,7 @@ export function NavbarShell() {
         .catch(() => setIsAdmin(false));
     }
 
-    fetch("/api/credits")
-      .then((r) => (r.ok ? r.json() : null))
+    fetchCreditsShared()
       .then((data) => setUserPlan(data?.plan || "free"))
       .catch(() => setUserPlan("free"));
   }, [isLoaded, user]);
