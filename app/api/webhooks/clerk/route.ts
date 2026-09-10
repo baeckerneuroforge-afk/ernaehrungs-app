@@ -2,6 +2,7 @@ import { Webhook } from "svix";
 import { headers } from "next/headers";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { purgeUserData } from "@/lib/purge-user-data";
+import { cancelStripeSubscriptionForUser } from "@/lib/cancel-stripe-subscription";
 import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
 
@@ -154,6 +155,7 @@ export async function POST(request: Request) {
     // Clerk account deletion (Clerk already removed it; this event IS that
     // deletion). Without this, a user deleted directly in Clerk would leave
     // all their food logs, weights, chats, plans, photos etc. behind.
+    await cancelStripeSubscriptionForUser(supabase, id, "clerk-webhook");
     const { errors } = await purgeUserData(supabase, id, "clerk-webhook");
     const { error: userErr } = await supabase
       .from("ea_users")

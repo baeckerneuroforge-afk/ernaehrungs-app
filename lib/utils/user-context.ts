@@ -216,9 +216,14 @@ export async function loadUserBehaviorContext(
 // --- Helpers ---
 
 function daysAgo(n: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return d.toISOString().split("T")[0];
+  // Europe/Berlin calendar day so AI context matches DE diary dates near midnight.
+  const d = new Date(Date.now() - n * 86_400_000);
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Berlin",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
 }
 
 function daysBetween(dateA: string, dateB: string): number {

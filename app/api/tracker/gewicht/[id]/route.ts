@@ -21,16 +21,41 @@ export async function DELETE(
 
   const supabase = createSupabaseAdmin();
 
-  const { error } = await supabase
+  const { data: deleted, error } = await supabase
     .from("ea_weight_logs")
     .delete()
     .eq("id", params.id)
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .select("id")
+    .limit(1);
 
   if (error) {
     console.error("[tracker/gewicht/:id] db error:", error);
     return NextResponse.json({ error: "internal_error" }, { status: 500 });
   }
+  if (!deleted?.length) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
+  // Re-sync profile weight to latest remaining log (or leave profile as-is if none).
+  try {
+    const { data: latest } = await supabase
+      .from("ea_weight_logs")
+      .select("gewicht_kg")
+      .eq("user_id", userId)
+      .order("gemessen_am", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (latest?.gewicht_kg != null) {
+      await supabase
+        .from("ea_profiles")
+        .update({ gewicht_kg: latest.gewicht_kg })
+        .eq("user_id", userId);
+    }
+  } catch (syncErr) {
+    console.warn("[tracker/gewicht/:id] profile sync after delete failed:", syncErr);
+  }
+
   return NextResponse.json({ success: true });
 }
 

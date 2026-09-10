@@ -1,4 +1,5 @@
 import { mapPlanMealTypeToTagebuch } from "@/lib/plan-meal-mapping";
+import { calendarDaysBetween, isoToCalendarDate } from "@/lib/local-date";
 import type { TagebuchMealSlot } from "@/types";
 import type { WeekPlanData } from "@/types/meal-plan";
 
@@ -54,15 +55,10 @@ export function buildActivePlanForTagebuch(
   const rawDays = Array.isArray(planData?.weekPlan) ? planData!.weekPlan : [];
   if (rawDays.length === 0) return null;
 
-  // Tag 0 == Erstell-Tag, lokale Zeit, auf 00:00 normalisiert. So
-  // verschiebt sich der Index nicht über DST-Wechsel oder Uhrzeit-
-  // Unterschiede beim Insert.
-  const start = new Date(createdAt);
-  start.setHours(0, 0, 0, 0);
-  const today = new Date(todayIso + "T00:00:00");
-  const dayIndex = Math.floor(
-    (today.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)
-  );
+  // Tag 0 == Erstell-Kalendertag (Europe/Berlin). Day delta via noon-UTC
+  // anchors so DST does not shift the index.
+  const startIso = isoToCalendarDate(createdAt);
+  const dayIndex = calendarDaysBetween(startIso, todayIso);
   const todayDayIndex = dayIndex >= 0 && dayIndex < rawDays.length ? dayIndex : null;
 
   const days: ActivePlanDay[] = rawDays.map((d, di) => ({

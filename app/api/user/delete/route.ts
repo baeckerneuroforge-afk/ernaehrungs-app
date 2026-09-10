@@ -1,6 +1,7 @@
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { purgeUserData } from "@/lib/purge-user-data";
+import { cancelStripeSubscriptionForUser } from "@/lib/cancel-stripe-subscription";
 import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
 import { NextResponse } from "next/server";
@@ -31,10 +32,29 @@ export async function POST() {
     });
   }
 
+  // Stop Stripe billing before data wipe so canceled users are not charged.
+  await cancelStripeSubscriptionForUser(supabase, userId, "user/delete");
+
   // Storage photos + all user-owned tables + audit-log anonymization.
   // Shared with the inactive-accounts cron and the Clerk user.deleted webhook
   // via lib/purge-user-data.ts so the three paths can never drift apart.
-  await purgeUserData(supabase, userId, "user/delete");
+  const { errors: purgeErrors } = await purgeUserData(
+    supabase,
+    userId,
+    "user/delete"
+  );
+  if (purgeErrors.length > 0) {
+    console.error("[user/delete] purge had errors:", purgeErrors);
+    return NextResponse.json(
+      {
+        error: "purge_incomplete",
+        message:
+          "Einige Daten konnten nicht gelöscht werden. Bitte versuche es erneut oder kontaktiere den Support.",
+        details: purgeErrors,
+      },
+      { status: 500 }
+    );
+  }
 
   // Finally remove the ea_users record
   const { error: userErr } = await supabase
@@ -43,6 +63,13 @@ export async function POST() {
     .eq("clerk_id", userId);
   if (userErr) {
     console.error("[user/delete] failed to clear ea_users:", userErr.message);
+    return NextResponse.json(
+      {
+        error: "purge_incomplete",
+        message: "Konto-Daten teilweise gelöscht. Bitte Support kontaktieren.",
+      },
+      { status: 500 }
+    );
   }
 
   // Delete the Clerk account itself

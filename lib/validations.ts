@@ -9,7 +9,7 @@ import { z } from "zod";
 // Profil
 export const profileSchema = z.object({
   name: z.string().min(1).max(100).optional(),
-  alter_jahre: z.number().int().min(10).max(120).optional(),
+  alter_jahre: z.number().int().min(13).max(120).optional(),
   geschlecht: z.enum(["maennlich", "weiblich", "divers"]).optional(),
   groesse_cm: z.number().int().min(100).max(250).optional().nullable(),
   gewicht_kg: z.number().min(20).max(300).optional().nullable(),
@@ -51,7 +51,7 @@ export const chatMessageSchema = z.object({
 export const planParametersSchema = z.object({
   days: z.number().int().min(1).max(7).optional(),
   fasting: z.string().max(50),
-  mealsPerDay: z.number().int().min(1).max(6),
+  mealsPerDay: z.number().int().min(1).max(5),
   timing: z.record(z.string(), z.string().max(10)),
   flexibleTiming: z.boolean(),
   mealprep: z.boolean(),
@@ -129,6 +129,15 @@ export const zieleUpdateSchema = z.object({
   zieldatum: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   erreicht: z.boolean().optional(),
   erreicht_am: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+});
+
+export const zieleCreateSchema = z.object({
+  typ: z.enum(["gewicht", "kalorien", "custom"]),
+  beschreibung: z.string().min(1).max(1000),
+  zielwert: z.number().optional().nullable(),
+  startwert: z.number().optional().nullable(),
+  einheit: z.string().max(50).optional().nullable(),
+  zieldatum: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
 });
 
 // Admin reply to a user message.

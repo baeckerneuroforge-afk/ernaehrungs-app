@@ -57,7 +57,12 @@ const emptyForm = (): EntryForm => ({
   id: null,
   gewicht: "",
   notiz: "",
-  datum: new Date().toISOString().split("T")[0],
+  // Local calendar day (not UTC) so evening DE entries land on the right date.
+  datum: new Intl.DateTimeFormat("en-CA", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date()),
 });
 
 export default function GewichtPage() {

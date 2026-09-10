@@ -1,5 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
+import { todayLocal } from "@/lib/local-date";
 import { NextResponse } from "next/server";
 
 export async function GET() {
@@ -9,7 +10,7 @@ export async function GET() {
   }
 
   const supabase = createSupabaseAdmin();
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = todayLocal();
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
     .toISOString()
     .split("T")[0];
@@ -106,11 +107,23 @@ export async function GET() {
 
   let progressPercent = 0;
   let remainingKg = 0;
-  if (gewichtsZiel?.zielwert && gewichtsZiel?.startwert && currentWeight) {
-    const total = Math.abs(gewichtsZiel.startwert - gewichtsZiel.zielwert);
-    const done = Math.abs(gewichtsZiel.startwert - currentWeight);
-    progressPercent = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
-    remainingKg = Math.abs(currentWeight - gewichtsZiel.zielwert);
+  if (
+    gewichtsZiel?.zielwert != null &&
+    gewichtsZiel?.startwert != null &&
+    currentWeight != null
+  ) {
+    const start = Number(gewichtsZiel.startwert);
+    const target = Number(gewichtsZiel.zielwert);
+    const total = Math.abs(start - target);
+    // Progress only counts movement toward the target (wrong direction → 0).
+    // start === target → already at goal → 100%.
+    const toward =
+      target < start
+        ? Math.max(0, start - currentWeight) // abnehmen
+        : Math.max(0, currentWeight - start); // zunehmen
+    progressPercent =
+      total > 0 ? Math.min(100, Math.round((toward / total) * 100)) : 100;
+    remainingKg = Math.abs(currentWeight - target);
   }
 
   // Credits

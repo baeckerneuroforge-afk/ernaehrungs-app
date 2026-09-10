@@ -14,6 +14,8 @@ import * as Sentry from "@sentry/nextjs";
 import { validateBody, chatMessageSchema } from "@/lib/validations";
 import { validateBase64Image } from "@/lib/image-validate";
 import { sanitizeForPrompt, quoteField } from "@/lib/utils/prompt-safe";
+import { createChatSaveToken } from "@/lib/chat-save-token";
+import { calendarDateInTimeZone } from "@/lib/local-date";
 import {
   createUsageRequestId,
   estimateImageTokensFromBase64,
@@ -334,6 +336,12 @@ type ChatImagePayload = {
 };
 
 export async function POST(request: Request) {
+  // Tracks a successful deduct so the outer catch can refund on pre-stream failures.
+  let chargedForRefund: {
+    userId: string;
+    cost: number;
+    split: { fromSub: number; fromTopup: number };
+  } | null = null;
   try {
     const rawBody = await request.json();
     const validation = validateBody(chatMessageSchema, rawBody);
@@ -528,8 +536,8 @@ export async function POST(request: Request) {
       }
 
       // Now deduct credits for eligible users
-      const hasCredits = await deductCredits(userId, creditCost, creditType, creditDesc);
-      if (!hasCredits) {
+      const reviewCredit = await deductCredits(userId, creditCost, creditType, creditDesc);
+      if (!reviewCredit.ok) {
         return new Response(
           JSON.stringify({
             error: "insufficient_credits",
@@ -538,14 +546,32 @@ export async function POST(request: Request) {
           { status: 402 }
         );
       }
+      const reviewSplit = {
+        fromSub: reviewCredit.fromSub,
+        fromTopup: reviewCredit.fromTopup,
+      };
+      // So outer catch can refund if handleReviewFlow throws before streaming.
+      chargedForRefund = { userId, cost: creditCost, split: reviewSplit };
 
-      return handleReviewFlow(supabase, userId, userPlan, usageRequestId);
+      // Must match client /api/chat/save user_message (trimmed).
+      const reviewSaveUserMessage = body.message?.trim() || message;
+
+      return handleReviewFlow(
+        supabase,
+        userId,
+        userPlan,
+        usageRequestId,
+        reviewSplit,
+        sessionId,
+        reviewSaveUserMessage
+      );
     }
 
     // ---- Credit check BEFORE calling Anthropic ----
-    const hasCredits = await deductCredits(userId, creditCost, creditType, creditDesc);
+    const creditResult = await deductCredits(userId, creditCost, creditType, creditDesc);
+    const creditSplit = { fromSub: creditResult.fromSub, fromTopup: creditResult.fromTopup };
 
-    if (!hasCredits) {
+    if (!creditResult.ok) {
       return new Response(
         JSON.stringify({
           error: "insufficient_credits",
@@ -554,6 +580,7 @@ export async function POST(request: Request) {
         { status: 402 }
       );
     }
+    chargedForRefund = { userId, cost: creditCost, split: creditSplit };
 
     // ---- Load profile + behavior context + aktiver Plan ----
     let profileContext = "";
@@ -819,6 +846,15 @@ export async function POST(request: Request) {
       // Gesundheitssensible Themen: harte Ablehnung auch bei Follow-ups —
       // wir wollen hier NIEMALS aus dem Gesprächsverlauf weiter-raten.
       if (isHealthSensitive) {
+        // Credits already deducted — refund static refusals (no LLM value).
+        // Clear chargedForRefund so outer catch cannot double-refund.
+        void refundCredits(
+          userId,
+          creditCost,
+          "Chat: Static-Ablehnung (Gesundheit/keine Wissensbasis)",
+          creditSplit
+        );
+        chargedForRefund = null;
         return streamStaticResponse(
           HEALTH_NO_KNOWLEDGE_RESPONSE(healthCheck.keyword ?? "diesem Thema"),
         );
@@ -828,6 +864,13 @@ export async function POST(request: Request) {
       // System-Prompt). Auch bei Follow-ups geht's durch (alte Regel).
       const hasProfileContext = !!profileContext;
       if (!hasConversationHistory && !isGeneralQuestion && !hasProfileContext) {
+        void refundCredits(
+          userId,
+          creditCost,
+          "Chat: Static-Ablehnung (keine Wissensbasis)",
+          creditSplit
+        );
+        chargedForRefund = null;
         return streamStaticResponse(NO_KNOWLEDGE_RESPONSE);
       }
     }
@@ -970,9 +1013,15 @@ Regeln:
       : getModelForAction(action, userPlanEarly);
 
     // ---- Admin RAG marker ----
+    // Strip ] / newlines from source titles so the client [RAG: ...] parser
+    // cannot desync from the HMAC assistantText (marker is not in the token).
     const isAdmin = await isAdminUser(userId);
+    const ragSourcesSafe = ragTopSources
+      .map((s) => s.replace(/[\[\]\n\r]/g, "").trim())
+      .filter(Boolean)
+      .join(" | ");
     const ragMarker = isAdmin
-      ? `[RAG: ${ragChunkCount} chunks, ${ragConfidence}, ${ragTopSources.join(" | ") || "–"}]\n`
+      ? `[RAG: ${ragChunkCount} chunks, ${ragConfidence}, ${ragSourcesSafe || "–"}]\n`
       : "";
 
     // ---- Stream Response ----
@@ -1003,8 +1052,14 @@ Regeln:
 
     const encoder = new TextEncoder();
 
+    // Persistable user text for /api/chat/save HMAC (must match client save body).
+    const saveUserMessage =
+      body.message?.trim() ||
+      (hasImage ? "Analysiere dieses Bild" : message);
+
     const readableStream = new ReadableStream({
       async start(controller) {
+        let assistantText = "";
         try {
           if (ragMarker) {
             controller.enqueue(
@@ -1025,6 +1080,7 @@ Regeln:
               event.type === "content_block_delta" &&
               event.delta.type === "text_delta"
             ) {
+              assistantText += event.delta.text;
               controller.enqueue(
                 encoder.encode(
                   `data: ${JSON.stringify({ type: "text", text: event.delta.text })}\n\n`
@@ -1050,8 +1106,23 @@ Regeln:
             requestId: usageRequestId,
             durationMs: Date.now() - llmStartedAt,
           });
+          // HMAC so /api/chat/save cannot accept forged assistant content.
+          const saveToken =
+            sessionId && assistantText
+              ? createChatSaveToken(
+                  userId,
+                  sessionId,
+                  saveUserMessage,
+                  assistantText
+                )
+              : undefined;
           controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify({ type: "done" })}\n\n`)
+            encoder.encode(
+              `data: ${JSON.stringify({
+                type: "done",
+                ...(saveToken ? { save_token: saveToken } : {}),
+              })}\n\n`
+            )
           );
           controller.close();
         } catch (err) {
@@ -1060,7 +1131,7 @@ Regeln:
           // Refund the credits we debited pre-stream so the user isn't charged
           // for an Anthropic outage. Fire-and-forget: if the refund itself
           // fails, we still want to close the stream cleanly.
-          void refundCredits(userId, creditCost, "API-Fehler");
+          void refundCredits(userId, creditCost, "API-Fehler", creditSplit);
           void logUsage({
             userId,
             plan: usagePlan,
@@ -1100,6 +1171,14 @@ Regeln:
       stack: err?.stack,
     });
     Sentry.captureException(error);
+    if (chargedForRefund) {
+      void refundCredits(
+        chargedForRefund.userId,
+        chargedForRefund.cost,
+        "Chat outer catch",
+        chargedForRefund.split
+      );
+    }
     return new Response(
       JSON.stringify({
         error: "server_error",
@@ -1153,11 +1232,15 @@ async function handleReviewFlow(
   supabase: ReturnType<typeof createSupabaseAdmin>,
   userId: string,
   plan: string,
-  requestId: string
+  requestId: string,
+  creditSplit: { fromSub: number; fromTopup: number } = { fromSub: 0, fromTopup: 0 },
+  sessionId?: string,
+  saveUserMessage?: string
 ): Promise<Response> {
-  const sevenDaysAgo = new Date(
-    Date.now() - 7 * 24 * 60 * 60 * 1000
-  ).toISOString();
+  // Calendar window in Europe/Berlin so food.datum / gemessen_am match diary days.
+  const sevenDaysAgoDay = calendarDateInTimeZone(
+    new Date(Date.now() - 7 * 86_400_000)
+  );
 
   // 1. Collect all data in parallel
   const [weightResult, foodResult, profileResult, zieleResult, planResult] =
@@ -1166,14 +1249,14 @@ async function handleReviewFlow(
         .from("ea_weight_logs")
         .select("*")
         .eq("user_id", userId)
-        .gte("created_at", sevenDaysAgo)
-        .order("created_at", { ascending: true }),
+        .gte("gemessen_am", sevenDaysAgoDay)
+        .order("gemessen_am", { ascending: true }),
       supabase
         .from("ea_food_log")
         .select("*")
         .eq("user_id", userId)
-        .gte("created_at", sevenDaysAgo)
-        .order("created_at", { ascending: true }),
+        .gte("datum", sevenDaysAgoDay)
+        .order("datum", { ascending: true }),
       supabase
         .from("ea_profiles")
         .select("*")
@@ -1320,7 +1403,7 @@ REGELN:
   }
 
   // Tier-dependent: Block 3 only for pro_plus
-  const isPremium = plan === "pro_plus";
+  const isPremium = plan === "pro_plus" || plan === "admin";
 
   const planEmpfehlung =
     hasActivePlan || hasFoodLog
@@ -1474,6 +1557,7 @@ ${block3Section}
 
   const readableStream = new ReadableStream({
     async start(controller) {
+      let assistantText = "";
       try {
         const messageStream = await stream;
         for await (const event of messageStream) {
@@ -1487,6 +1571,7 @@ ${block3Section}
             event.type === "content_block_delta" &&
             event.delta.type === "text_delta"
           ) {
+            assistantText += event.delta.text;
             controller.enqueue(
               encoder.encode(
                 `data: ${JSON.stringify({ type: "text", text: event.delta.text })}\n\n`
@@ -1503,6 +1588,7 @@ ${block3Section}
 
         // For pro users: append static teaser text for Block 3
         if (!isPremium) {
+          assistantText += proTeaserText;
           controller.enqueue(
             encoder.encode(
               `data: ${JSON.stringify({ type: "text", text: proTeaserText })}\n\n`
@@ -1521,15 +1607,27 @@ ${block3Section}
           requestId,
           durationMs: Date.now() - reviewStartedAt,
         });
+        const saveToken =
+          sessionId && saveUserMessage && assistantText
+            ? createChatSaveToken(
+                userId,
+                sessionId,
+                saveUserMessage,
+                assistantText
+              )
+            : undefined;
         controller.enqueue(
           encoder.encode(
-            `data: ${JSON.stringify({ type: "done" })}\n\n`
+            `data: ${JSON.stringify({
+              type: "done",
+              ...(saveToken ? { save_token: saveToken } : {}),
+            })}\n\n`
           )
         );
         controller.close();
       } catch (err) {
         console.error("Review stream error:", err);
-        void refundCredits(userId, CREDIT_COSTS.review, "Review API-Fehler");
+        void refundCredits(userId, CREDIT_COSTS.review, "Review API-Fehler", creditSplit);
         void logUsage({
           userId,
           plan: normalizeUsagePlan(plan),

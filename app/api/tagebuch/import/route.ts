@@ -93,7 +93,8 @@ export async function POST(request: Request) {
     "csv_import",
     "CSV-Import analysiert"
   );
-  if (!charged) {
+  const creditSplit = { fromSub: charged.fromSub, fromTopup: charged.fromTopup };
+  if (!charged.ok) {
     return NextResponse.json(
       {
         error: "insufficient_credits",
@@ -161,7 +162,7 @@ Antwort-Format:
     });
   } catch (err) {
     console.error("[import] Claude API error:", err);
-    await refundCredits(userId, creditCost, "CSV-Import API-Fehler").catch((e) =>
+    await refundCredits(userId, creditCost, "CSV-Import API-Fehler", creditSplit).catch((e) =>
       console.error("[import] refund after API error failed:", e)
     );
     void logUsage({
@@ -199,7 +200,7 @@ Antwort-Format:
     const match = clean.match(/\{[\s\S]*\}/);
     parsed = JSON.parse(match ? match[0] : clean);
   } catch {
-    await refundCredits(userId, creditCost, "CSV-Import Antwort nicht parsbar").catch((e) =>
+    await refundCredits(userId, creditCost, "CSV-Import Antwort nicht parsbar", creditSplit).catch((e) =>
       console.error("[import] refund after parse_failed failed:", e)
     );
     void logUsage({
@@ -222,7 +223,7 @@ Antwort-Format:
   }
 
   if (!parsed.entries?.length) {
-    await refundCredits(userId, creditCost, "CSV-Import ohne erkannte Einträge").catch((e) =>
+    await refundCredits(userId, creditCost, "CSV-Import ohne erkannte Einträge", creditSplit).catch((e) =>
       console.error("[import] refund after no_entries failed:", e)
     );
     void logUsage({
@@ -269,7 +270,7 @@ Antwort-Format:
       .eq("user_id", userId)
       .in("externe_id", batch);
     if (error) {
-      await refundCredits(userId, creditCost, "CSV-Import Duplikatprüfung fehlgeschlagen").catch((e) =>
+      await refundCredits(userId, creditCost, "CSV-Import Duplikatprüfung fehlgeschlagen", creditSplit).catch((e) =>
         console.error("[import] refund after dedup error failed:", e)
       );
       console.error("[import] dedup check failed:", error);
@@ -322,7 +323,7 @@ Antwort-Format:
   });
   } catch (err) {
     console.error("[import] unexpected error after credit deduction:", err);
-    await refundCredits(userId, creditCost, "CSV-Import Server-Fehler").catch((e) =>
+    await refundCredits(userId, creditCost, "CSV-Import Server-Fehler", creditSplit).catch((e) =>
       console.error("[import] refund after unexpected error failed:", e)
     );
     void logUsage({

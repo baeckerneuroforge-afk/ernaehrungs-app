@@ -54,6 +54,10 @@ export async function POST(_request: Request) {
   const creditCost = CREDIT_COSTS.review;
   let usagePlan: UsagePlan = "free";
   const usageRequestId = createUsageRequestId();
+  let creditSplit: { fromSub: number; fromTopup: number } = {
+    fromSub: 0,
+    fromTopup: 0,
+  };
 
   try {
     const { userId } = await auth();
@@ -134,13 +138,17 @@ export async function POST(_request: Request) {
       );
     }
 
-    const hasCredits = await deductCredits(
+    const creditResult = await deductCredits(
       userId,
       creditCost,
       "review",
       "Wochencheck erstellt"
     );
-    if (!hasCredits) {
+    creditSplit = {
+      fromSub: creditResult.fromSub,
+      fromTopup: creditResult.fromTopup,
+    };
+    if (!creditResult.ok) {
       return new Response(
         JSON.stringify({
           error: "insufficient_credits",
@@ -222,7 +230,7 @@ export async function POST(_request: Request) {
           controller.close();
         } catch (err) {
           console.error("Wochencheck stream error:", err);
-          void refundCredits(userId, creditCost, "Wochencheck API-Fehler");
+          void refundCredits(userId, creditCost, "Wochencheck API-Fehler", creditSplit);
           void logUsage({
             userId,
             plan: usagePlan,
@@ -256,7 +264,7 @@ export async function POST(_request: Request) {
   } catch (error) {
     console.error("Wochencheck error:", error);
     if (creditsDeducted && chargedUserId) {
-      await refundCredits(chargedUserId, creditCost, "Wochencheck Server-Fehler").catch((err) =>
+      await refundCredits(chargedUserId, creditCost, "Wochencheck Server-Fehler", creditSplit).catch((err) =>
         console.error("Wochencheck refund error:", err)
       );
       void logUsage({

@@ -94,7 +94,7 @@ export async function generateMonthlyReport(
       .lt("created_at", end),
     supabase
       .from("ea_ziele")
-      .select("id, titel, ziel_typ, zielwert, erreicht_am, deadline, created_at")
+      .select("id, beschreibung, typ, zielwert, startwert, einheit, erreicht, erreicht_am, zieldatum, created_at")
       .eq("user_id", userId),
     supabase
       .from("ea_profiles")
@@ -232,11 +232,12 @@ Ergänze dein JSON um diese Felder:
     topMeals,
     plansCreated: plans.length,
     goals: goals.map((g) => ({
-      titel: g.titel,
-      typ: g.ziel_typ,
+      titel: g.beschreibung,
+      typ: g.typ,
       zielwert: g.zielwert,
-      deadline: g.deadline,
-      erreicht: !!g.erreicht_am,
+      deadline: g.zieldatum,
+      // Canonical flag is `erreicht`; date alone is a fallback for older rows.
+      erreicht: !!(g.erreicht || g.erreicht_am),
     })),
   };
 

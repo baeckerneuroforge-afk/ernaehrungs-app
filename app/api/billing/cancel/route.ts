@@ -39,8 +39,9 @@ export async function POST() {
       period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
     });
   } catch (err) {
+    console.error("[billing/cancel] stripe error:", err);
     return NextResponse.json(
-      { error: (err as Error).message || "Stripe-Fehler" },
+      { error: "Abo konnte nicht gekündigt werden. Bitte versuche es erneut oder kontaktiere den Support." },
       { status: 500 }
     );
   }

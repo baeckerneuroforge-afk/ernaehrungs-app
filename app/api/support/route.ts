@@ -71,21 +71,25 @@ export async function POST(request: Request) {
     // Benachrichtigung an Support-Postfach. sendEmail degradiert graceful
     // wenn RESEND_API_KEY fehlt, deshalb fire-and-forget ohne await — das
     // Ticket ist bereits in der DB, die Mail ist nur Notification.
-    const escapedMessage = message
-      .trim()
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/\n/g, "<br>");
+    const esc = (s: string) =>
+      s
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    const escapedMessage = esc(message.trim()).replace(/\n/g, "<br>");
+    const escapedName = esc(name.trim());
+    const escapedEmail = esc(email.trim());
+    const escapedSubject = esc(subject);
     void sendEmail({
       to: SUPPORT_EMAIL,
-      subject: `[Support] ${subject} — ${name}`,
+      subject: `[Support] ${subject} — ${name}`.slice(0, 200),
       html: `
         <div style="font-family: -apple-system, sans-serif; max-width: 600px;">
           <h2 style="color: #2D6A4F;">Neues Support-Ticket</h2>
-          <p><strong>Von:</strong> ${name} &lt;${email.trim()}&gt;</p>
-          <p><strong>User-ID:</strong> ${userId || "(anonym)"}</p>
-          <p><strong>Betreff:</strong> ${subject}</p>
+          <p><strong>Von:</strong> ${escapedName} &lt;${escapedEmail}&gt;</p>
+          <p><strong>User-ID:</strong> ${esc(userId || "(anonym)")}</p>
+          <p><strong>Betreff:</strong> ${escapedSubject}</p>
           <hr style="border: none; border-top: 1px solid #E7E5E4;">
           <p style="white-space: pre-wrap; color: #1C1917;">${escapedMessage}</p>
         </div>

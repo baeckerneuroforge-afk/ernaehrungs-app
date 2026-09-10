@@ -18,6 +18,7 @@ import {
   logUsage,
   normalizeUsagePlan,
 } from "@/lib/usage-logging";
+import { todayLocal } from "@/lib/local-date";
 
 // Node runtime für Buffer, randomUUID, und um Edge-Runtime-Limits
 // (wie z.B. das harte 4 MB Request-Body-Limit) zu vermeiden.
@@ -282,13 +283,17 @@ export async function POST(request: Request) {
   // Credits abziehen — JETZT, nach erfolgreicher lokaler Validierung.
   // Ab hier wird bei jedem Fehler in externen Calls (Anthropic, Storage)
   // ein Refund ausgelöst.
-  const ok = await deductCredits(
+  const creditResult = await deductCredits(
     userId,
     CREDIT_COSTS.foto_analysis,
     "foto_analysis",
     "Foto-Analyse (Sonnet Vision)"
   );
-  if (!ok) {
+  const creditSplit = {
+    fromSub: creditResult.fromSub,
+    fromTopup: creditResult.fromTopup,
+  };
+  if (!creditResult.ok) {
     return NextResponse.json(
       {
         error: "insufficient_credits",
@@ -368,7 +373,8 @@ export async function POST(request: Request) {
       await refundCredits(
         userId,
         CREDIT_COSTS.foto_analysis,
-        "Foto-Analyse: Antwort nicht parsbar"
+        "Foto-Analyse: Antwort nicht parsbar",
+        creditSplit
       ).catch((e) =>
         console.error("[foto-analyze] refund nach parse_failed fehlgeschlagen:", e)
       );
@@ -405,7 +411,7 @@ export async function POST(request: Request) {
     // fallback auf heute. Wir wollen pro Tag gruppieren können.
     const datum =
       (formData.get("datum") as string | null) ||
-      new Date().toISOString().split("T")[0];
+      todayLocal();
     const safeUserId = userId.replace(/[^a-zA-Z0-9_-]/g, "_");
     const path = `${safeUserId}/${datum}/${randomUUID()}.jpg`;
 
@@ -449,7 +455,11 @@ export async function POST(request: Request) {
       requestId: usageRequestId,
       durationMs: Date.now() - apiStartedAt,
     });
-    return NextResponse.json({ analysis, photo_path: path });
+    // Only return photo_path when the file actually landed in storage.
+    return NextResponse.json({
+      analysis,
+      photo_path: uploadError ? null : path,
+    });
   } catch (err) {
     // Externe Calls (Anthropic, Storage) sind fehlgeschlagen → Refund.
     // Refund-Fehler nur loggen, niemals werfen, sonst maskieren wir den
@@ -457,7 +467,8 @@ export async function POST(request: Request) {
     await refundCredits(
       userId,
       CREDIT_COSTS.foto_analysis,
-      "Foto-Analyse fehlgeschlagen"
+      "Foto-Analyse fehlgeschlagen",
+      creditSplit
     ).catch((e) =>
       console.error("[foto-analyze] refund nach catch fehlgeschlagen:", e)
     );

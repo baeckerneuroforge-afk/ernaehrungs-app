@@ -305,6 +305,10 @@ function logMacroSanity(content: string, userId: string, days: number): void {
 // 3. ROUTE HANDLER
 // ---------------------------------------------------------------------------
 export async function POST(request: Request) {
+  let chargedForRefund: {
+    userId: string;
+    split: { fromSub: number; fromTopup: number };
+  } | null = null;
   try {
     const rawBody = await request.json();
     const validation = validateBody(mealPlanRequestSchema, rawBody);
@@ -381,18 +385,23 @@ export async function POST(request: Request) {
     const usageAction = `${requestedDays}-tage-plan`;
 
     // Credit check & deduction
-    const hasCredits = await deductCredits(
+    const creditResult = await deductCredits(
       userId,
       CREDIT_COSTS.plan_generation,
       "plan_generation",
       "Ernährungsplan generiert"
     );
-    if (!hasCredits) {
+    const creditSplit = {
+      fromSub: creditResult.fromSub,
+      fromTopup: creditResult.fromTopup,
+    };
+    if (!creditResult.ok) {
       return new Response(
         JSON.stringify({ error: "insufficient_credits" }),
         { status: 402 }
       );
     }
+    chargedForRefund = { userId, split: creditSplit };
 
     // Load profile + behavior context in parallel
     const [profileResult, behaviorContext] = await Promise.all([
@@ -616,7 +625,8 @@ export async function POST(request: Request) {
             void refundCredits(
               userId,
               CREDIT_COSTS.plan_generation,
-              "Plan-Generierung wurde wegen Längen-Limit abgebrochen"
+              "Plan-Generierung wurde wegen Längen-Limit abgebrochen",
+              creditSplit
             );
             void logUsage({
               userId,
@@ -667,7 +677,7 @@ export async function POST(request: Request) {
           });
           // Refund the 5 credits we debited pre-stream — the user shouldn't
           // pay for an Anthropic outage.
-          void refundCredits(userId, CREDIT_COSTS.plan_generation, "API-Fehler");
+          void refundCredits(userId, CREDIT_COSTS.plan_generation, "API-Fehler", creditSplit);
           void logUsage({
             userId,
             plan: usagePlan,
@@ -706,6 +716,14 @@ export async function POST(request: Request) {
       stack: err?.stack,
     });
     Sentry.captureException(error);
+    if (chargedForRefund) {
+      void refundCredits(
+        chargedForRefund.userId,
+        CREDIT_COSTS.plan_generation,
+        "Plan outer catch",
+        chargedForRefund.split
+      );
+    }
     return new Response(
       JSON.stringify({
         error: "server_error",

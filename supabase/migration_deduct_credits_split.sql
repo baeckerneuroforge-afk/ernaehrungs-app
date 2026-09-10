@@ -1,8 +1,6 @@
--- Atomic credit deduction: prevents race conditions where two concurrent
--- requests both pass the balance check before either UPDATE executes.
---
--- Consumes subscription credits first, then topup credits.
--- Returns JSON: { success: bool, new_sub: int, new_topup: int }
+-- Return which buckets were drained so refunds can restore top-up credits
+-- instead of always writing back into the expiring subscription bucket.
+-- Safe to re-run: CREATE OR REPLACE.
 
 CREATE OR REPLACE FUNCTION deduct_credits_atomic(
   p_clerk_id TEXT,
@@ -20,7 +18,6 @@ DECLARE
   v_new_sub INTEGER;
   v_new_topup INTEGER;
 BEGIN
-  -- Lock the row to prevent concurrent modifications
   SELECT credits_subscription, credits_topup
     INTO v_sub, v_topup
     FROM ea_users
@@ -31,7 +28,6 @@ BEGIN
     RETURN json_build_object('success', false, 'reason', 'user_not_found');
   END IF;
 
-  -- Check total balance
   IF (COALESCE(v_sub, 0) + COALESCE(v_topup, 0)) < p_amount THEN
     RETURN json_build_object(
       'success', false,
@@ -41,7 +37,6 @@ BEGIN
     );
   END IF;
 
-  -- Consume subscription credits first
   v_sub_deduct := LEAST(COALESCE(v_sub, 0), p_amount);
   v_topup_deduct := p_amount - v_sub_deduct;
 

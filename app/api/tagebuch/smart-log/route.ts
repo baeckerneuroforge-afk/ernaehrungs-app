@@ -128,13 +128,17 @@ export async function POST(request: Request) {
 
   // Credits abziehen — bei jedem Fehler danach refunded.
   const cost = CREDIT_COSTS.smart_log;
-  const ok = await deductCredits(
+  const creditResult = await deductCredits(
     userId,
     cost,
     "smart_log",
     "Smart Log parsing"
   );
-  if (!ok) {
+  const creditSplit = {
+    fromSub: creditResult.fromSub,
+    fromTopup: creditResult.fromTopup,
+  };
+  if (!creditResult.ok) {
     return NextResponse.json(
       {
         error: "insufficient_credits",
@@ -200,7 +204,7 @@ Regeln:
         .trim();
       rawEntries = JSON.parse(cleaned);
     } catch {
-      await refundCredits(userId, cost, "Smart Log parse failed");
+      await refundCredits(userId, cost, "Smart Log parse failed", creditSplit);
       void logUsage({
         userId,
         plan: usagePlan,
@@ -225,7 +229,7 @@ Regeln:
     }
 
     if (!Array.isArray(rawEntries) || rawEntries.length === 0) {
-      await refundCredits(userId, cost, "Smart Log empty result");
+      await refundCredits(userId, cost, "Smart Log empty result", creditSplit);
       void logUsage({
         userId,
         plan: usagePlan,
@@ -255,7 +259,7 @@ Regeln:
       .filter((e): e is ParsedEntry => e !== null);
 
     if (entries.length === 0) {
-      await refundCredits(userId, cost, "Smart Log sanitized to zero");
+      await refundCredits(userId, cost, "Smart Log sanitized to zero", creditSplit);
       void logUsage({
         userId,
         plan: usagePlan,
@@ -292,7 +296,7 @@ Regeln:
     return NextResponse.json({ entries }, { status: 200 });
   } catch (err) {
     console.error("[smart-log] anthropic/unexpected error:", err);
-    await refundCredits(userId, cost, "Smart Log API error");
+    await refundCredits(userId, cost, "Smart Log API error", creditSplit);
     void logUsage({
       userId,
       plan: usagePlan,

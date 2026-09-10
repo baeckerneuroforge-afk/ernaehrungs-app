@@ -40,10 +40,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, stage: result.stage });
   }
 
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from("ea_profiles")
     .update({ review_consent: consent })
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .select("user_id")
+    .limit(1);
 
   if (error) {
     console.error("review_consent update error:", {
@@ -54,6 +56,15 @@ export async function POST(request: Request) {
       clerk_id: userId,
     });
     return NextResponse.json({ error: "internal_error", message: "Einwilligung konnte nicht gespeichert werden." }, { status: 500 });
+  }
+  if (!updated?.length) {
+    return NextResponse.json(
+      {
+        error: "profile_missing",
+        message: "Profil nicht gefunden. Bitte schließe zuerst das Onboarding ab.",
+      },
+      { status: 400 }
+    );
   }
   return NextResponse.json({ success: true });
 }

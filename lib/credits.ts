@@ -65,25 +65,35 @@ export async function getCredits(userId: string): Promise<CreditBalance> {
   return { credits_subscription: sub, credits_topup: topup, total: sub + topup };
 }
 
+/** Result of a credit deduction — includes which buckets were drained for accurate refunds. */
+export type DeductCreditsResult = {
+  ok: boolean;
+  fromSub: number;
+  fromTopup: number;
+};
+
 /**
  * Deduct credits for an action. Subscription credits are consumed first, then top-up.
- * Returns false if insufficient credits.
+ * Returns `{ ok: false }` if insufficient credits.
  */
 export async function deductCredits(
   userId: string,
   amount: number,
   type: CreditActionType,
   description?: string
-): Promise<boolean> {
+): Promise<DeductCreditsResult> {
   const supabase = createSupabaseAdmin();
+  const fail: DeductCreditsResult = { ok: false, fromSub: 0, fromTopup: 0 };
 
   // Admins have unlimited credits — skip the deduction entirely.
-  if (await isAdminUser(userId)) return true;
+  if (await isAdminUser(userId)) return { ok: true, fromSub: 0, fromTopup: 0 };
 
   // Try atomic RPC first (race-condition safe). Falls back to
   // SELECT-then-UPDATE if the RPC doesn't exist yet (migration not run).
   let newSub: number;
   let newTopup: number;
+  let fromSub: number;
+  let fromTopup: number;
 
   const { data: rpcResult, error: rpcError } = await supabase.rpc(
     "deduct_credits_atomic",
@@ -92,9 +102,18 @@ export async function deductCredits(
 
   if (!rpcError && rpcResult) {
     const result = typeof rpcResult === "string" ? JSON.parse(rpcResult) : rpcResult;
-    if (!result.success) return false;
+    if (!result.success) return fail;
     newSub = result.new_sub;
     newTopup = result.new_topup;
+    // Prefer explicit fields when migration returns them; else infer sub-first.
+    if (typeof result.sub_deducted === "number" && typeof result.topup_deducted === "number") {
+      fromSub = result.sub_deducted;
+      fromTopup = result.topup_deducted;
+    } else {
+      // Cannot know exact split without old balances — assume sub-first up to amount.
+      fromSub = amount;
+      fromTopup = 0;
+    }
   } else {
     // Fallback: non-atomic path (for dev / before migration is run)
     if (rpcError) {
@@ -107,16 +126,16 @@ export async function deductCredits(
       .eq("clerk_id", userId)
       .single();
 
-    if (!user) return false;
+    if (!user) return fail;
 
     const subCredits = user.credits_subscription ?? 0;
     const topupCredits = user.credits_topup ?? 0;
-    if (subCredits + topupCredits < amount) return false;
+    if (subCredits + topupCredits < amount) return fail;
 
-    const subDeduct = Math.min(subCredits, amount);
-    const topupDeduct = amount - subDeduct;
-    newSub = subCredits - subDeduct;
-    newTopup = topupCredits - topupDeduct;
+    fromSub = Math.min(subCredits, amount);
+    fromTopup = amount - fromSub;
+    newSub = subCredits - fromSub;
+    newTopup = topupCredits - fromTopup;
 
     const { error } = await supabase
       .from("ea_users")
@@ -127,7 +146,7 @@ export async function deductCredits(
       })
       .eq("clerk_id", userId);
 
-    if (error) return false;
+    if (error) return fail;
   }
 
   // Log transaction
@@ -139,16 +158,22 @@ export async function deductCredits(
     balance_after: newSub + newTopup,
   });
 
-  // Low-credit warning email (fire-and-forget, throttled 1/24h)
+  // Low-credit warning email (fire-and-forget, throttled 1/24h).
+  // Honors notification_preferences.credit_warning_email.enabled when set.
   const remaining = newSub + newTopup;
   if (remaining <= 3 && remaining >= 0) {
     const { data: userData } = await supabase
       .from("ea_users")
-      .select("email, name, last_credit_warning_at")
+      .select("email, name, last_credit_warning_at, notification_preferences")
       .eq("clerk_id", userId)
       .single();
 
-    if (userData?.email) {
+    const prefs = userData?.notification_preferences as
+      | { credit_warning_email?: { enabled?: boolean } }
+      | null;
+    const emailEnabled = prefs?.credit_warning_email?.enabled !== false;
+
+    if (userData?.email && emailEnabled) {
       const lastWarn = userData.last_credit_warning_at
         ? new Date(userData.last_credit_warning_at).getTime()
         : 0;
@@ -163,42 +188,64 @@ export async function deductCredits(
     }
   }
 
-  return true;
+  return { ok: true, fromSub, fromTopup };
 }
 
 /**
- * Refund credits after a failed LLM call. Credits go back to the subscription
- * bucket (simpler than tracking which bucket was debited) and are logged as a
- * "refund" transaction so the ledger remains accurate.
+ * Refund credits after a failed LLM call. Restores the same buckets that were
+ * debited when `split` is provided; otherwise falls back to subscription bucket.
  */
 export async function refundCredits(
   userId: string,
   amount: number,
-  reason: string
+  reason: string,
+  split?: { fromSub: number; fromTopup: number }
 ): Promise<void> {
   const supabase = createSupabaseAdmin();
 
   // Admins were never charged — nothing to refund.
   if (await isAdminUser(userId)) return;
 
-  // Atomic path: increment subscription bucket + log "refund" in one tx.
-  const { data: rpcResult, error: rpcError } = await supabase.rpc(
-    "add_credits_atomic",
-    {
-      p_clerk_id: userId,
-      p_amount: amount,
-      p_bucket: "credits_subscription",
-      p_type: "refund",
-      p_description: `Erstattung: ${reason}`,
+  const fromSub = split?.fromSub ?? amount;
+  const fromTopup = split?.fromTopup ?? 0;
+  const total = fromSub + fromTopup;
+  if (total <= 0) return;
+
+  // Prefer two atomic adds when both buckets need restoration.
+  async function addBucket(
+    bucket: "credits_subscription" | "credits_topup",
+    n: number
+  ): Promise<boolean> {
+    if (n <= 0) return true;
+    const { data: rpcResult, error: rpcError } = await supabase.rpc(
+      "add_credits_atomic",
+      {
+        p_clerk_id: userId,
+        p_amount: n,
+        p_bucket: bucket,
+        p_type: "refund",
+        p_description: `Erstattung: ${reason}`,
+      }
+    );
+    if (!rpcError && rpcResult) {
+      const result = typeof rpcResult === "string" ? JSON.parse(rpcResult) : rpcResult;
+      if (result.success || result.reason === "user_not_found") return true;
     }
-  );
-  if (!rpcError && rpcResult) {
-    const result = typeof rpcResult === "string" ? JSON.parse(rpcResult) : rpcResult;
-    if (result.success || result.reason === "user_not_found") return;
+    return false;
   }
-  if (rpcError) {
-    console.warn("[credits] add_credits_atomic unavailable (refund), fallback:", rpcError.message);
-  }
+
+  // Only fall back for buckets the RPC did not restore — otherwise a partial
+  // success (sub OK, topup fail) would double-credit the successful bucket.
+  const needFallbackSub =
+    fromSub > 0 && !(await addBucket("credits_subscription", fromSub));
+  const needFallbackTopup =
+    fromTopup > 0 && !(await addBucket("credits_topup", fromTopup));
+  if (!needFallbackSub && !needFallbackTopup) return;
+
+  const fallbackSub = needFallbackSub ? fromSub : 0;
+  const fallbackTopup = needFallbackTopup ? fromTopup : 0;
+  const fallbackTotal = fallbackSub + fallbackTopup;
+  if (fallbackTotal <= 0) return;
 
   // Fallback: non-atomic read-then-write (dev / before migration is run).
   const { data: user } = await supabase
@@ -209,21 +256,24 @@ export async function refundCredits(
 
   if (!user) return;
 
-  const sub = user.credits_subscription ?? 0;
-  const topup = user.credits_topup ?? 0;
-  const newSub = sub + amount;
+  const newSub = (user.credits_subscription ?? 0) + fallbackSub;
+  const newTopup = (user.credits_topup ?? 0) + fallbackTopup;
 
   await supabase
     .from("ea_users")
-    .update({ credits_subscription: newSub, updated_at: new Date().toISOString() })
+    .update({
+      credits_subscription: newSub,
+      credits_topup: newTopup,
+      updated_at: new Date().toISOString(),
+    })
     .eq("clerk_id", userId);
 
   await supabase.from("ea_credit_transactions").insert({
     user_id: userId,
-    amount,
+    amount: fallbackTotal,
     type: "refund",
     description: `Erstattung: ${reason}`,
-    balance_after: newSub + topup,
+    balance_after: newSub + newTopup,
   });
 }
 

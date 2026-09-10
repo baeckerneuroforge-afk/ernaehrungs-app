@@ -94,7 +94,11 @@ export default function ZielePage() {
       body: JSON.stringify({
         erreicht: !ziel.erreicht,
         erreicht_am: !ziel.erreicht
-          ? new Date().toISOString().split("T")[0]
+          ? new Intl.DateTimeFormat("en-CA", {
+              year: "numeric",
+              month: "2-digit",
+              day: "2-digit",
+            }).format(new Date())
           : null,
       }),
     });
@@ -117,13 +121,20 @@ export default function ZielePage() {
   }
 
   function getProgress(ziel: Ziel): number | null {
-    if (!ziel.startwert || !ziel.zielwert) return null;
+    // Nullish only — 0 is a valid start/target (e.g. custom counters).
+    if (ziel.startwert == null || ziel.zielwert == null) return null;
     let current = ziel.startwert;
     if (ziel.typ === "gewicht" && latestWeight) current = latestWeight;
-    const total = Math.abs(ziel.zielwert - ziel.startwert);
+    const start = ziel.startwert;
+    const target = ziel.zielwert;
+    const total = Math.abs(target - start);
     if (total === 0) return 100;
-    const done = Math.abs(current - ziel.startwert);
-    return Math.min(100, Math.max(0, Math.round((done / total) * 100)));
+    // Only count movement toward the target (wrong direction → 0%).
+    const toward =
+      target < start
+        ? Math.max(0, start - current)
+        : Math.max(0, current - start);
+    return Math.min(100, Math.max(0, Math.round((toward / total) * 100)));
   }
 
   function getCurrent(ziel: Ziel): number | null {

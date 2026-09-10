@@ -23,8 +23,15 @@ export const getUserPlan = cache(async (clerkId: string): Promise<SubscriptionPl
 
   const { data } = await supabase
     .from("ea_users")
-    .select("subscription_plan")
+    .select("subscription_plan, subscription_status")
     .eq("clerk_id", clerkId)
     .single();
-  return (data?.subscription_plan as SubscriptionPlan) || "free";
+
+  // Only grant paid plan features while the subscription is in good standing.
+  // past_due / canceled / none → free feature set (credits may still exist).
+  const status = data?.subscription_status as string | undefined;
+  const plan = (data?.subscription_plan as SubscriptionPlan) || "free";
+  if (plan === "free" || plan === "admin") return plan;
+  if (status === "active" || status === "trialing") return plan;
+  return "free";
 });

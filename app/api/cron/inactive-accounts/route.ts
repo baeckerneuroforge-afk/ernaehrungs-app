@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { clerkClient } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { purgeUserData } from "@/lib/purge-user-data";
+import { cancelStripeSubscriptionForUser } from "@/lib/cancel-stripe-subscription";
 import { logAdminAction } from "@/lib/admin-audit";
 import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
@@ -66,9 +67,22 @@ export async function GET(request: Request) {
     }
   }
 
-  // ---- Warnings (11 months inactive) ----
+  // ---- Warnings (11 months inactive) — once only per user ----
   let warned = 0;
+  let skippedAlreadyWarned = 0;
   for (const u of toWarn) {
+    // Throttle: skip if we already logged a warning for this user.
+    const { data: prior } = await supabase
+      .from("ea_admin_audit_log")
+      .select("id")
+      .eq("action", "inactive_warning_sent")
+      .eq("target_user_id", u.clerk_id)
+      .limit(1);
+    if (prior && prior.length > 0) {
+      skippedAlreadyWarned++;
+      continue;
+    }
+
     let emailSent = false;
     if (u.email) {
       const template = emailTemplates.inactiveWarning(u.name || "dort");
@@ -105,7 +119,27 @@ export async function GET(request: Request) {
 
   for (const u of toDelete) {
     try {
-      const { errors } = await purgeUserData(supabase, u.clerk_id, "cron/inactive");
+      // Farewell before wipe (email is still available).
+      if (u.email) {
+        const template = emailTemplates.accountDeleted(u.name || "dort");
+        await sendEmail({
+          to: u.email,
+          subject: template.subject,
+          html: template.html,
+        });
+      }
+
+      await cancelStripeSubscriptionForUser(
+        supabase,
+        u.clerk_id,
+        "cron/inactive"
+      );
+
+      const { errors } = await purgeUserData(
+        supabase,
+        u.clerk_id,
+        "cron/inactive"
+      );
       if (errors.length > 0) {
         console.error(
           `[cron/inactive] purge had non-fatal errors for ${u.clerk_id}:`,
@@ -156,8 +190,8 @@ export async function GET(request: Request) {
     ok: true,
     scanned: inactive?.length ?? 0,
     warned,
+    skippedAlreadyWarned,
     deleted,
     failures,
-    ran_at: now.toISOString(),
   });
 }

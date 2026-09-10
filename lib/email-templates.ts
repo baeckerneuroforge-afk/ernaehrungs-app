@@ -15,6 +15,14 @@ const FOOTER = `
   </div>
 `;
 
+function escapeHtml(s: string): string {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 function wrap(content: string): string {
   return `
     <div style="max-width: 560px; margin: 0 auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #FAFAF5; border-radius: 12px; overflow: hidden; border: 1px solid #E7E5E4;">
@@ -44,7 +52,7 @@ export const emailTemplates = {
   welcome: (name: string): EmailTemplate => ({
     subject: "Willkommen bei Nutriva! 🌿",
     html: wrap(`
-      <h2 style="color: #1C1917; margin: 0 0 16px;">Hallo ${name}!</h2>
+      <h2 style="color: #1C1917; margin: 0 0 16px;">Hallo ${escapeHtml(name)}!</h2>
       <p style="color: #57534E; line-height: 1.6;">Schön, dass du dabei bist. Deine persönliche Ernährungsberatung wartet auf dich.</p>
       <p style="color: #57534E; line-height: 1.6;">Du hast <strong>15 kostenlose Credits</strong> zum Ausprobieren. Starte jetzt mit deiner ersten Frage im Chat.</p>
       ${button("https://www.nutriva-ai.de/chat", "Zum Chat →")}
@@ -59,9 +67,9 @@ export const emailTemplates = {
   ): EmailTemplate => ({
     subject: `Dein ${plan}-Plan ist aktiv! 🎉`,
     html: wrap(`
-      <h2 style="color: #1C1917; margin: 0 0 16px;">Hallo ${name}!</h2>
-      <p style="color: #57534E; line-height: 1.6;">Dein <strong>${plan}-Plan</strong> (${price}/Monat) ist jetzt aktiv.</p>
-      <p style="color: #57534E; line-height: 1.6;">Du hast jetzt Zugriff auf alle ${plan}-Features. Viel Spaß!</p>
+      <h2 style="color: #1C1917; margin: 0 0 16px;">Hallo ${escapeHtml(name)}!</h2>
+      <p style="color: #57534E; line-height: 1.6;">Dein <strong>${escapeHtml(plan)}-Plan</strong> (${escapeHtml(price)}/Monat) ist jetzt aktiv.</p>
+      <p style="color: #57534E; line-height: 1.6;">Du hast jetzt Zugriff auf alle ${escapeHtml(plan)}-Features. Viel Spaß!</p>
       ${button("https://www.nutriva-ai.de/billing", "Abo verwalten →")}
     `),
   }),
@@ -69,8 +77,8 @@ export const emailTemplates = {
   subscriptionCancelled: (name: string, endDate: string): EmailTemplate => ({
     subject: "Dein Abo wurde gekündigt",
     html: wrap(`
-      <h2 style="color: #1C1917; margin: 0 0 16px;">Hallo ${name},</h2>
-      <p style="color: #57534E; line-height: 1.6;">Dein Abo wurde gekündigt. Du hast noch bis zum <strong>${endDate}</strong> Zugriff auf alle Features.</p>
+      <h2 style="color: #1C1917; margin: 0 0 16px;">Hallo ${escapeHtml(name)},</h2>
+      <p style="color: #57534E; line-height: 1.6;">Dein Abo wurde gekündigt. Du hast noch bis zum <strong>${escapeHtml(endDate)}</strong> Zugriff auf alle Features.</p>
       <p style="color: #57534E; line-height: 1.6;">Danach wechselst du automatisch auf den kostenlosen Plan (15 Credits/Monat).</p>
       <p style="color: #57534E; line-height: 1.6;">Du kannst jederzeit wieder upgraden.</p>
     `),
@@ -79,7 +87,7 @@ export const emailTemplates = {
   creditsLow: (name: string, remaining: number): EmailTemplate => ({
     subject: `Nur noch ${remaining} Credits übrig`,
     html: wrap(`
-      <h2 style="color: #1C1917; margin: 0 0 16px;">Hallo ${name},</h2>
+      <h2 style="color: #1C1917; margin: 0 0 16px;">Hallo ${escapeHtml(name)},</h2>
       <p style="color: #57534E; line-height: 1.6;">Du hast nur noch <strong>${remaining} Credits</strong> übrig.</p>
       <p style="color: #57534E; line-height: 1.6;">Damit du weiterhin Fragen stellen und Pläne erstellen kannst, lade Credits nach oder upgrade deinen Plan.</p>
       ${button("https://www.nutriva-ai.de/billing", "Credits nachkaufen →")}
@@ -89,7 +97,7 @@ export const emailTemplates = {
   inactiveWarning: (name: string): EmailTemplate => ({
     subject: "Wir vermissen dich! 🌿",
     html: wrap(`
-      <h2 style="color: #1C1917; margin: 0 0 16px;">Hallo ${name},</h2>
+      <h2 style="color: #1C1917; margin: 0 0 16px;">Hallo ${escapeHtml(name)},</h2>
       <p style="color: #57534E; line-height: 1.6;">Du warst seit fast einem Jahr nicht mehr aktiv. Dein Account und alle Daten werden in 30 Tagen automatisch gelöscht.</p>
       <p style="color: #57534E; line-height: 1.6;">Möchtest du deinen Account behalten? Melde dich einfach einmal an:</p>
       ${button("https://www.nutriva-ai.de/chat", "Jetzt anmelden →")}
@@ -100,7 +108,7 @@ export const emailTemplates = {
   accountDeleted: (name: string): EmailTemplate => ({
     subject: "Dein Account wurde gelöscht",
     html: wrap(`
-      <h2 style="color: #1C1917; margin: 0 0 16px;">Hallo ${name},</h2>
+      <h2 style="color: #1C1917; margin: 0 0 16px;">Hallo ${escapeHtml(name)},</h2>
       <p style="color: #57534E; line-height: 1.6;">Dein Account und alle zugehörigen Daten wurden gelöscht.</p>
       <p style="color: #57534E; line-height: 1.6;">Wir hoffen, die App hat dir geholfen. Falls du zurückkommen möchtest, kannst du dich jederzeit neu registrieren.</p>
       <p style="color: #57534E; line-height: 1.6;">Alles Gute! 🌿</p>
@@ -110,7 +118,7 @@ export const emailTemplates = {
   weeklyReviewReminder: (name: string): EmailTemplate => ({
     subject: "Dein Wochenrückblick wartet! 📊",
     html: wrap(`
-      <h2 style="color: #1C1917; margin: 0 0 16px;">Hallo ${name},</h2>
+      <h2 style="color: #1C1917; margin: 0 0 16px;">Hallo ${escapeHtml(name)},</h2>
       <p style="color: #57534E; line-height: 1.6;">Es ist Sonntag — Zeit für deinen Wochenrückblick! Die KI analysiert deine Woche und gibt dir Tipps für die nächste.</p>
       ${button("https://www.nutriva-ai.de/chat", "Review starten →")}
     `),
@@ -119,8 +127,8 @@ export const emailTemplates = {
   monthlyReportReady: (name: string, month: string): EmailTemplate => ({
     subject: `Dein Monatsreport für ${month} ist da! 📈`,
     html: wrap(`
-      <h2 style="color: #1C1917; margin: 0 0 16px;">Hallo ${name},</h2>
-      <p style="color: #57534E; line-height: 1.6;">Dein persönlicher Fortschrittsreport für <strong>${month}</strong> ist fertig. Gewichtsverlauf, Ernährungsanalyse und Empfehlungen warten auf dich.</p>
+      <h2 style="color: #1C1917; margin: 0 0 16px;">Hallo ${escapeHtml(name)},</h2>
+      <p style="color: #57534E; line-height: 1.6;">Dein persönlicher Fortschrittsreport für <strong>${escapeHtml(month)}</strong> ist fertig. Gewichtsverlauf, Ernährungsanalyse und Empfehlungen warten auf dich.</p>
       ${button("https://www.nutriva-ai.de/reports", "Report ansehen →")}
     `),
   }),
@@ -129,7 +137,7 @@ export const emailTemplates = {
     subject: `Deine Woche mit Nutriva — 3 Tipps für dich`,
     html: wrap(`
       <h2 style="color: #1C1917; margin: 0 0 16px;">Deine Woche mit Nutriva</h2>
-      <div style="color: #57534E; line-height: 1.7; white-space: pre-line;">${coachingText.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
+      <div style="color: #57534E; line-height: 1.7; white-space: pre-line;">${escapeHtml(coachingText)}</div>
       ${button("https://www.nutriva-ai.de/chat", "Zum Chat →")}
       <p style="color: #A8A29E; font-size: 12px; line-height: 1.5; margin-top: 24px;">Diese Tipps basieren auf deinen Daten der letzten Woche. Öffne die App für mehr Details.</p>
     `),

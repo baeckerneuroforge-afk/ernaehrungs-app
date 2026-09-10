@@ -1,25 +1,26 @@
 export type ActionType = "chat" | "plan_generation" | "review";
 
+// Intentional narrow patterns: only clear *requests to generate* a plan or
+// weekly review. Casual mentions ("was ist ein Ernährungsplan?", "mein Fortschritt")
+// stay regular chat so we don't bill 4–5 credits for ordinary questions.
 const PLAN_PATTERNS = [
-  /ern[äa]hrungsplan/i,
-  /wochenplan/i,
-  /tagesplan/i,
-  /essensplan/i,
-  /meal.?plan/i,
-  /erstell.{0,20}plan/i,
-  /generier.{0,20}plan/i,
-  /plan.{0,20}erstell/i,
-  /plan.{0,20}generier/i,
-  /plan.{0,20}f[üu]r.{0,20}(woche|tag|monat)/i,
+  // "Erstelle mir einen Ernährungsplan" / "Erstell mir bitte einen Wochenplan"
+  /erstell\w*\b.{0,40}\b(ern[äa]hrungs|wochen|tages|essens)?plan\b/i,
+  /generier\w*\b.{0,40}\b(ern[äa]hrungs|wochen|meal)?plan\b/i,
+  /\b(ern[äa]hrungs|wochen|tages|essens)plan\b.{0,30}\b(erstell|generier|mach|bauen)/i,
+  /meal\s*plan\s+(for|please|erstell|generier)/i,
+  /mach\w*\b.{0,30}\b(ern[äa]hrungs|wochen)plan\b/i,
 ];
 
 const REVIEW_PATTERNS = [
   /wochenreview/i,
   /wochencheck/i,
-  /r[üu]ckblick/i,
-  /fortschritt/i,
+  /wochenr[üu]ckblick/i,
+  /erstell(e|t|en)?\s+(mir\s+)?(einen\s+|meinen\s+)?(wochen)?(review|r[üu]ckblick)/i,
+  /mach(e|t)?\s+(mir\s+)?(einen\s+|meinen\s+)?wochenr[üu]ckblick/i,
   /wie war meine woche/i,
   /analyse meiner woche/i,
+  /analysier(e|t|en)?\s+meine\s+woche/i,
 ];
 
 /**

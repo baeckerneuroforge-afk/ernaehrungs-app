@@ -2,6 +2,8 @@ import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { getUserPlan } from "@/lib/feature-gates-server";
 import { hasFeatureAccess } from "@/lib/feature-gates";
+import { checkRateLimit, importLimiter } from "@/lib/rate-limit";
+import { todayLocal } from "@/lib/local-date";
 import { NextResponse } from "next/server";
 
 interface ImportEntry {
@@ -24,6 +26,14 @@ export async function POST(request: Request) {
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const rl = await checkRateLimit(importLimiter, userId);
+  if (!rl.success) {
+    return NextResponse.json(
+      { error: "rate_limited", message: "Zu viele Imports. Bitte warte einen Moment." },
+      { status: 429 }
+    );
   }
 
   const plan = await getUserPlan(userId);
@@ -56,26 +66,73 @@ export async function POST(request: Request) {
       ? Math.round(v * 10) / 10
       : null;
 
-  const toInsert = body.entries.slice(0, 1000).map((e) => ({
-    user_id: userId,
-    beschreibung: (e.name || "Importierter Eintrag").slice(0, 1000),
-    kalorien_geschaetzt: boundInt(e.kalorien, 10000),
-    protein_g: bound1(e.protein, 1000),
-    carbs_g: bound1(e.carbs, 1000),
-    fat_g: bound1(e.fat, 1000),
-    mahlzeit_typ: e.mahlzeit_typ && VALID_TYPES.has(e.mahlzeit_typ) ? e.mahlzeit_typ : "snack",
-    externe_quelle: (e.externe_quelle || "csv_import").slice(0, 50),
-    externe_id: e.externe_id?.slice(0, 200) || null,
-    datum: e.datum && /^\d{4}-\d{2}-\d{2}$/.test(e.datum) ? e.datum : new Date().toISOString().split("T")[0],
-    source: "manual" as const,
-  }));
+  const toInsert = body.entries.slice(0, 1000).map((e) => {
+    // Untrusted JSON: coerce ids/names safely (non-string .slice throws).
+    const rawExtId = e.externe_id;
+    const externe_id =
+      rawExtId == null || rawExtId === ""
+        ? null
+        : String(rawExtId).slice(0, 200);
+    const rawQuelle = e.externe_quelle;
+    const externe_quelle = (
+      typeof rawQuelle === "string" && rawQuelle.length > 0
+        ? rawQuelle
+        : "csv_import"
+    ).slice(0, 50);
+    const name =
+      typeof e.name === "string" && e.name.length > 0
+        ? e.name
+        : "Importierter Eintrag";
+    return {
+      user_id: userId,
+      beschreibung: name.slice(0, 1000),
+      kalorien_geschaetzt: boundInt(e.kalorien, 10000),
+      protein_g: bound1(e.protein, 1000),
+      carbs_g: bound1(e.carbs, 1000),
+      fat_g: bound1(e.fat, 1000),
+      mahlzeit_typ:
+        e.mahlzeit_typ && VALID_TYPES.has(e.mahlzeit_typ) ? e.mahlzeit_typ : "snack",
+      externe_quelle,
+      externe_id,
+      datum:
+        e.datum && /^\d{4}-\d{2}-\d{2}$/.test(e.datum) ? e.datum : todayLocal(),
+      source: "manual" as const,
+    };
+  });
 
   const supabase = createSupabaseAdmin();
 
+  // Skip rows whose externe_id was already imported for this user (re-submit).
+  const externalIds = Array.from(
+    new Set(
+      toInsert
+        .map((r) => r.externe_id)
+        .filter((id): id is string => typeof id === "string" && id.length > 0)
+    )
+  );
+  const existingIds = new Set<string>();
+  if (externalIds.length > 0) {
+    // Chunk .in() to stay under PostgREST URL limits.
+    for (let i = 0; i < externalIds.length; i += 200) {
+      const slice = externalIds.slice(i, i + 200);
+      const { data: existing } = await supabase
+        .from("ea_food_log")
+        .select("externe_id")
+        .eq("user_id", userId)
+        .in("externe_id", slice);
+      for (const row of existing || []) {
+        if (row.externe_id) existingIds.add(row.externe_id);
+      }
+    }
+  }
+  const fresh = toInsert.filter(
+    (r) => !r.externe_id || !existingIds.has(r.externe_id)
+  );
+
   // Insert in batches of 200 to avoid payload size issues
   let imported = 0;
-  for (let i = 0; i < toInsert.length; i += 200) {
-    const batch = toInsert.slice(i, i + 200);
+  for (let i = 0; i < fresh.length; i += 200) {
+    const batch = fresh.slice(i, i + 200);
     const { error } = await supabase.from("ea_food_log").insert(batch);
     if (error) {
       console.error("[import/confirm] Insert batch failed:", error);
@@ -85,5 +142,8 @@ export async function POST(request: Request) {
     }
   }
 
-  return NextResponse.json({ imported });
+  return NextResponse.json({
+    imported,
+    skipped_duplicates: toInsert.length - fresh.length,
+  });
 }

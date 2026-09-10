@@ -12,8 +12,13 @@ const isPublicRoute = createRouteMatcher([
   "/onboarding(.*)",
   "/impressum(.*)",
   "/datenschutz(.*)",
+  "/agb(.*)",
+  "/support(.*)",
+  "/hilfe(.*)",
   "/tools/(.*)",
   "/api/webhooks/(.*)",
+  // Anonymous support tickets (handler allows userId || null).
+  "/api/support",
   // /api/auth/check must be public — it's polled by /auth-callback and the
   // onboarding session-gate specifically to detect the "cookie not yet
   // propagated" state. If this route runs through auth.protect() then Clerk's

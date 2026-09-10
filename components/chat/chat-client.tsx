@@ -312,11 +312,28 @@ export function ChatClient({ userId, userName, initialPlan }: ChatClientProps) {
       });
 
       if (response.status === 403) {
+        let msg =
+          "Diese Funktion ist in deinem Plan nicht verfügbar. Bitte upgrade oder prüfe deine Einstellungen. 💚";
+        try {
+          const errBody = await response.json();
+          if (errBody?.error === "ki_consent_missing") {
+            msg =
+              errBody.message ||
+              "Du hast der KI-Verarbeitung oder den AGB nicht zugestimmt. Bitte in den Einstellungen bestätigen.";
+          } else if (errBody?.message) {
+            msg = errBody.message;
+          } else if (hasImage) {
+            msg =
+              "Bild-Upload im Chat ist im **Premium-Plan** verfügbar. Upgrade, um Speisekarten und Essen fotografieren zu lassen. 💚";
+          }
+        } catch {
+          /* keep default */
+        }
         setMessages((prev) => {
           const updated = [...prev];
           updated[updated.length - 1] = {
             role: "assistant",
-            content: "Bild-Upload im Chat ist im **Premium-Plan** verfügbar. Upgrade, um Speisekarten und Essen fotografieren zu lassen. 💚",
+            content: msg,
           };
           return updated;
         });
@@ -346,81 +363,138 @@ export function ChatClient({ userId, userName, initialPlan }: ChatClientProps) {
       if (!reader) throw new Error("No reader");
 
       let assistantContent = "";
+      let saveToken: string | undefined;
       let ragBuffer = "";
       let ragParsed = false;
-      const isAdminPlan = initialPlan === "admin";
+      // Prefer live plan (credits fetch) so admin RAG strip stays aligned with server isAdminUser.
+      const isAdminPlan = userPlan === "admin" || initialPlan === "admin";
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+      const appendAssistantDelta = (delta: string) => {
+        if (!delta) return;
+        assistantContent += delta;
+        const deltaText = delta;
+        setMessages((prev) => {
+          const updated = [...prev];
+          const last = updated[updated.length - 1];
+          if (last.role === "assistant") {
+            updated[updated.length - 1] = {
+              ...last,
+              content: last.content + deltaText,
+            };
+          }
+          return updated;
+        });
+      };
 
-        const chunk = decoder.decode(value);
-        const lines = chunk.split("\n").filter((l) => l.startsWith("data: "));
+      const handleSseData = (data: {
+        type: string;
+        text?: string;
+        error?: string;
+        save_token?: string;
+      }) => {
+        if (data.type === "done" && data.save_token) {
+          saveToken = data.save_token;
+          return;
+        }
+        if (data.type !== "text") return;
 
-        for (const line of lines) {
-          const data = JSON.parse(line.slice(6));
-          if (data.type === "text") {
-            let delta: string = data.text;
+        let delta: string = data.text ?? "";
 
-            // Admin only: first server event may be a [RAG: ...] marker.
-            // Strip it out of the visible stream and attach to the message.
-            if (isAdminPlan && !ragParsed) {
-              ragBuffer += delta;
-              const match = ragBuffer.match(/^\[RAG: (\d+) chunks, (high|medium|tentative|none), ([^\]]*)\]\n?/);
-              if (match) {
-                const ragInfo = {
-                  chunks: parseInt(match[1], 10),
-                  confidence: match[2] as "high" | "medium" | "tentative" | "none",
-                  sources: match[3],
-                };
-                delta = ragBuffer.slice(match[0].length);
-                ragBuffer = "";
-                ragParsed = true;
-                setMessages((prev) => {
-                  const updated = [...prev];
-                  const last = updated[updated.length - 1];
-                  if (last.role === "assistant") {
-                    updated[updated.length - 1] = { ...last, ragInfo };
-                  }
-                  return updated;
-                });
-                if (!delta) continue;
-              } else if (ragBuffer.length > 200 || !ragBuffer.startsWith("[")) {
-                // Not a marker — flush buffer and stop trying.
-                delta = ragBuffer;
-                ragBuffer = "";
-                ragParsed = true;
-              } else {
-                continue;
-              }
-            }
-
-            assistantContent += delta;
-            const deltaText = delta;
+        // Admin only: first server event may be a [RAG: ...] marker.
+        // Strip it out of the visible stream and attach to the message.
+        // Server HMAC uses LLM text only (no marker) — keep assistantContent matching.
+        if (isAdminPlan && !ragParsed) {
+          ragBuffer += delta;
+          // [^\n]* so source titles with "]" (sanitized server-side) still parse
+          // to the end-of-line closing bracket.
+          const match = ragBuffer.match(
+            /^\[RAG: (\d+) chunks, (high|medium|tentative|none), ([^\n]*)\]\n?/
+          );
+          if (match) {
+            const ragInfo = {
+              chunks: parseInt(match[1], 10),
+              confidence: match[2] as "high" | "medium" | "tentative" | "none",
+              sources: match[3],
+            };
+            delta = ragBuffer.slice(match[0].length);
+            ragBuffer = "";
+            ragParsed = true;
             setMessages((prev) => {
               const updated = [...prev];
               const last = updated[updated.length - 1];
               if (last.role === "assistant") {
-                updated[updated.length - 1] = { ...last, content: last.content + deltaText };
+                updated[updated.length - 1] = { ...last, ragInfo };
               }
               return updated;
             });
+            if (!delta) return;
+          } else if (ragBuffer.length > 200 || !ragBuffer.startsWith("[")) {
+            // Not a marker — flush buffer and stop trying.
+            delta = ragBuffer;
+            ragBuffer = "";
+            ragParsed = true;
+          } else {
+            return;
+          }
+        }
+
+        appendAssistantDelta(delta);
+      };
+
+      let sseBuffer = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          // Flush decoder + any final incomplete line (save_token must not be lost).
+          sseBuffer += decoder.decode();
+          if (sseBuffer) {
+            const parts = sseBuffer.split("\n");
+            sseBuffer = "";
+            for (const line of parts) {
+              if (!line.startsWith("data: ")) continue;
+              try {
+                handleSseData(JSON.parse(line.slice(6)));
+              } catch {
+                /* ignore trailing garbage */
+              }
+            }
+          }
+          // Unparsed RAG prefix would desync HMAC — flush into content.
+          if (isAdminPlan && !ragParsed && ragBuffer) {
+            appendAssistantDelta(ragBuffer);
+            ragBuffer = "";
+            ragParsed = true;
+          }
+          break;
+        }
+
+        sseBuffer += decoder.decode(value, { stream: true });
+        const parts = sseBuffer.split("\n");
+        // Keep last incomplete line in buffer
+        sseBuffer = parts.pop() ?? "";
+        const lines = parts.filter((l) => l.startsWith("data: "));
+
+        for (const line of lines) {
+          try {
+            handleSseData(JSON.parse(line.slice(6)));
+          } catch {
+            continue;
           }
         }
       }
 
-      if (assistantContent) {
+      if (assistantContent && saveToken) {
         // Awaiten (statt fire-and-forget): der Server lädt die History beim
-        // Folge-Request aus der DB. Erst speichern, dann erst isStreaming lösen
-        // (finally) — sonst könnte eine schnelle Folgefrage den gerade
-        // beendeten Turn noch nicht in der DB vorfinden (Kontextverlust).
+        // Folge-Request aus der DB. save_token is HMAC from the chat stream
+        // so forged assistant content cannot poison history.
         await fetch("/api/chat/save", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             session_id: sessionIdRef.current,
-            user_message: text,
+            user_message: text || (hasImage ? "Analysiere dieses Bild" : ""),
             assistant_message: assistantContent,
+            save_token: saveToken,
           }),
         }).catch(() => {});
       }

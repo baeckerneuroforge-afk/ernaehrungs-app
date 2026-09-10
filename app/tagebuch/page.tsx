@@ -12,6 +12,7 @@ import {
 } from "@/lib/nutrition-targets";
 import type { WeekPlanData } from "@/types/meal-plan";
 import { buildActivePlanForTagebuch } from "@/lib/active-plan";
+import { todayLocal } from "@/lib/local-date";
 import { Upload } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +22,7 @@ export default async function TagebuchPage() {
 
   const supabase = createSupabaseAdmin();
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = todayLocal();
 
   const [{ data: entries }, plan, { data: profileRow }, { data: planRow }] =
     await Promise.all([

@@ -2,11 +2,19 @@ import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { checkRateLimit, chatLimiter } from "@/lib/rate-limit";
+import { verifyChatSaveToken } from "@/lib/chat-save-token";
+
+// Client may save the turn after streaming. Assistant content is only accepted
+// when accompanied by an HMAC save_token issued by /api/chat at stream end —
+// so a client cannot inject forged "assistant" turns into LLM history.
 
 const saveSchema = z.object({
   session_id: z.string().min(1).max(128),
-  user_message: z.string().min(1).max(20000),
+  // Empty allowed for image-only turns (server used a default prompt).
+  user_message: z.string().max(20000).default(""),
   assistant_message: z.string().min(1).max(20000),
+  save_token: z.string().min(32).max(128),
 });
 
 export async function POST(request: Request) {
@@ -14,6 +22,14 @@ export async function POST(request: Request) {
     const { userId } = await auth();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const rl = await checkRateLimit(chatLimiter, userId);
+    if (!rl.success) {
+      return NextResponse.json(
+        { error: "rate_limited", message: "Zu viele Anfragen." },
+        { status: 429 }
+      );
     }
 
     let rawBody: unknown;
@@ -29,14 +45,38 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-    const { session_id, user_message, assistant_message } = parsed.data;
+    const { session_id, assistant_message, save_token } = parsed.data;
+    const user_message =
+      parsed.data.user_message?.trim() ||
+      (assistant_message ? "Analysiere dieses Bild" : "");
+
+    if (!user_message) {
+      return NextResponse.json(
+        { error: "invalid_input", message: "user_message fehlt." },
+        { status: 400 }
+      );
+    }
+
+    if (
+      !verifyChatSaveToken(
+        userId,
+        session_id,
+        user_message,
+        assistant_message,
+        save_token
+      )
+    ) {
+      return NextResponse.json(
+        {
+          error: "invalid_token",
+          message: "Speichern abgelehnt — ungültige Stream-Signatur.",
+        },
+        { status: 403 }
+      );
+    }
 
     const supabase = createSupabaseAdmin();
 
-    // Insert both messages. created_at wird explizit gesetzt (user 1ms vor
-    // assistant), sonst bekämen beide Rows aus dem Batch-Insert denselben
-    // now()-Timestamp → die serverseitige History könnte die Reihenfolge
-    // innerhalb eines Turns vertauschen (Anthropic verlangt user-first).
     const turnTs = Date.now();
     const { error } = await supabase.from("ea_conversations").insert([
       {

@@ -118,11 +118,19 @@ export async function POST(
     return NextResponse.json({ success: true, status: "published" });
 
   } else if (action === "unpublish") {
-    // Unpublish
+    // Unpublish + remove from RAG knowledge base so draft content is not cited.
+    if (post.in_wissensbasis) {
+      await supabase
+        .from("ea_documents")
+        .delete()
+        .eq("source", `blog:${post.slug}`);
+    }
+
     const { error } = await supabase
       .from("ea_blog_posts")
       .update({
         status: "draft",
+        in_wissensbasis: false,
         updated_at: new Date().toISOString(),
       })
       .eq("id", params.id);
@@ -134,7 +142,7 @@ export async function POST(
       action: "unpublish_blog",
       resourceType: "blog_post",
       resourceId: params.id,
-      metadata: { slug: post.slug },
+      metadata: { slug: post.slug, removed_from_wissensbasis: !!post.in_wissensbasis },
     });
 
     return NextResponse.json({ success: true, status: "draft" });

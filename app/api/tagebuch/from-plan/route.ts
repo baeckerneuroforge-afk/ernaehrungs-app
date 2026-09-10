@@ -6,6 +6,7 @@ import { checkRateLimit, tagebuchLimiter } from "@/lib/rate-limit";
 import { hasFeatureAccess, getUpgradeMessage } from "@/lib/feature-gates";
 import { getUserPlan } from "@/lib/feature-gates-server";
 import { mapPlanMealTypeToTagebuch } from "@/lib/plan-meal-mapping";
+import { todayLocal } from "@/lib/local-date";
 import type { WeekPlanData } from "@/types/meal-plan";
 
 const requestSchema = z.object({
@@ -14,13 +15,26 @@ const requestSchema = z.object({
   meal_index: z.number().int().min(0).max(10),
 });
 
-// "08:00" → "08:00:00" für DB time-Spalte. Postgres akzeptiert beides,
-// aber explizite Sekunden vermeiden Casting-Surprises.
+// "08:00" / "8:00" → "08:00:00" für DB time-Spalte. Coerce non-strings
+// (JSON plan_data) so we never throw on .trim; reject out-of-range times.
 function formatTime(time: string | undefined | null): string | null {
-  if (!time) return null;
-  if (/^\d{2}:\d{2}$/.test(time)) return `${time}:00`;
-  if (/^\d{2}:\d{2}:\d{2}$/.test(time)) return time;
-  return null;
+  if (time == null || time === "") return null;
+  const m = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(String(time).trim());
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = Number(m[2]);
+  const sec = Number(m[3] ?? "0");
+  if (
+    !Number.isFinite(h) ||
+    !Number.isFinite(min) ||
+    !Number.isFinite(sec) ||
+    h > 23 ||
+    min > 59 ||
+    sec > 59
+  ) {
+    return null;
+  }
+  return `${String(h).padStart(2, "0")}:${m[2]}:${m[3] ?? "00"}`;
 }
 
 // Plan-Mahlzeit-Makro für DB-Insert: keine Zahl/negativ/NaN → NULL.
@@ -135,7 +149,7 @@ export async function POST(request: Request) {
     typeof meal.calories === "number" && meal.calories > 0
       ? Math.round(meal.calories)
       : null;
-  const today = new Date().toISOString().split("T")[0];
+  const today = todayLocal();
 
   // Pro-Meal-Makros aus dem Plan übernehmen wenn sie da sind. Alte
   // Pläne (vor dem Macros-per-Meal-Update) haben keine — dann bleiben

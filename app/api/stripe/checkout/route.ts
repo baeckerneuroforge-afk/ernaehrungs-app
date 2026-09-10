@@ -48,21 +48,54 @@ export async function POST(request: Request) {
 
   const { plan } = parsed.data;
   const priceId = PLANS[plan];
+  if (!priceId) {
+    return new Response(
+      JSON.stringify({
+        error: "payment_not_configured",
+        message: "Preis-ID für diesen Plan fehlt. Bitte Support kontaktieren.",
+      }),
+      { status: 503, headers: { "Content-Type": "application/json" } },
+    );
+  }
 
   const supabase = createSupabaseAdmin();
 
   // Get or create Stripe customer
   const { data: userData } = await supabase
     .from("ea_users")
-    .select("stripe_customer_id, email")
+    .select(
+      "stripe_customer_id, email, stripe_subscription_id, subscription_status, subscription_plan"
+    )
     .eq("clerk_id", userId)
     .limit(1);
 
-  let customerId = userData?.[0]?.stripe_customer_id;
+  const row = userData?.[0];
+  // Prevent double subscriptions: active/trialing (or past_due still on file)
+  // must use Customer Portal / upgrade path, not a second Checkout subscription.
+  const existingSub = row?.stripe_subscription_id;
+  const existingStatus = row?.subscription_status;
+  if (
+    existingSub &&
+    (existingStatus === "active" ||
+      existingStatus === "trialing" ||
+      existingStatus === "past_due")
+  ) {
+    return new Response(
+      JSON.stringify({
+        error: "already_subscribed",
+        message:
+          "Du hast bereits ein aktives Abo. Nutze das Kundenportal, um deinen Plan zu ändern.",
+        subscription_plan: row?.subscription_plan,
+      }),
+      { status: 409, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
+  let customerId = row?.stripe_customer_id;
 
   if (!customerId) {
     const customer = await stripe.customers.create({
-      email: userData?.[0]?.email || undefined,
+      email: row?.email || undefined,
       metadata: { clerk_id: userId },
     });
     customerId = customer.id;

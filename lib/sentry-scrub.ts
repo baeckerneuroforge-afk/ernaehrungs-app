@@ -2,7 +2,8 @@ import type { ErrorEvent } from "@sentry/nextjs";
 
 // Routes whose request bodies / breadcrumb URLs may carry health data (Art. 9
 // DSGVO) or other PII — scrub aggressively before anything leaves for Sentry.
-const SENSITIVE_PATH = /\/(chat|food-log|tagebuch|profile)/;
+const SENSITIVE_PATH =
+  /\/(chat|food-log|tagebuch|profile|ernaehrungsplan|tracker|scanner|home|messages|support|smart-log|import)/;
 const EMAIL_RE = /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi;
 
 function redactEmails(value: string): string {

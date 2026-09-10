@@ -1,7 +1,7 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { logAdminAction } from "@/lib/admin-audit";
-import { isAdminUser } from "@/lib/credits";
+import { getUserPlan } from "@/lib/feature-gates-server";
 import { validateBody, profileSchema } from "@/lib/validations";
 import { checkRateLimit, profileLimiter } from "@/lib/rate-limit";
 
@@ -175,6 +175,34 @@ export async function POST(request: Request) {
 
         // Preserve the old account's paid subscription + credits so a
         // re-registration doesn't silently downgrade a paying user.
+        //
+        // UNIQUE(stripe_customer_id): free the old row's Stripe IDs BEFORE
+        // inserting the new row, otherwise insert hits 23505 and merge never
+        // runs — subscription stays stuck on the orphaned clerk_id.
+        if (duplicate?.stripe_customer_id || duplicate?.stripe_subscription_id) {
+          const { error: freeStripeErr } = await supabase
+            .from("ea_users")
+            .update({
+              stripe_customer_id: null,
+              stripe_subscription_id: null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("clerk_id", duplicate.clerk_id);
+          if (freeStripeErr) {
+            console.error("[profile POST] failed to free stripe IDs on old row", {
+              oldId: duplicate.clerk_id,
+              code: freeStripeErr.code,
+              message: freeStripeErr.message,
+            });
+            // Do not copy stripe IDs onto the new row if we could not free them.
+            duplicate = {
+              ...duplicate,
+              stripe_customer_id: null,
+              stripe_subscription_id: null,
+            };
+          }
+        }
+
         const insertPayload = {
           clerk_id: userId,
           email,
@@ -219,22 +247,18 @@ export async function POST(request: Request) {
     // Non-fatal — profile save should still proceed
   }
 
-  // Gate: calorie_target / calorie_adjustment only for paid users (pro, pro_plus, admin)
+  // Gate: calorie_target / calorie_adjustment only for paid users in good standing
+  // (active|trialing via getUserPlan — past_due/canceled must not keep this feature).
   if (profileBody.calorie_target != null || profileBody.calorie_adjustment != null) {
-    const isAdmin = await isAdminUser(userId);
-    if (!isAdmin) {
-      const { data: planRow } = await supabase
-        .from("ea_users")
-        .select("subscription_plan")
-        .eq("clerk_id", userId)
-        .limit(1);
-      const plan = (planRow?.[0]?.subscription_plan as string) || "free";
-      if (plan === "free") {
-        return new Response(
-          JSON.stringify({ error: "plan_required", message: "Kalorienziel speichern ist ab dem Basis-Plan verfügbar." }),
-          { status: 403, headers: { "Content-Type": "application/json" } }
-        );
-      }
+    const plan = await getUserPlan(userId);
+    if (plan === "free") {
+      return new Response(
+        JSON.stringify({
+          error: "plan_required",
+          message: "Kalorienziel speichern ist ab dem Basis-Plan verfügbar.",
+        }),
+        { status: 403, headers: { "Content-Type": "application/json" } }
+      );
     }
   }
 
@@ -325,6 +349,9 @@ async function mergeAccountData(
     "ea_credit_transactions",
     "ea_ai_usage",
     "ea_feedback",
+    "ea_messages",
+    "ea_monthly_reports",
+    "ea_support_tickets",
   ];
 
   for (const table of userDataTables) {
@@ -374,11 +401,20 @@ async function mergeAccountData(
       .eq("user_id", oldId);
   }
 
-  // Free the old email so the unique scent doesn't trip future lookups and
-  // clearly mark the row as merged.
+  // Free the old email + clear Stripe IDs so only the new row owns billing.
+  // Leaving stripe_* on the old row would make invoice.paid .maybeSingle() fail.
   await supabase
     .from("ea_users")
-    .update({ email: `${email}_merged_${oldId}` })
+    .update({
+      email: `${email}_merged_${oldId}`,
+      stripe_customer_id: null,
+      stripe_subscription_id: null,
+      subscription_plan: "free",
+      subscription_status: "none",
+      credits_subscription: 0,
+      credits_topup: 0,
+      updated_at: new Date().toISOString(),
+    })
     .eq("clerk_id", oldId);
 
   await logAdminAction({

@@ -38,17 +38,17 @@ export async function POST(request: Request) {
 
   if (dedupeErr) {
     // Unique-violation (code 23505) == duplicate delivery; swallow and ack.
-    // Any other error means the dedupe table itself is broken — we still
-    // return 200 to avoid Stripe retry storms but log loudly.
+    // Any OTHER error means the dedupe table itself is broken — return 5xx so
+    // Stripe retries. Returning 200 would permanently skip paid entitlements.
     if (dedupeErr.code === "23505") {
       console.log("[stripe-webhook] duplicate event, skipping:", event.id);
-    } else {
-      console.error("[stripe-webhook] dedupe insert failed:", dedupeErr);
+      return new Response(
+        JSON.stringify({ received: true, duplicate: true }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
     }
-    return new Response(
-      JSON.stringify({ received: true, duplicate: true }),
-      { status: 200, headers: { "Content-Type": "application/json" } }
-    );
+    console.error("[stripe-webhook] dedupe insert failed:", dedupeErr);
+    return new Response("Webhook dedupe store unavailable", { status: 500 });
   }
 
   // Return a 500 so Stripe retries — but first remove the dedupe marker we

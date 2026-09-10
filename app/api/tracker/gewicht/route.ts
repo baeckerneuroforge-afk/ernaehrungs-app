@@ -3,6 +3,7 @@ import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import { validateBody, weightLogSchema } from "@/lib/validations";
 import { checkRateLimit, trackerLimiter } from "@/lib/rate-limit";
+import { todayLocal } from "@/lib/local-date";
 
 const RATE_LIMIT_MSG = "Zu viele Anfragen. Bitte warte einen Moment.";
 
@@ -68,7 +69,7 @@ export async function POST(request: Request) {
         user_id: userId,
         gewicht_kg,
         notiz: notiz || null,
-        gemessen_am: gemessen_am || new Date().toISOString().split("T")[0],
+        gemessen_am: gemessen_am || todayLocal(),
       },
       { onConflict: "user_id,gemessen_am" }
     )

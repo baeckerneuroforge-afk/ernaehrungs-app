@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import { checkRateLimit, trackerLimiter } from "@/lib/rate-limit";
+import { validateBody, zieleCreateSchema } from "@/lib/validations";
 
 const RATE_LIMIT_MSG = "Zu viele Anfragen. Bitte warte einen Moment.";
 
@@ -37,7 +38,17 @@ export async function POST(request: Request) {
 
   const supabase = createSupabaseAdmin();
 
-  const body = await request.json();
+  let rawBody: unknown;
+  try {
+    rawBody = await request.json();
+  } catch {
+    return NextResponse.json({ error: "invalid_json" }, { status: 400 });
+  }
+  const validation = validateBody(zieleCreateSchema, rawBody);
+  if (!validation.success) {
+    return NextResponse.json({ error: "invalid_input", message: validation.error }, { status: 400 });
+  }
+  const body = validation.data;
 
   const { data, error } = await supabase
     .from("ea_ziele")
@@ -45,10 +56,10 @@ export async function POST(request: Request) {
       user_id: userId,
       typ: body.typ,
       beschreibung: body.beschreibung,
-      zielwert: body.zielwert || null,
-      startwert: body.startwert || null,
-      einheit: body.einheit || null,
-      zieldatum: body.zieldatum || null,
+      zielwert: body.zielwert ?? null,
+      startwert: body.startwert ?? null,
+      einheit: body.einheit ?? null,
+      zieldatum: body.zieldatum ?? null,
     })
     .select()
     .limit(1);

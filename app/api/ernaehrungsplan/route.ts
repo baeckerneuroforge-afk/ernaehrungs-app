@@ -83,6 +83,13 @@ export async function POST(request: Request) {
 
   const titel = `7-Tage-Plan vom ${new Date().toLocaleDateString("de-DE")}`;
 
+  // Only one active plan per user — archive previous ones first.
+  await supabase
+    .from("ea_meal_plans")
+    .update({ status: "archived" })
+    .eq("user_id", userId)
+    .eq("status", "active");
+
   const { data, error } = await supabase
     .from("ea_meal_plans")
     .insert({

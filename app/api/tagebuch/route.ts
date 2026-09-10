@@ -3,6 +3,7 @@ import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import { validateBody, foodLogSchema } from "@/lib/validations";
 import { checkRateLimit, tagebuchLimiter } from "@/lib/rate-limit";
+import { todayLocal } from "@/lib/local-date";
 
 const RATE_LIMIT_MSG = "Zu viele Anfragen. Bitte warte einen Moment.";
 
@@ -25,7 +26,7 @@ export async function GET(request: Request) {
       { status: 400 }
     );
   }
-  const datum = datumParam || new Date().toISOString().split("T")[0];
+  const datum = datumParam || todayLocal();
 
   const { data, error } = await supabase
     .from("ea_food_log")
@@ -90,7 +91,7 @@ export async function POST(request: Request) {
       photo_url: body.photo_url ?? null,
       photo_tip: body.photo_tip ?? null,
       photo_daily_budget_percent: body.photo_daily_budget_percent ?? null,
-      datum: body.datum || new Date().toISOString().split("T")[0],
+      datum: body.datum || todayLocal(),
     })
     .select()
     .single();
